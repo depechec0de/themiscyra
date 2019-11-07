@@ -1,0 +1,65 @@
+
+    round = A;
+    ballot = 0;
+
+    m = (msg *) malloc(sizeof(msg));
+    m->round = round;
+    m->ballot = ballot;
+    send(all,m);
+
+        
+        recv_msg = recv();
+
+        if(recv_msg!=NULL && recv_msg->round==0 ){
+            mboxA[recv_msg->ballot] = mboxA[recv_msg->ballot] + recv_msg;
+            if(round==A && countA(mboxA,ballot) > 2*n/3){
+                //DO SOMETHING WITH THE MESSAGES IN MBOXA 
+                dispose(mboxA);
+               
+            }
+
+        }
+        
+        if(recv_msg!=NULL && recv_msg->round==B){
+            mboxB[recv_msg->ballot] = mboxB[recv_msg->ballot]  + recv_msg;
+            
+            
+        }
+
+        if(timeout){
+            dispose(mboxB, mboxA);
+            reset_timeout();
+            
+        }
+
+        continue;
+
+    }
+
+
+
+}
+
+
+c1 if(timeout){
+    m = (msg *) malloc(sizeof(msg));
+    m->round = round;
+    m->ballot = ballot;
+    send(all,m);
+}
+
+
+        C1: if(recv_msg!=NULL && recv_msg->round==A ){
+    
+           C1: if(round==A && countA(mboxA,ballot) > 2*n/3){
+                 c2    if(recv_msg!=NULL && recv_msg->round==B){
+                  c2   if(round==B && countB(mboxB,ballot) > 2*n/3){
+                                 m = (msg *) malloc(sizeof(msg));
+                                m->round = round;
+                                m->ballot = ballot;
+                                send(all,m);
+                               r3 if(recv_msg!=NULL && recv_msg->round==A ){
+                                        mboxA[recv_msg->ballot] = mboxA[recv_msg->ballot] + recv_msg;
+                                        if(round==A && countA(mboxA,ballot) > 2*n/3){
+                                        dispose(mboxA);
+                    }

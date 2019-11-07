@@ -1,0 +1,206 @@
+FileAST: 
+  FuncDef: 
+    Decl: main, [], [], []
+      FuncDecl: 
+        TypeDecl: main, []
+          IdentifierType: [u'int']
+    Compound: 
+      Decl: mbox, [], [], []
+        PtrDecl: []
+          TypeDecl: mbox, []
+            Struct: list
+        ID: NULL
+      Decl: recv_msg, [], [], []
+        PtrDecl: []
+          TypeDecl: recv_msg, []
+            Struct: msg
+        ID: NULL
+      Decl: m, [], [], []
+        PtrDecl: []
+          TypeDecl: m, []
+            Struct: msg
+        ID: NULL
+      Decl: n, [], [], []
+        TypeDecl: n, []
+          IdentifierType: [u'int']
+      Decl: all, [], [], []
+        TypeDecl: all, []
+          IdentifierType: [u'int']
+        BinaryOp: +
+          ID: n
+          Constant: int, 1
+      Assignment: =
+        ID: round
+        ID: A
+      Decl: ready, [], [], []
+        TypeDecl: ready, []
+          IdentifierType: [u'_Bool']
+        ID: false
+      While: 
+        ID: true
+        Compound: 
+          Assignment: =
+            ID: recv_msg
+            FuncCall: 
+              ID: recv
+          If: 
+            BinaryOp: &&
+              BinaryOp: ==
+                ID: round
+                ID: A
+              BinaryOp: ==
+                ID: ready
+                ID: false
+            Compound: 
+              Assignment: =
+                ID: m
+                Cast: 
+                  Typename: None, []
+                    PtrDecl: []
+                      TypeDecl: None, []
+                        IdentifierType: [u'msg']
+                  FuncCall: 
+                    ID: malloc
+                    ExprList: 
+                      UnaryOp: sizeof
+                        Typename: None, []
+                          TypeDecl: None, []
+                            IdentifierType: [u'msg']
+              Assignment: =
+                StructRef: ->
+                  ID: m
+                  ID: round
+                ID: A
+              FuncCall: 
+                ID: send
+                ExprList: 
+                  ID: all
+                  ID: m
+              Assignment: =
+                ID: ready
+                ID: true
+              Continue: 
+          If: 
+            BinaryOp: &&
+              BinaryOp: &&
+                BinaryOp: ==
+                  ID: round
+                  ID: A
+                BinaryOp: ==
+                  StructRef: ->
+                    ID: recv_msg
+                    ID: round
+                  ID: A
+              BinaryOp: ==
+                ID: ready
+                ID: true
+            Compound: 
+              Assignment: =
+                ID: mbox
+                BinaryOp: +
+                  ID: mbox
+                  ID: m
+              Continue: 
+          If: 
+            BinaryOp: &&
+              BinaryOp: ==
+                ID: round
+                ID: A
+              BinaryOp: >
+                FuncCall: 
+                  ID: countA
+                  ExprList: 
+                    ID: mbox
+                BinaryOp: /
+                  BinaryOp: *
+                    Constant: int, 2
+                    ID: n
+                  Constant: int, 3
+            Compound: 
+              Assignment: =
+                ID: round
+                ID: B
+              Assignment: =
+                ID: m
+                Cast: 
+                  Typename: None, []
+                    PtrDecl: []
+                      TypeDecl: None, []
+                        IdentifierType: [u'msg']
+                  FuncCall: 
+                    ID: malloc
+                    ExprList: 
+                      UnaryOp: sizeof
+                        Typename: None, []
+                          TypeDecl: None, []
+                            IdentifierType: [u'msg']
+              Assignment: =
+                StructRef: ->
+                  ID: m
+                  ID: round
+                ID: B
+              FuncCall: 
+                ID: send
+                ExprList: 
+                  ID: all
+                  ID: m
+              Continue: 
+          If: 
+            BinaryOp: &&
+              BinaryOp: ==
+                ID: round
+                ID: B
+              BinaryOp: ==
+                StructRef: ->
+                  ID: recv_msg
+                  ID: round
+                ID: B
+            Compound: 
+              Assignment: =
+                ID: mbox
+                BinaryOp: +
+                  ID: mbox
+                  ID: m
+              Continue: 
+          If: 
+            BinaryOp: &&
+              BinaryOp: ==
+                ID: round
+                ID: B
+              BinaryOp: >
+                FuncCall: 
+                  ID: countB
+                  ExprList: 
+                    ID: mbox
+                BinaryOp: /
+                  BinaryOp: *
+                    Constant: int, 2
+                    ID: n
+                  Constant: int, 3
+            Compound: 
+              FuncCall: 
+                ID: dispose
+                ExprList: 
+                  ID: mbox
+              Assignment: =
+                ID: round
+                ID: A
+              Assignment: =
+                ID: ready
+                ID: false
+              Continue: 
+          If: 
+            FuncCall: 
+              ID: timeout
+            Compound: 
+              FuncCall: 
+                ID: dispose
+                ExprList: 
+                  ID: mbox
+              Assignment: =
+                ID: round
+                ID: A
+              Assignment: =
+                ID: ready
+                ID: false
+              Continue: 

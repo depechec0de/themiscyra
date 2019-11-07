@@ -1,0 +1,54 @@
+function Map<Ballot, Map<Round, List<Instruction>>> getRounds(ast, context, rounds){
+
+    branches_to_explore = AST->getAllBranches();
+
+    while(branch = ast->branches()->next()){
+
+        context->behaviorsPredicates = new Set<Predicate>();
+
+        while(instruction = branch->nextinstruction()){
+
+            if(instruction->isBallotAssigment()){
+                new_ballot = instruction->getAssignedValue();
+
+                if(context->ballot == null){
+                    context->ballot = new_ballot;
+                }else{
+                    new_round = null;
+                    behaviorsPredicates = null;
+                    new_context = Context(new_ballot, new_round, behaviorsPredicates);
+                    return getRounds(ast, new_context, rounds);
+                }
+
+            }else if(instruction->isRoundAssigment()){
+
+                new_round = instruction->getAssignedValue();
+
+                if(context->round == null){
+                    context->round = new_round;
+                }else{
+                    behaviorsPredicates = null;
+                    new_context = Context(context->ballot, new_round, behaviorsPredicates);
+                    return getRounds(ast, new_context, rounds);
+                }
+
+            }else if(instruction->isIfStatement()){
+                
+                // Context |= ifPredicates
+                if(context->satisfies(instruction->predicates())){
+                    context->behaviorsPredicates->add(instruction->predicates());
+                }else{
+                    break;
+                }
+
+            }else{
+                rounds[context->ballot][context->round]->add(instruction);
+            }    
+        
+        }
+
+    }
+
+    return getRounds(ast, context, rounds);
+
+}

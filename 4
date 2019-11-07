@@ -1,0 +1,100 @@
+
+   
+     round = A;
+    ballot = 0;
+
+    m = (msg *) malloc(sizeof(msg));
+    m->round = round;
+    m->ballot = ballot;
+    send(all,m);
+   
+   while(true){
+        
+        
+            MBOXA = HAVOC()
+            if(round==A && countA(mboxA,ballot) > 2*n/3){
+                //DO SOMETHING WITH THE MESSAGES IN MBOXA
+         
+                round = B;
+                m = (msg *) malloc(sizeof(msg));
+                m->round = round;
+                m->ballot = ballot;
+                send(all,m);
+            
+            --    MBOXA = HAVOC()
+            --    if(round==A && countA(mboxA,ballot) > 2*n/3){
+                //DO SOMETHING WITH THE MESSAGES IN MBOXA
+         ---
+           --     round = B;
+             --   m = (msg *) malloc(sizeof(msg));
+              --  m->round = round;
+              --  m->ballot = ballot;
+               -- send(all,m);
+              --  continue; 
+            }
+
+        }
+        
+            MBOXB = HAVOC((mboxA,ballot))        
+            if(round==B && countB(mboxB,ballot) > 2*n/3){
+               //DO SOMETHING WITH THE MESSAGES IN MBOXB;
+                ballot++;
+                round = A;
+                m = (msg *) malloc(sizeof(msg));
+                m->round = round;
+                m->ballot = ballot;
+                send(all,m);
+                continue;
+            }
+            
+        }
+
+        if(timeout){
+
+            reset_timeout();
+            ballot++;
+            round = A;
+            m = (msg *) malloc(sizeof(msg));
+            m->round = round;
+            m->ballot = ballot;
+            send(all,m);
+            continue;
+        }
+
+        continue;
+
+
+
+            }
+
+        }
+        
+            MBOXa = HAVOC()        
+            if(round==B && countB(mboxB,ballot) > 2*n/3){
+               //DO SOMETHING WITH THE MESSAGES IN MBOXB;
+                ballot++;
+                round = A;
+                m = (msg *) malloc(sizeof(msg));
+                m->round = round;
+                m->ballot = ballot;
+                send(all,m);
+                continue;
+            }
+            
+        }
+
+        if(timeout){
+
+            reset_timeout();
+            ballot++;
+            round = A;
+            m = (msg *) malloc(sizeof(msg));
+            m->round = round;
+            m->ballot = ballot;
+            send(all,m);
+            continue;
+        }
+
+        continue;
+
+    }

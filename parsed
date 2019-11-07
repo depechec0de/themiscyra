@@ -1,0 +1,109 @@
+========== INIT OF UNFOLDING ============
+int main() | ROUND=[0, 0] roundAtoB.c:15:5
+while(true)  | ROUND=[0, 0] roundAtoB.c:35:5
+if((recv_msg != NULL) && (recv_msg->round == 0)) is_current_round? True | ROUND=[0, 0] roundAtoB.c:39:9
+if((round == 0) && (countA(mboxA, ballot) > ((2 * n) / 3))) is_current_round? True | ROUND=[0, 0] roundAtoB.c:41:13
+computation(mboxA) | ROUND=[0, 0] roundAtoB.c:42:17
+dispose(mboxA) | ROUND=[0, 0] roundAtoB.c:43:17
+ROUND CHANGE roundAtoB.c:44:17
+	========== INIT OF UNFOLDING ============
+	while(true)  | ROUND=[0, 1] roundAtoB.c:35:5
+	if((recv_msg != NULL) && (recv_msg->round == 0)) is_current_round? True | ROUND=[0, 1] roundAtoB.c:39:9
+	if((round == 0) && (countA(mboxA, ballot) > ((2 * n) / 3))) is_current_round? False | ROUND=[0, 1] roundAtoB.c:41:13
+	if((recv_msg != NULL) && (recv_msg->round == 1)) is_current_round? True | ROUND=[0, 1] roundAtoB.c:54:9
+	if((round == 1) && (countB(mboxB, ballot) > ((2 * n) / 3))) is_current_round? True | ROUND=[0, 1] roundAtoB.c:56:13
+	computation(mboxB) | ROUND=[0, 1] roundAtoB.c:57:17
+	dispose(mboxB) | ROUND=[0, 1] roundAtoB.c:58:17
+	ballot++ | ROUND=[0, 1] roundAtoB.c:59:17
+	ROUND CHANGE roundAtoB.c:59:17
+		========== INIT OF UNFOLDING ============
+		while(true)  | ROUND=[1, 0] roundAtoB.c:35:5
+		if((recv_msg != NULL) && (recv_msg->round == 0)) is_current_round? True | ROUND=[1, 0] roundAtoB.c:39:9
+		if((round == 0) && (countA(mboxA, ballot) > ((2 * n) / 3))) is_current_round? True | ROUND=[1, 0] roundAtoB.c:41:13
+		computation(mboxA) | ROUND=[1, 0] roundAtoB.c:42:17
+		dispose(mboxA) | ROUND=[1, 0] roundAtoB.c:43:17
+		ROUND CHANGE roundAtoB.c:44:17
+		========== END OF STEPS ============
+		if((recv_msg != NULL) && (recv_msg->round == 1)) is_current_round? True | ROUND=[1, 0] roundAtoB.c:54:9
+		if((round == 1) && (countB(mboxB, ballot) > ((2 * n) / 3))) is_current_round? False | ROUND=[1, 0] roundAtoB.c:56:13
+		if(timeout) is_current_round? True | ROUND=[1, 0] roundAtoB.c:70:9
+		dispose(mboxB, mboxA) | ROUND=[1, 0] roundAtoB.c:71:13
+		reset_timeout() | ROUND=[1, 0] roundAtoB.c:72:13
+		ballot++ | ROUND=[1, 0] roundAtoB.c:73:13
+		ROUND CHANGE roundAtoB.c:73:13
+		========== END OF STEPS ============
+	if(timeout) is_current_round? True | ROUND=[0, 1] roundAtoB.c:70:9
+	dispose(mboxB, mboxA) | ROUND=[0, 1] roundAtoB.c:71:13
+	reset_timeout() | ROUND=[0, 1] roundAtoB.c:72:13
+	ballot++ | ROUND=[0, 1] roundAtoB.c:73:13
+	ROUND CHANGE roundAtoB.c:73:13
+		========== INIT OF UNFOLDING ============
+		while(true)  | ROUND=[1, 0] roundAtoB.c:35:5
+		if((recv_msg != NULL) && (recv_msg->round == 0)) is_current_round? True | ROUND=[1, 0] roundAtoB.c:39:9
+		if((round == 0) && (countA(mboxA, ballot) > ((2 * n) / 3))) is_current_round? True | ROUND=[1, 0] roundAtoB.c:41:13
+		computation(mboxA) | ROUND=[1, 0] roundAtoB.c:42:17
+		dispose(mboxA) | ROUND=[1, 0] roundAtoB.c:43:17
+		ROUND CHANGE roundAtoB.c:44:17
+		========== END OF STEPS ============
+		if((recv_msg != NULL) && (recv_msg->round == 1)) is_current_round? True | ROUND=[1, 0] roundAtoB.c:54:9
+		if((round == 1) && (countB(mboxB, ballot) > ((2 * n) / 3))) is_current_round? False | ROUND=[1, 0] roundAtoB.c:56:13
+		if(timeout) is_current_round? True | ROUND=[1, 0] roundAtoB.c:70:9
+		dispose(mboxB, mboxA) | ROUND=[1, 0] roundAtoB.c:71:13
+		reset_timeout() | ROUND=[1, 0] roundAtoB.c:72:13
+		ballot++ | ROUND=[1, 0] roundAtoB.c:73:13
+		ROUND CHANGE roundAtoB.c:73:13
+		========== END OF STEPS ============
+if((recv_msg != NULL) && (recv_msg->round == 1)) is_current_round? True | ROUND=[0, 0] roundAtoB.c:54:9
+if((round == 1) && (countB(mboxB, ballot) > ((2 * n) / 3))) is_current_round? False | ROUND=[0, 0] roundAtoB.c:56:13
+if(timeout) is_current_round? True | ROUND=[0, 0] roundAtoB.c:70:9
+dispose(mboxB, mboxA) | ROUND=[0, 0] roundAtoB.c:71:13
+reset_timeout() | ROUND=[0, 0] roundAtoB.c:72:13
+ballot++ | ROUND=[0, 0] roundAtoB.c:73:13
+ROUND CHANGE roundAtoB.c:73:13
+	========== INIT OF UNFOLDING ============
+	while(true)  | ROUND=[0, 1] roundAtoB.c:35:5
+	if((recv_msg != NULL) && (recv_msg->round == 0)) is_current_round? True | ROUND=[0, 1] roundAtoB.c:39:9
+	if((round == 0) && (countA(mboxA, ballot) > ((2 * n) / 3))) is_current_round? False | ROUND=[0, 1] roundAtoB.c:41:13
+	if((recv_msg != NULL) && (recv_msg->round == 1)) is_current_round? True | ROUND=[0, 1] roundAtoB.c:54:9
+	if((round == 1) && (countB(mboxB, ballot) > ((2 * n) / 3))) is_current_round? True | ROUND=[0, 1] roundAtoB.c:56:13
+	computation(mboxB) | ROUND=[0, 1] roundAtoB.c:57:17
+	dispose(mboxB) | ROUND=[0, 1] roundAtoB.c:58:17
+	ballot++ | ROUND=[0, 1] roundAtoB.c:59:17
+	ROUND CHANGE roundAtoB.c:59:17
+		========== INIT OF UNFOLDING ============
+		while(true)  | ROUND=[1, 0] roundAtoB.c:35:5
+		if((recv_msg != NULL) && (recv_msg->round == 0)) is_current_round? True | ROUND=[1, 0] roundAtoB.c:39:9
+		if((round == 0) && (countA(mboxA, ballot) > ((2 * n) / 3))) is_current_round? True | ROUND=[1, 0] roundAtoB.c:41:13
+		computation(mboxA) | ROUND=[1, 0] roundAtoB.c:42:17
+		dispose(mboxA) | ROUND=[1, 0] roundAtoB.c:43:17
+		ROUND CHANGE roundAtoB.c:44:17
+		========== END OF STEPS ============
+		if((recv_msg != NULL) && (recv_msg->round == 1)) is_current_round? True | ROUND=[1, 0] roundAtoB.c:54:9
+		if((round == 1) && (countB(mboxB, ballot) > ((2 * n) / 3))) is_current_round? False | ROUND=[1, 0] roundAtoB.c:56:13
+		if(timeout) is_current_round? True | ROUND=[1, 0] roundAtoB.c:70:9
+		dispose(mboxB, mboxA) | ROUND=[1, 0] roundAtoB.c:71:13
+		reset_timeout() | ROUND=[1, 0] roundAtoB.c:72:13
+		ballot++ | ROUND=[1, 0] roundAtoB.c:73:13
+		ROUND CHANGE roundAtoB.c:73:13
+		========== END OF STEPS ============
+	if(timeout) is_current_round? True | ROUND=[0, 1] roundAtoB.c:70:9
+	dispose(mboxB, mboxA) | ROUND=[0, 1] roundAtoB.c:71:13
+	reset_timeout() | ROUND=[0, 1] roundAtoB.c:72:13
+	ballot++ | ROUND=[0, 1] roundAtoB.c:73:13
+	ROUND CHANGE roundAtoB.c:73:13
+		========== INIT OF UNFOLDING ============
+		while(true)  | ROUND=[1, 0] roundAtoB.c:35:5
+		if((recv_msg != NULL) && (recv_msg->round == 0)) is_current_round? True | ROUND=[1, 0] roundAtoB.c:39:9
+		if((round == 0) && (countA(mboxA, ballot) > ((2 * n) / 3))) is_current_round? True | ROUND=[1, 0] roundAtoB.c:41:13
+		computation(mboxA) | ROUND=[1, 0] roundAtoB.c:42:17
+		dispose(mboxA) | ROUND=[1, 0] roundAtoB.c:43:17
+		ROUND CHANGE roundAtoB.c:44:17
+		========== END OF STEPS ============
+		if((recv_msg != NULL) && (recv_msg->round == 1)) is_current_round? True | ROUND=[1, 0] roundAtoB.c:54:9
+		if((round == 1) && (countB(mboxB, ballot) > ((2 * n) / 3))) is_current_round? False | ROUND=[1, 0] roundAtoB.c:56:13
+		if(timeout) is_current_round? True | ROUND=[1, 0] roundAtoB.c:70:9
+		dispose(mboxB, mboxA) | ROUND=[1, 0] roundAtoB.c:71:13
+		reset_timeout() | ROUND=[1, 0] roundAtoB.c:72:13
+		ballot++ | ROUND=[1, 0] roundAtoB.c:73:13
+		ROUND CHANGE roundAtoB.c:73:13
+		========== END OF STEPS ============
