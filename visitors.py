@@ -68,7 +68,7 @@ def get_variables(ast):
 Traverse the AST and collect the code depending on the context
 """
 
-class ParseCode(c_ast.NodeVisitor):
+class RoundCode(c_ast.NodeVisitor):
     def __init__(self, phase_var, round_var, context, nextf, steps, current_step=0):
         self.generator = c_generator.CGenerator()
         self.restart_point = None
@@ -99,12 +99,12 @@ class ParseCode(c_ast.NodeVisitor):
 
         if is_current_round(node.cond, self.context) and (node.iftrue is not None):
             #c_ast.NodeVisitor.generic_visit(self, node.iftrue)
-            v = ParseCodeIf(self.phase_var, self.round_var, self.restart_point, self.context, self.nextf, self.steps, self.current_step)
+            v = RoundCodeIf(self.phase_var, self.round_var, self.restart_point, self.context, self.nextf, self.steps, self.current_step)
             v.visit(node.iftrue)
 
         if node.iffalse is not None:
             #c_ast.NodeVisitor.generic_visit(self, node.iffalse)
-            v = ParseCodeIf(self.phase_var, self.round_var, self.restart_point, self.context, self.nextf, self.steps, self.current_step)
+            v = RoundCodeIf(self.phase_var, self.round_var, self.restart_point, self.context, self.nextf, self.steps, self.current_step)
             v.visit(node.iffalse)
 
     
@@ -117,7 +117,7 @@ class ParseCode(c_ast.NodeVisitor):
         
 
 
-class ParseCodeIf(c_ast.NodeVisitor):
+class RoundCodeIf(c_ast.NodeVisitor):
     def __init__(self, phase_var, round_var, restart_point, context, nextf, steps, current_step):
         self.generator = c_generator.CGenerator()
         self.context = context
@@ -153,7 +153,7 @@ class ParseCodeIf(c_ast.NodeVisitor):
         self.manage_instruction(node)
 
         if self.restart_point is not None and self.current_step < self.steps:
-            v = ParseCode(self.phase_var, self.round_var, self.nextf(self.context), self.nextf, self.steps, self.current_step+1)
+            v = RoundCode(self.phase_var, self.round_var, self.nextf(self.context), self.nextf, self.steps, self.current_step+1)
             v.visit(self.restart_point)
         
         else:
@@ -165,12 +165,12 @@ class ParseCodeIf(c_ast.NodeVisitor):
 
             if is_current_round(node.cond, self.context) and (node.iftrue is not None):
                 #c_ast.NodeVisitor.generic_visit(self, node.iftrue)
-                v = ParseCodeIf(self.phase_var, self.round_var, self.restart_point, self.context, self.nextf, self.steps, self.current_step)
+                v = RoundCodeIf(self.phase_var, self.round_var, self.restart_point, self.context, self.nextf, self.steps, self.current_step)
                 v.visit(node.iftrue)
 
             if node.iffalse is not None:
                 #c_ast.NodeVisitor.generic_visit(self, node.iffalse)
-                v = ParseCodeIf(self.phase_var, self.round_var, self.restart_point, self.context, self.nextf, self.steps, self.current_step)
+                v = RoundCodeIf(self.phase_var, self.round_var, self.restart_point, self.context, self.nextf, self.steps, self.current_step)
                 v.visit(node.iffalse)
 
     def visit_Assignment(self, node):
