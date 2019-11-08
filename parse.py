@@ -4,10 +4,11 @@ import sys
 from pycparser import c_parser, c_ast, parse_file
 from visitors import *
 
-def round_code(ast, phase_var, round_var, context, nextf, steps):
+def round_code(ast, phase_var, round_var, round, current_round, nextf, steps, debug):
 
-    v = RoundCode(phase_var, round_var, context, nextf, steps)
+    v = RoundCode(phase_var=phase_var, round_var=round_var, round=round, current_round=current_round, nextf=nextf, steps=steps, debug=debug)
     v.visit(ast)
+    return v.collected_code
 
 
 if __name__ == "__main__":
@@ -35,7 +36,42 @@ if __name__ == "__main__":
         else:
             return {'ballot': ts['ballot'], 'round': 1}
 
-    round_code(node_main, 'ballot', 'round', context={'ballot': 0, 'round': 0}, nextf=nextround, steps=2)
+    def generate_code(collected_code):
+        for context in collected_code.keys():
+            print(context)
+            for instruction in collected_code[context]:
+                print("\t"+instruction.text)
+    
+    round = {'ballot': 0, 'round': 0}
+    print("############### CODE "+str(round)+" ###############")
+    collected_code = round_code(ast=node_main, phase_var='ballot', round_var='round', current_round={'ballot': 0, 'round': 0}, round=round, nextf=nextround, steps=2, debug=False)
+    generate_code(collected_code)
+    print("")
+    
+    """
+    round = {'ballot': 0, 'round': 1}
+    print("############### CODE "+str(round)+" ###############")
+    code = round_code(ast=node_main, phase_var='ballot', round_var='round', current_round={'ballot': 0, 'round': 0}, round=round, nextf=nextround, steps=2)
+    for line in code:
+        print(line)
+    print("")
+
+    round = {'ballot': 1, 'round': 0}
+    print("############### CODE "+str(round)+" ###############")
+    code = round_code(ast=node_main, phase_var='ballot', round_var='round', current_round={'ballot': 0, 'round': 0}, round=round, nextf=nextround, steps=2)
+    for line in code:
+        print(line)
+    print("")
+   
+    round = {'ballot': 1, 'round': 1}
+    print("############### CODE "+str(round)+" ###############")
+    code = round_code(ast=node_main, phase_var='ballot', round_var='round', current_round={'ballot': 0, 'round': 0}, round=round, nextf=nextround, steps=2)
+    print("")
+    for line in code:
+        print(line)
+    print("")
+    """
+
  
         
 

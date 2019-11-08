@@ -65,30 +65,103 @@ def get_variables(ast):
     return v.variables
 
 """
-Traverse the AST and collect the code depending on the context
+Traverse the AST and collect the code of a given round with its conditions
 """
 
+class AnotatedInstruction(object):
+    def __init__(self, text, context, coord):
+        self.text = text
+        self.context = context
+        self.coord = coord
+
+    def __str__(self):
+        return self.instruction+" @ "+str(self.coord)+", "+str(self.context)
+
+    def __repr__(self):
+        return "("+self.instruction+" @ "+str(self.coord)+", "+str(self.context)+")"
+
+    def __hash__(self):
+        return hash(str(self))
+
+    def __eq__(self, other):
+        return (
+            self.__class__ == other.__class__ and
+            self.x == other.x
+        )
+
+def is_round_assigment(instruction, variable_name):
+    if isinstance(instruction, c_ast.Assignment) and not isinstance(instruction.lvalue.name, c_ast.ID) and instruction.lvalue.name == variable_name:
+        return True
+    else:
+        return False
+
 class RoundCode(c_ast.NodeVisitor):
-    def __init__(self, phase_var, round_var, context, nextf, steps, current_step=0):
+    def __init__(self, phase_var, round_var, round, current_round, nextf, steps, context=None, current_step=0, collected_code=None, restart_point=None, debug=False):
+        
+        if collected_code is None:
+            self.collected_code = {}
+        else:
+            self.collected_code = collected_code
+
+        if context is None:
+            self.context = []
+        else:
+            self.context = context
+
         self.generator = c_generator.CGenerator()
         self.restart_point = None
-        self.variables = {phase_var: Int(phase_var), round_var: Int(round_var)}
         self.phase_var = phase_var
         self.round_var = round_var
         self.current_step = current_step
         self.steps = steps
         self.nextf = nextf
-        self.context = context
-
-        print("\t"*self.current_step+"========== INIT OF UNFOLDING ============")
+        self.round = round
+        self.restart_point = restart_point
+        self.current_round = current_round
+        self.debug = debug
     
     def manage_instruction(self, instruction):
+
+        collect = self.current_round == self.round
+        collected = ""
+        code = ""
+
         if isinstance(instruction, c_ast.If):
-            print("\t"*self.current_step + "if("+self.generator.visit(instruction.cond)+") is_current_round? " + str(is_current_round(instruction.cond, self.context)) + " | ROUND=[" + str(self.context[self.phase_var]) + ", " + str(self.context[self.round_var]) + "] " +str(instruction.coord))
+            code = "if("+self.generator.visit(instruction.cond)+")"
+            collect = False
         elif isinstance(instruction, c_ast.While):
-            print("\t"*self.current_step + "while("+self.generator.visit(instruction.cond)+") " + " | ROUND=[" + str(self.context[self.phase_var]) + ", " + str(self.context[self.round_var]) + "] " +str(instruction.coord))
+            code = "while("+self.generator.visit(instruction.cond)+")"
+        elif is_round_assigment(instruction, self.phase_var) or is_round_assigment(instruction, self.round_var):
+            collect = False
+            code = self.generator.visit(instruction)
+        elif isinstance(instruction, c_ast.UnaryOp) and instruction.expr.name == self.phase_var:
+            collect = False
+            code = self.generator.visit(instruction)
         else:
-            print("\t"*self.current_step + self.generator.visit(instruction) + " | ROUND=[" + str(self.context[self.phase_var]) + ", " + str(self.context[self.round_var]) + "] " +str(instruction.coord))
+            code = self.generator.visit(instruction)
+
+        if collect:
+            collected = "COLLECTED "
+            
+            inst = AnotatedInstruction(code, self.context, instruction.coord)
+
+            if str(self.context) not in self.collected_code:
+                self.collected_code[str(self.context)] = []
+
+            self.collected_code[str(self.context)].append(inst)
+        
+        #info = " | CROUND=" + str(self.current_round) +", CONTEXT="+str(self.context)+" "+str(instruction.coord)
+        #info = "CONTEXT=" + str(self.context)+" "+str(instruction.coord)
+        info = " | CROUND=" + str(self.current_round)
+        
+        if self.debug:
+            if isinstance(instruction, c_ast.If):
+                print("\t"*self.current_step + collected + str(instruction.coord) + " " + code + " is_current_round? " + str(is_current_round(instruction.cond, self.round)) + info)
+            elif isinstance(instruction, c_ast.While):
+                print("\t"*self.current_step + collected + str(instruction.coord) + " " + code + info)
+            else:
+                print("\t"*self.current_step + collected + str(instruction.coord) + " " + code + info)
+            
 
     def visit_FuncDef(self, node):
         self.manage_instruction(node.decl)
@@ -97,95 +170,50 @@ class RoundCode(c_ast.NodeVisitor):
     def visit_If(self, node):
         self.manage_instruction(node)
 
-        if is_current_round(node.cond, self.context) and (node.iftrue is not None):
-            #c_ast.NodeVisitor.generic_visit(self, node.iftrue)
-            v = RoundCodeIf(self.phase_var, self.round_var, self.restart_point, self.context, self.nextf, self.steps, self.current_step)
+        if is_current_round(node.cond, self.current_round) and (node.iftrue is not None):
+            new_context = copy.deepcopy(self.context)
+            new_context.append("if("+self.generator.visit(node.cond)+") @ "+str(self.current_round))
+            v = RoundCode(phase_var=self.phase_var, round_var=self.round_var, restart_point=self.restart_point, round=self.round, nextf=self.nextf, steps=self.steps, context=new_context, current_round=copy.deepcopy(self.current_round), current_step=self.current_step, collected_code=self.collected_code, debug=self.debug)
             v.visit(node.iftrue)
 
         if node.iffalse is not None:
-            #c_ast.NodeVisitor.generic_visit(self, node.iffalse)
-            v = RoundCodeIf(self.phase_var, self.round_var, self.restart_point, self.context, self.nextf, self.steps, self.current_step)
+            new_context = copy.deepcopy(self.context)
+            new_context.append("if(NOT("+self.generator.visit(node.cond)+")) @ "+str(self.current_round))
+            v = RoundCode(phase_var=self.phase_var, round_var=self.round_var, restart_point=self.restart_point, round=self.round, nextf=self.nextf, steps=self.steps, context=new_context, current_round=copy.deepcopy(self.current_round), current_step=self.current_step, collected_code=self.collected_code, debug=self.debug)
             v.visit(node.iffalse)
 
+    def visit_UnaryOp(self,node):   
+         
+        if node.op == 'p++' and node.expr.name == self.phase_var:
+            self.current_round[self.phase_var] = self.current_round[self.phase_var]+1
+
+        self.manage_instruction(node)
     
     def visit_While(self, node):
         self.manage_instruction(node)
 
         if is_sat(node.cond, {}, {}):
             self.restart_point = node
-            c_ast.NodeVisitor.generic_visit(self, self.restart_point)
-        
-
-
-class RoundCodeIf(c_ast.NodeVisitor):
-    def __init__(self, phase_var, round_var, restart_point, context, nextf, steps, current_step):
-        self.generator = c_generator.CGenerator()
-        self.context = context
-        self.phase_var = phase_var
-        self.round_var = round_var
-        self.current_step = current_step
-        self.steps = steps
-        self.nextf = nextf
-        self.restart_point = restart_point
-        self.stop = False
-
-    def manage_instruction(self, instruction):
-        if not self.stop:
-
-            if isinstance(instruction, c_ast.If):
-                print("\t"*self.current_step + "if("+self.generator.visit(instruction.cond)+") is_current_round? " + str(is_current_round(instruction.cond, self.context)) + " | ROUND=[" + str(self.context[self.phase_var]) + ", " + str(self.context[self.round_var]) + "] " +str(instruction.coord))
-            else:
-                print("\t"*self.current_step + self.generator.visit(instruction) + " | ROUND=[" + str(self.context[self.phase_var]) + ", " + str(self.context[self.round_var]) + "] " +str(instruction.coord))
-
-    def visit_UnaryOp(self,node):   
-        if not self.stop:
-            self.manage_instruction(node) 
-
-            if node.op == 'p++' and node.expr.name == self.phase_var:
-                print("\t"*self.current_step+"ROUND CHANGE "+str(node.coord))
-                self.stop = True
-            
+            c_ast.NodeVisitor.generic_visit(self, node)
 
     def visit_FuncCall(self, node):
-        self.manage_instruction(node)
+        self.manage_instruction(node)   
 
     def visit_Continue(self, node):
         self.manage_instruction(node)
 
         if self.restart_point is not None and self.current_step < self.steps:
-            v = RoundCode(self.phase_var, self.round_var, self.nextf(self.context), self.nextf, self.steps, self.current_step+1)
+            next_round = copy.deepcopy(self.current_round)
+            #next_round = self.nextf(new_round)
+            v = RoundCode(phase_var=self.phase_var, round_var=self.round_var, round=self.round, current_round=next_round, nextf=self.nextf, steps=self.steps, current_step=self.current_step+1, context=self.context, restart_point=self.restart_point, collected_code=self.collected_code, debug=self.debug)
             v.visit(self.restart_point)
-        
-        else:
-            print("\t"*self.current_step+"========== END OF STEPS ============")
-
-    def visit_If(self, node):
-        if not self.stop:
-            self.manage_instruction(node)
-
-            if is_current_round(node.cond, self.context) and (node.iftrue is not None):
-                #c_ast.NodeVisitor.generic_visit(self, node.iftrue)
-                v = RoundCodeIf(self.phase_var, self.round_var, self.restart_point, self.context, self.nextf, self.steps, self.current_step)
-                v.visit(node.iftrue)
-
-            if node.iffalse is not None:
-                #c_ast.NodeVisitor.generic_visit(self, node.iffalse)
-                v = RoundCodeIf(self.phase_var, self.round_var, self.restart_point, self.context, self.nextf, self.steps, self.current_step)
-                v.visit(node.iffalse)
 
     def visit_Assignment(self, node):
-        if not self.stop:
-            if not isinstance(node.lvalue.name, c_ast.ID):
-                if node.lvalue.name == self.phase_var:
-                    if self.context[self.phase_var]==int(node.rvalue.value): 
-                        self.manage_instruction(node)
-                    else:
-                        print("\t"*self.current_step+"ROUND CHANGE "+str(node.coord))
-                        self.stop = True
+        self.manage_instruction(node)
 
-                if node.lvalue.name == self.round_var:
-                    if self.context[self.round_var]==int(node.rvalue.value): 
-                        self.manage_instruction(node)
-                    else:
-                        print("\t"*self.current_step+"ROUND CHANGE "+str(node.coord))
-                        self.stop = True
+        if is_round_assigment(node, self.phase_var):
+            self.current_round[self.phase_var] = int(node.rvalue.value)
+            
+        if is_round_assigment(node, self.round_var):
+            self.current_round[self.round_var] = int(node.rvalue.value)    
+    
