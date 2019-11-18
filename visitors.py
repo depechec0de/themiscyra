@@ -1,6 +1,7 @@
 from pycparser import c_parser, c_ast, parse_file
 from z3 import *
 from smttools import *
+from parse import *
 import copy
 
 """
@@ -68,33 +69,6 @@ def get_variables(ast):
 Traverse the AST and collect the code of a given round with its conditions
 """
 
-class AnotatedInstruction(object):
-    def __init__(self, text, context, coord):
-        self.text = text
-        self.context = context
-        self.coord = coord
-
-    def __str__(self):
-        return self.instruction+" @ "+str(self.coord)+", "+str(self.context)
-
-    def __repr__(self):
-        return "("+self.instruction+" @ "+str(self.coord)+", "+str(self.context)+")"
-
-    def __hash__(self):
-        return hash(str(self))
-
-    def __eq__(self, other):
-        return (
-            self.__class__ == other.__class__ and
-            self.x == other.x
-        )
-
-def is_round_assigment(instruction, variable_name):
-    if isinstance(instruction, c_ast.Assignment) and not isinstance(instruction.lvalue.name, c_ast.ID) and instruction.lvalue.name == variable_name:
-        return True
-    else:
-        return False
-
 class RoundCode(c_ast.NodeVisitor):
     def __init__(self, phase_var, round_var, round, current_round, nextf, steps, context=None, current_step=0, collected_code=None, restart_point=None, debug=False):
         
@@ -103,11 +77,7 @@ class RoundCode(c_ast.NodeVisitor):
         else:
             self.collected_code = collected_code
 
-        if context is None:
-            self.context = []
-        else:
-            self.context = context
-
+        self.context = Context(context)
         self.generator = c_generator.CGenerator()
         self.restart_point = None
         self.phase_var = phase_var
@@ -123,7 +93,6 @@ class RoundCode(c_ast.NodeVisitor):
     def manage_instruction(self, instruction):
 
         collect = self.current_round == self.round
-        collected = ""
         code = ""
 
         if isinstance(instruction, c_ast.If):
@@ -141,26 +110,32 @@ class RoundCode(c_ast.NodeVisitor):
             code = self.generator.visit(instruction)
 
         if collect:
-            collected = "COLLECTED "
             
             inst = AnotatedInstruction(code, self.context, instruction.coord)
 
-            if str(self.context) not in self.collected_code:
-                self.collected_code[str(self.context)] = []
+            if self.context not in self.collected_code:
+                self.collected_code[self.context] = []
 
-            self.collected_code[str(self.context)].append(inst)
-        
-        #info = " | CROUND=" + str(self.current_round) +", CONTEXT="+str(self.context)+" "+str(instruction.coord)
-        #info = "CONTEXT=" + str(self.context)+" "+str(instruction.coord)
-        info = " | CROUND=" + str(self.current_round)
-        
+            self.collected_code[self.context].append(inst)
+
         if self.debug:
-            if isinstance(instruction, c_ast.If):
-                print("\t"*self.current_step + collected + str(instruction.coord) + " " + code + " is_current_round? " + str(is_current_round(instruction.cond, self.round)) + info)
-            elif isinstance(instruction, c_ast.While):
-                print("\t"*self.current_step + collected + str(instruction.coord) + " " + code + info)
+            #info = " | CROUND=" + str(self.current_round) +", CONTEXT="+str(self.context)+" "+str(instruction.coord)
+            #info = "CONTEXT=" + str(self.context)+" "+str(instruction.coord)
+            info = " | CROUND=" + str(self.current_round)
+            
+            color_info = info
+            
+            if collect:
+                color_code = bcolors.OKGREEN +  code + bcolors.ENDC
             else:
-                print("\t"*self.current_step + collected + str(instruction.coord) + " " + code + info)
+                color_code = bcolors.OKBLUE + code + bcolors.ENDC
+
+            if isinstance(instruction, c_ast.If):
+                print("\t"*self.current_step + str(instruction.coord) + " " + color_code + " is_current_round? " + str(is_current_round(instruction.cond, self.round)) + color_info)
+            elif isinstance(instruction, c_ast.While):
+                print("\t"*self.current_step + str(instruction.coord) + " " + color_code + color_info)
+            else:
+                print("\t"*self.current_step + str(instruction.coord) + " " + color_code + color_info )
             
 
     def visit_FuncDef(self, node):
@@ -172,13 +147,13 @@ class RoundCode(c_ast.NodeVisitor):
 
         if is_current_round(node.cond, self.current_round) and (node.iftrue is not None):
             new_context = copy.deepcopy(self.context)
-            new_context.append("if("+self.generator.visit(node.cond)+") @ "+str(self.current_round))
+            new_context.add_condition("if("+self.generator.visit(node.cond)+") @ "+str(self.current_round))
             v = RoundCode(phase_var=self.phase_var, round_var=self.round_var, restart_point=self.restart_point, round=self.round, nextf=self.nextf, steps=self.steps, context=new_context, current_round=copy.deepcopy(self.current_round), current_step=self.current_step, collected_code=self.collected_code, debug=self.debug)
             v.visit(node.iftrue)
 
         if node.iffalse is not None:
             new_context = copy.deepcopy(self.context)
-            new_context.append("if(NOT("+self.generator.visit(node.cond)+")) @ "+str(self.current_round))
+            new_context.add_condition("if(NOT("+self.generator.visit(node.cond)+")) @ "+str(self.current_round))
             v = RoundCode(phase_var=self.phase_var, round_var=self.round_var, restart_point=self.restart_point, round=self.round, nextf=self.nextf, steps=self.steps, context=new_context, current_round=copy.deepcopy(self.current_round), current_step=self.current_step, collected_code=self.collected_code, debug=self.debug)
             v.visit(node.iffalse)
 

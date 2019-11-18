@@ -4,6 +4,71 @@ import sys
 from pycparser import c_parser, c_ast, parse_file
 from visitors import *
 
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+class Context(object):
+    def __init__(self, other_context=None):
+        if other_context is None:
+            self.conditions = []
+        else:
+            self.conditions = copy.deepcopy(other_context.conditions)
+    
+    def __str__(self):
+        return str(self.conditions)
+
+    def __repr__(self):
+        return str(self)
+
+    def __hash__(self):
+        return hash(str(self))
+
+    def __eq__(self, other):
+        return (
+            self.__class__ == other.__class__ and
+            self.conditions == other.conditions
+        )
+
+    def add_condition(self, cond):
+        self.conditions.append(cond)
+
+
+class AnotatedInstruction(object):
+    def __init__(self, text, context, coord):
+        self.text = text
+        self.context = context
+        self.coord = coord
+
+    def __str__(self):
+        return self.instruction+" @ "+str(self.coord)+", "+str(self.context)
+
+    def __repr__(self):
+        return "("+self.instruction+" @ "+str(self.coord)+", "+str(self.context)+")"
+
+    def __hash__(self):
+        return hash(str(self))
+
+    def __eq__(self, other):
+        return (
+            self.__class__ == other.__class__ and
+            self.coord == other.coord and
+            self.context == other.context and
+            self.text == other.text
+        )
+
+def is_round_assigment(instruction, variable_name):
+    if isinstance(instruction, c_ast.Assignment) and not isinstance(instruction.lvalue.name, c_ast.ID) and instruction.lvalue.name == variable_name:
+        return True
+    else:
+        return False
+
 def round_code(ast, phase_var, round_var, round, current_round, nextf, steps, debug):
 
     v = RoundCode(phase_var=phase_var, round_var=round_var, round=round, current_round=current_round, nextf=nextf, steps=steps, debug=debug)
@@ -43,8 +108,9 @@ if __name__ == "__main__":
                 print("\t"+instruction.text)
     
     round = {'ballot': 0, 'round': 0}
-    print("############### CODE "+str(round)+" ###############")
-    collected_code = round_code(ast=node_main, phase_var='ballot', round_var='round', current_round={'ballot': 0, 'round': 0}, round=round, nextf=nextround, steps=2, debug=False)
+    print("############### TRACE LOG ###############")
+    collected_code = round_code(ast=node_main, phase_var='ballot', round_var='round', current_round={'ballot': 0, 'round': 0}, round=round, nextf=nextround, steps=2, debug=True)
+    print("############### ROUND CODE "+str(round)+" ###############")
     generate_code(collected_code)
     print("")
     
