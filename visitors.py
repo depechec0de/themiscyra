@@ -100,12 +100,16 @@ class RoundCode(c_ast.NodeVisitor):
             collect = False
         elif isinstance(instruction, c_ast.While):
             code = "while("+self.generator.visit(instruction.cond)+")"
+            collect = False
         elif is_round_assigment(instruction, self.phase_var) or is_round_assigment(instruction, self.round_var):
             collect = False
             code = self.generator.visit(instruction)
         elif isinstance(instruction, c_ast.UnaryOp) and instruction.expr.name == self.phase_var:
             collect = False
             code = self.generator.visit(instruction)
+        elif isinstance(instruction, c_ast.FuncDef):
+            collect = False
+            code = self.generator.visit(instruction.decl)
         else:
             code = self.generator.visit(instruction)
 
@@ -139,7 +143,7 @@ class RoundCode(c_ast.NodeVisitor):
             
 
     def visit_FuncDef(self, node):
-        self.manage_instruction(node.decl)
+        self.manage_instruction(node)
         c_ast.NodeVisitor.generic_visit(self, node)
 
     def visit_If(self, node):

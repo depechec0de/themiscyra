@@ -101,43 +101,16 @@ if __name__ == "__main__":
         else:
             return {'ballot': ts['ballot'], 'round': 1}
 
-    def generate_code(collected_code):
+    def print_code(collected_code):
         for context in collected_code.keys():
-            print(context)
+            print(bcolors.OKBLUE + str(context) + bcolors.ENDC)
             for instruction in collected_code[context]:
-                print("\t"+instruction.text)
+                print("\t" + str(instruction.coord) + " " + bcolors.OKGREEN + str(instruction.text) + bcolors.ENDC)
+    
     
     round = {'ballot': 0, 'round': 0}
     print("############### TRACE LOG ###############")
     collected_code = round_code(ast=node_main, phase_var='ballot', round_var='round', current_round={'ballot': 0, 'round': 0}, round=round, nextf=nextround, steps=2, debug=True)
     print("############### ROUND CODE "+str(round)+" ###############")
-    generate_code(collected_code)
-    print("")
-    
-    """
-    round = {'ballot': 0, 'round': 1}
-    print("############### CODE "+str(round)+" ###############")
-    code = round_code(ast=node_main, phase_var='ballot', round_var='round', current_round={'ballot': 0, 'round': 0}, round=round, nextf=nextround, steps=2)
-    for line in code:
-        print(line)
-    print("")
-
-    round = {'ballot': 1, 'round': 0}
-    print("############### CODE "+str(round)+" ###############")
-    code = round_code(ast=node_main, phase_var='ballot', round_var='round', current_round={'ballot': 0, 'round': 0}, round=round, nextf=nextround, steps=2)
-    for line in code:
-        print(line)
-    print("")
-   
-    round = {'ballot': 1, 'round': 1}
-    print("############### CODE "+str(round)+" ###############")
-    code = round_code(ast=node_main, phase_var='ballot', round_var='round', current_round={'ballot': 0, 'round': 0}, round=round, nextf=nextround, steps=2)
-    print("")
-    for line in code:
-        print(line)
-    print("")
-    """
-
- 
-        
-
+    print_code(collected_code)
+    print("")  
