@@ -76,8 +76,6 @@ def is_current_round(predicate: c_ast.Node, context: Dict[str, int]) -> bool:
 
     else:
         return True
-  
-    
 
 def is_sat(ast_predicate, variables, context):
 

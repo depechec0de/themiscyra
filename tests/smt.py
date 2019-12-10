@@ -1,6 +1,10 @@
+import sys
+
+sys.path.insert(0, '..')
+
 from pycparser import c_parser, c_ast, parse_file, c_generator
 from visitors import *
-from smttools import *
+from smt import *
 
 
 #############
