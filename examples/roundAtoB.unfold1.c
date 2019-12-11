@@ -70,7 +70,62 @@ int func(int p, int n)
           send(all, m);
         }
 
-        return 0;
+        recv_msg = (msg *) malloc(sizeof(msg));
+        if (recv_msg != NULL)
+        {
+          recv_msg->round = v % 2;
+          recv_msg->ballot = t;
+          if (recv_msg->round == 0)
+          {
+            if (round == 0)
+            {
+              if (count(mboxA, ballot, n) > ((2 * n) / 3))
+              {
+                round = 1;
+                m = (msg *) malloc(sizeof(msg));
+                if (m == NULL)
+                  return 0;
+
+                m->round = 1;
+                m->ballot = ballot;
+                send(all, m);
+              }
+
+              return 0;
+            }
+
+          }
+
+        }
+
+        if (recv_msg != NULL)
+        {
+          recv_msg->round = v % 2;
+          recv_msg->ballot = t;
+          if (recv_msg->round == 1)
+          {
+            if (round == 1)
+            {
+              if (count(mboxB, ballot, n) > ((2 * n) / 3))
+              {
+                round = 0;
+                ballot++;
+                m = (msg *) malloc(sizeof(msg));
+                if (m == NULL)
+                  return 0;
+
+                m->round = 0;
+                m->ballot = ballot;
+                send(all, m);
+              }
+
+            }
+
+          }
+
+          return 0;
+        }
+
       }
 
     }
@@ -102,7 +157,62 @@ int func(int p, int n)
 
     }
 
-    return 0;
+    recv_msg = (msg *) malloc(sizeof(msg));
+    if (recv_msg != NULL)
+    {
+      recv_msg->round = v % 2;
+      recv_msg->ballot = t;
+      if (recv_msg->round == 0)
+      {
+        if (round == 0)
+        {
+          if (count(mboxA, ballot, n) > ((2 * n) / 3))
+          {
+            round = 1;
+            m = (msg *) malloc(sizeof(msg));
+            if (m == NULL)
+              return 0;
+
+            m->round = 1;
+            m->ballot = ballot;
+            send(all, m);
+          }
+
+          return 0;
+        }
+
+      }
+
+    }
+
+    if (recv_msg != NULL)
+    {
+      recv_msg->round = v % 2;
+      recv_msg->ballot = t;
+      if (recv_msg->round == 1)
+      {
+        if (round == 1)
+        {
+          if (count(mboxB, ballot, n) > ((2 * n) / 3))
+          {
+            round = 0;
+            ballot++;
+            m = (msg *) malloc(sizeof(msg));
+            if (m == NULL)
+              return 0;
+
+            m->round = 0;
+            m->ballot = ballot;
+            send(all, m);
+          }
+
+        }
+
+      }
+
+      return 0;
+    }
+
   }
 
   return 0;
