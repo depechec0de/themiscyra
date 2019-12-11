@@ -1,6 +1,7 @@
 # Editors
 .vscode/
 .idea/
+.frama-c/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
