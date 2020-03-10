@@ -2,6 +2,7 @@ struct Msg
 {
   int round;
   int ballot;
+  int leader;
 };
 typedef struct Msg msg;
 typedef struct List
@@ -11,4 +12,4 @@ typedef struct List
   int size;
 } list;
 
-enum round_typ {A, B};
+enum round_typ {NewBallot, AckBallot};

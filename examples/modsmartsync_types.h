@@ -1,7 +1,10 @@
 struct Msg
 {
   int round;
-  int ballot;
+  int reg;
+  list* timedout_msgs;
+  list* decided_log;
+  list* proofs;
 };
 typedef struct Msg msg;
 typedef struct List
@@ -11,4 +14,4 @@ typedef struct List
   int size;
 } list;
 
-enum round_typ {A, B};
+enum round_typ {STOP, STOPDATA, SYNC};

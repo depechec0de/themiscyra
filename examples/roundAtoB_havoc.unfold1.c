@@ -1,5 +1,5 @@
 #include "stdlib.h"
-#include "roundAtoB_types.h"
+#include "roundAtoB_havoc_types.h"
 
 /*@ ensures (\result == \null) ||
     (\result != \null &&
@@ -54,63 +54,52 @@ int func(int p, int n)
   int timeout;
   msg *m;
   msg *recv_msg;
-  list *mboxA = NULL;
-  list *mboxB = NULL;
+  list *mbox = NULL;
   round = A;
   ballot = 0;
   m = (msg *) malloc(sizeof(msg));
-  m->round = round;
+  if (m == NULL)
+    return 0;
+
+  m->round = A;
   m->ballot = ballot;
+  mbox = NULL;
   send(all, m);
-  recv_msg = recv(v, t);
-  if ((recv_msg != NULL) && (recv_msg->round == A))
-  {
-    add_msg(mboxA, recv_msg->ballot, recv_msg);
-  }
 
-  if ((recv_msg != NULL) && (recv_msg->round == B))
+  mbox = havoc(ballot, round);
+  
+  if ((round == A) && (count(mbox, ballot, round, n) > ((2 * n) / 3)))
   {
-    add_msg(mboxB, recv_msg->ballot, recv_msg);
-  }
-
-  if ((round == A) && (countA(mboxA, ballot) > ((2 * n) / 3)))
-  {
-    computation(mboxA);
-    dispose(mboxA, ballot, round);
+    computation(mbox);
+    dispose(mbox, ballot, round);
     round = B;
     m = (msg *) malloc(sizeof(msg));
+    if (m == NULL)
+      return 0;
+
     m->round = B;
     m->ballot = ballot;
     send(all, m);
     return 0;
   }
 
-  if ((round == B) && (countB(mboxB, ballot) > ((2 * n) / 3)))
+  if ((round == B) && (count(mbox, ballot, round, n) > ((2 * n) / 3)))
   {
-    computation(mboxB);
-    dispose(mboxB, ballot, round);
-    ballot++;
+    computation(mbox);
+    dispose(mbox, ballot, round);
     round = A;
+    ballot++;
     m = (msg *) malloc(sizeof(msg));
+    if (m == NULL)
+      return 0;
+
     m->round = A;
     m->ballot = ballot;
     send(all, m);
     return 0;
   }
 
-  if (timeout)
-  {
-    dispose(mboxB, mboxA);
-    reset_timeout();
-    ballot++;
-    round = A;
-    m = (msg *) malloc(sizeof(msg));
-    m->round = A;
-    m->ballot = ballot;
-    send(all, m);
-    return 0;
-  }
-
+  return 0;
 }
 
 

@@ -18,10 +18,10 @@ def prepare_for_pycparser(filename):
  
     with open(filename) as f:
         original_file_str = f.read()
-    
+        
     result_str = original_file_str.replace('#include "'+os.path.basename(decl_filename)+'"', '')
     result_str = result_str.replace('#include "'+os.path.basename(types_filename)+'"', types_h_str)
-
+    
     return result_str
 
 def prepare_for_framac(input_str_unfolded, filename):
@@ -42,18 +42,17 @@ def prepare_for_framac(input_str_unfolded, filename):
 
 def check_positive(value):
     ivalue = int(value)
-    if ivalue < 0:
+    if ivalue < 1:
         raise argparse.ArgumentTypeError("%s is an invalid positive int value" % value)
     return ivalue
 
 if __name__ == "__main__":
-
     # Parse the program arguments
     argparser = argparse.ArgumentParser('Event driven async to sync')
     argparser.add_argument('filename', help='name of file to parse')
     argparser.add_argument('unfolds', help='number of unfolds to perform', type=check_positive)
     args = argparser.parse_args()
-
+    
     # Pycparser doesn't support directives, we replace them for its content
     input_str_pycparser = prepare_for_pycparser(args.filename)
 
@@ -69,7 +68,7 @@ if __name__ == "__main__":
     # Now we insert the directives for a souce usable in Frama-C
     input_str_framac = prepare_for_framac(input_str_unfolded, args.filename)
     final_code = input_str_framac
-
-    print(final_code)
     
+    print(final_code)
+
     # frama-c-gui -val -main func examples/roundAtoB.unfold1.c

@@ -1,5 +1,5 @@
 #include "stdlib.h"
-#include "roundAtoB_types.h"
+#include "modsmartsync_types.h"
 
 /*@ ensures (\result == \null) ||
     (\result != \null &&
@@ -20,7 +20,16 @@ msg * recv(int v, int t){
 requires \true;
 ensures \result >= 0 && \result <= n;
 @*/
-int count(list * mboxA, int ballot, int round, int n);
+int count(list * mbox, int regency, int round, int n);
+
+int count_change_regency(list * mbox, int regency);
+
+list* valid_timedout_messages(list* mbox);
+
+list* signed_stopdata_messages(list* mbox);
+
+
+int size(list * mbox);
 
 void send(int addr, msg * m);
 

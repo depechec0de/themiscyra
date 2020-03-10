@@ -15,7 +15,7 @@ def unfold(ast, times: int):
 
     while_body = copy.deepcopy(main_while.stmt.block_items)
 
-    for i in range(0,times):
+    for i in range(1,times):
         _insert_node_after_continue(main_while, while_body)
 
     # Remove the main while

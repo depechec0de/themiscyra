@@ -47,7 +47,7 @@ int main()
         m->ballot = ballot;
         send(all, m);
       }
-      continue;
+    
       
     }
 
@@ -65,10 +65,9 @@ int main()
         m->ballot = ballot;
         send(all, m);
       }
-      continue;
     }
 
-    if (timeout)
+    if (!not_null(recv_msg) && timeout)
     {
       dispose(mboxA);
       dispose(mboxB);
@@ -79,7 +78,7 @@ int main()
       m->round = 0;
       m->ballot = ballot;
       send(all, m);
-      continue;
+  
     }
 
   }
