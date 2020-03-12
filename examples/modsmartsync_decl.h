@@ -28,7 +28,6 @@ list* valid_timedout_messages(list* mbox);
 
 list* signed_stopdata_messages(list* mbox);
 
-
 int size(list * mbox);
 
 void send(int addr, msg * m);

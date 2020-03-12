@@ -1,17 +1,16 @@
 #include "modsmartsync_types.h"
 #include "modsmartsync_decl.h"
-
-int all=1000;
-
-int creg = 0;
-int nreg = 0;
-
 int func(int p, int n)
 {
     int round;
     int leader;
 
     int timeout;
+
+    int all=1000;
+
+    int creg = 0;
+    int nreg = 0;
     
     msg* m;
     msg* recv_msg;
@@ -28,10 +27,7 @@ int func(int p, int n)
         stop_mbox = havoc(creg);
         stopdata_mbox = havoc(creg);
         sync_mbox = havoc(creg);
-        
-        // TIMEOUT DETECTED
-        // PHASE := nreg
-        // ROUND := round
+ 
         if(timeout && nreg == creg){
             nreg = creg+1;
             round = STOP;
@@ -64,7 +60,6 @@ int func(int p, int n)
             continue;
         }
 
-        // count_change_regency() check that I received 2n/3 stop messages for the next regency creg+1
         if(round == STOP && count_change_regency(stop_mbox, creg+1)>2*n/3 && nreg > creg){
             creg = nreg;
             round = STOPDATA;
@@ -81,7 +76,6 @@ int func(int p, int n)
             continue;
         }
 
-        // LEADER
         if(round == STOPDATA && p == leader && size(stopdata_mbox) > 2*n/3){
 
             round = SYNC;
@@ -95,7 +89,6 @@ int func(int p, int n)
             continue;
         }
 
-        // FOLLOWER
         if(round == STOPDATA && size(sync_mbox) == 1 && nreg == creg && from_leader(sync_mbox)){
             if(check_proofs()){
                 back_to_normalop();

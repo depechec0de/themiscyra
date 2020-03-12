@@ -2,9 +2,9 @@ struct Msg
 {
   int round;
   int reg;
-  list* timedout_msgs;
-  list* decided_log;
-  list* proofs;
+  void* timedout_msgs;
+  void* decided_log;
+  void* proofs;
 };
 typedef struct Msg msg;
 typedef struct List

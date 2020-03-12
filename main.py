@@ -58,6 +58,7 @@ if __name__ == "__main__":
 
     # Now we can use pycparser to obtain the AST
     parser = c_parser.CParser()
+
     ast = parser.parse(input_str_pycparser)
     ast_tools.unfold(ast, args.unfolds)
 
