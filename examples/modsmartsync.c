@@ -76,7 +76,7 @@ int func(int p, int n)
             continue;
         }
 
-        if(round == STOPDATA && p == leader && size(stopdata_mbox) > 2*n/3){
+        if(round == STOPDATA && (p == creg % n) && size(stopdata_mbox) > 2*n/3){
 
             round = SYNC;
 
@@ -84,7 +84,7 @@ int func(int p, int n)
             m->round = SYNC;
             m->reg = creg;
             m->proofs = stopdata_mbox;
-            send(leader,m);
+            send(all,m);
 
             continue;
         }
