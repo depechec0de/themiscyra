@@ -89,11 +89,10 @@ int func(int p, int n)
             continue;
         }
 
-        if(round == STOPDATA && size(sync_mbox) == 1 && nreg == creg && from_leader(sync_mbox)){
-            if(check_proofs()){
-                back_to_normalop();
-                round = STOP;
-            }
+        if(round == STOPDATA && size(sync_mbox) == 1 && nreg == creg && from_leader(sync_mbox) && check_proofs()){
+            back_to_normalop();
+            round = STOP;
+            continue;
         }
 
 
