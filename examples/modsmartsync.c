@@ -98,9 +98,6 @@ int func(int p, int n)
                 rebuild_state(stopdata_mbox);
                 vp_decide(current_log());
             }
-
-            nreg = creg+1;
-            round = STOP;
             
             continue;
         }
