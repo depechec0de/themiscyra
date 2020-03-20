@@ -28,6 +28,8 @@ int func(int p, int n)
  
         if(timeout() && nreg == creg){
             // @assert nreg == creg
+            nreg = creg+1;
+            round = STOP;
 
             cancelTimers();
             msg* m = (msg *) malloc(sizeof(msg));
@@ -41,6 +43,8 @@ int func(int p, int n)
 
         if(count_change_regency(stop_mbox, creg+1)>n/3 && nreg == creg){
             // @assert nreg == creg
+            nreg = creg+1;
+            round = STOP;
 
             valid_timedout_msgs = valid_timedout_messages(stop_mbox);
             add_messages_to_order(valid_timedout_msgs);
@@ -82,9 +86,6 @@ int func(int p, int n)
             m->proofs = stopdata_mbox;
             send(all,m);
 
-            nreg = creg+1;
-            round = STOP;
-
             continue;
         }
 
@@ -92,7 +93,7 @@ int func(int p, int n)
         if(round == STOPDATA && size(sync_mbox) == 1 && nreg == creg && from_leader(first_message(sync_mbox), creg) && check_proofs()){
 
             round = SYNC;
-
+            
             if(size(valid_sync_data())> 2*n/3){
                 rebuild_state(stopdata_mbox);
                 vp_decide(current_log());
