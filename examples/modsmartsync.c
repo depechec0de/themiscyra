@@ -5,8 +5,6 @@ int func(int p, int n)
     int round;
     int leader;
 
-    int timeout;
-
     int all=1000;
 
     int creg = 0;
@@ -28,9 +26,8 @@ int func(int p, int n)
         stopdata_mbox = havoc(creg);
         sync_mbox = havoc(creg);
  
-        if(timeout && nreg == creg){
-            nreg = creg+1;
-            round = STOP;
+        if(timeout() && nreg == creg){
+            // @assert nreg == creg
 
             cancelTimers();
             msg* m = (msg *) malloc(sizeof(msg));
@@ -43,9 +40,7 @@ int func(int p, int n)
         }
 
         if(count_change_regency(stop_mbox, creg+1)>n/3 && nreg == creg){
-            
-            nreg = creg+1;
-            round = STOP;
+            // @assert nreg == creg
 
             valid_timedout_msgs = valid_timedout_messages(stop_mbox);
             add_messages_to_order(valid_timedout_msgs);
@@ -76,6 +71,7 @@ int func(int p, int n)
             continue;
         }
 
+        // leader
         if(round == STOPDATA && (p == creg % n) && size(stopdata_mbox) > 2*n/3){
 
             round = SYNC;
@@ -86,15 +82,27 @@ int func(int p, int n)
             m->proofs = stopdata_mbox;
             send(all,m);
 
-            continue;
-        }
-
-        if(round == STOPDATA && size(sync_mbox) == 1 && nreg == creg && from_leader(sync_mbox) && check_proofs()){
-            back_to_normalop();
+            nreg = creg+1;
             round = STOP;
+
             continue;
         }
 
+
+        if(round == STOPDATA && size(sync_mbox) == 1 && nreg == creg && from_leader(first_message(sync_mbox), creg) && check_proofs()){
+
+            round = SYNC;
+
+            if(size(valid_sync_data())> 2*n/3){
+                rebuild_state(stopdata_mbox);
+                vp_decide(current_log());
+            }
+
+            nreg = creg+1;
+            round = STOP;
+            
+            continue;
+        }
 
     }
 
