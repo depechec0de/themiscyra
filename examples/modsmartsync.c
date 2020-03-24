@@ -26,7 +26,7 @@ int func(int p, int n)
         stopdata_mbox = havoc(creg);
         sync_mbox = havoc(creg);
  
-        if(timeout() && nreg == creg){
+        if(message_timeout_expires() && nreg == creg){
             // @assert nreg == creg
             nreg = creg+1;
             round = STOP;
