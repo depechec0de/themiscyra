@@ -1,6 +1,8 @@
 struct Msg
 {
+  int phase;
   int round;
+  
   int view;
   int replica;
   void* log;
@@ -13,4 +15,4 @@ typedef struct List
   int size;
 } list;
 
-enum round_typ {STARTVIEWCHANGE, DOVIEWCHANGE, STARTVIEW};
+enum round_typ {STARTVIEWCHANGE, DOVIEWCHANGE, STARTVIEW, REQUEST, PREPARE, PREPAREOK};

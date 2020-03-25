@@ -8,13 +8,7 @@
     \initialized(&\result->ballot) &&
     (\result->round == 0 ||  \result->round == 1));
 @*/
-msg * recv(int v, int t){
-    msg* m = (msg *) malloc(sizeof(msg));
-    if (m==NULL) return NULL;
-    m->round = v%2;
-    m->ballot = t;
-    return m;
-}
+msg * recv();
 
 /*@
 requires \true;
