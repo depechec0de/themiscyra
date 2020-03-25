@@ -19,15 +19,9 @@ int func(int p, int n, int f)
     while(1){
 
         msg* m = (msg *) malloc(sizeof(msg));
-
-        if(new_msg_recv()){
-            m = recv();
-            if(m->view >= view){
-                add(m,mbox);
-            }
-            continue;
-        }
-
+        m = recv();
+        add(m,mbox);
+   
         // NORMALOP
 
         if(round == REQUEST && p==primary(view,n) && count_messages(mbox, view, REQUEST) > 0){
