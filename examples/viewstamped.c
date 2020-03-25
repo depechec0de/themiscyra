@@ -51,25 +51,32 @@ int func(int p, int n, int f)
                 send(primary(view,n),m);
             }
 
-            phase = phase+1;
-            round = REQUEST;
-
             continue;
         }
 
-        if(round == PREPAREOK && p==primary(view,n) && count_messages(mbox, view, PREPAREOK) > 0){
+        if(round == PREPAREOK && p==primary(view,n) && count_messages(mbox, view, PREPAREOK) > f){
+
+            round = COMMIT;
 
             for(list * msg = mbox_iterator(mbox, view, PREPAREOK); msg != NULL; msg = msg->next){
-                if(count_by_message(msg, mbox, view, PREPAREOK) > f){
-                    reply_to_client(msg);
-                }
+                reply_to_client(msg);
+
+                m->round = COMMIT;
+                m->phase = phase;
+                m->view = view;
+                send(all,m);
             }
+
+            continue;
+        }
+
+        if(round == PREPAREOK && count_messages(mbox, view, COMMIT) > 0){
+            commit_to_log();
 
             phase = phase+1;
             round = REQUEST;
-            
-            continue;
         }
+
 
         // VIEWCHANGE
 
