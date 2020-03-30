@@ -5,11 +5,17 @@ int func(int p, int n, int f)
     int all=1000;
 
     // sync variables
-    int phase = 0;
-    int round = REQUEST;
-
     int view = 0;
+    int vround = STARTVIEW;
+    int phase = 0;
+    int nround;
+    if(p==primary(view,n)){
+        nround = REQUEST;
+    }else{
+        nround = PREPARE;
+    }
     
+
     msg* m;
     msg* recv_msg;
 
@@ -19,62 +25,90 @@ int func(int p, int n, int f)
     while(1){
 
         msg* m = (msg *) malloc(sizeof(msg));
-        m = recv();
-        add(m,mbox);
-   
+        if(m = recv() && m != NULL){
+        
+            if(m->view >= view || m->vround >= vround || m->phase >= phase || m->nround >= nround){
+            
+                if(m->view > view || m->vround > vround || m->phase > phase || m->nround > nround){
+                    discard(mbox);
+                    view = m->view;
+                    vround = m->vround;
+                    phase = m->phase;
+                    nround = m->nround;
+                }
+
+                add(m,mbox);
+
+            }
+
+        }
+
         // NORMALOP
 
-        if(round == REQUEST && p==primary(view,n) && count_messages(mbox, view, REQUEST) > 0){
+        if(vround == STARTVIEW && nround == REQUEST && p==primary(view,n) && count_messages(mbox, STARTVIEW, phase, REQUEST) > 0){
 
-            round = PREPARE;
+            nround = PREPARE;
 
-            for(list * msg = mbox_iterator(mbox, view, REQUEST); msg != NULL; msg = msg->next){
-                m->round = PREPARE;
-                m->phase = phase;
+            for(list * msg = mbox_iterator(mbox, view, STARTVIEW, phase, REQUEST); msg != NULL; msg = msg->next){
                 m->view = view;
+                m->vround = vround;
+                m->phase = phase;
+                m->nround = PREPARE;
+                m->replica = p;
                 send(all,m);
             }
 
-            round = PREPAREOK;
+            nround = PREPAREOK;
             
             continue;
         }
 
-        if(round == REQUEST && count_messages(mbox, view, PREPARE) > 0){
+        if(vround == STARTVIEW && nround == PREPARE && count_messages(mbox, view, STARTVIEW, phase, PREPARE) > 0){
 
-            round = PREPAREOK;
+            nround = PREPAREOK;
 
-            for(list * msg = mbox_iterator(mbox, view, PREPARE); msg != NULL; msg = msg->next){
-                m->round = PREPAREOK;
-                m->phase = phase;
+            for(list * msg = mbox_iterator(mbox, view, STARTVIEW, phase, PREPARE); msg != NULL; msg = msg->next){
                 m->view = view;
+                m->vround = vround;
+                m->phase = phase;
+                m->nround = PREPAREOK;
+                m->replica = p;
                 send(primary(view,n),m);
             }
 
+            nround = COMMIT;
+
             continue;
         }
 
-        if(round == PREPAREOK && p==primary(view,n) && count_messages(mbox, view, PREPAREOK) > f){
+        if(vround == STARTVIEW && nround == PREPAREOK && p==primary(view,n) && count_messages(mbox, view, phase, PREPAREOK) > f){
 
-            round = COMMIT;
+            nround = COMMIT;
+            commit_to_log();
 
-            for(list * msg = mbox_iterator(mbox, view, PREPAREOK); msg != NULL; msg = msg->next){
+            for(list * msg = mbox_iterator(mbox, view, STARTVIEW, phase, PREPAREOK); msg != NULL; msg = msg->next){
                 reply_to_client(msg);
 
-                m->round = COMMIT;
-                m->phase = phase;
                 m->view = view;
+                m->vround = vround;
+                m->phase = phase;
+                m->nround = COMMIT;
+                m->replica = p;
                 send(all,m);
             }
 
+            phase = phase+1;
+            nround = REQUEST;
+
             continue;
         }
 
-        if(round == PREPAREOK && count_messages(mbox, view, COMMIT) > 0){
+        if(vround == STARTVIEW && nround == COMMIT && count_messages(mbox, view, STARTVIEW, phase, COMMIT) > 0){
+
             commit_to_log();
 
             phase = phase+1;
-            round = REQUEST;
+            nround = PREPARE;
         }
 
 
@@ -82,49 +116,64 @@ int func(int p, int n, int f)
 
         if(primary_timeout()){
             
-            round = STARTVIEWCHANGE;
-
+            vround = STARTVIEWCHANGE;
             view = view+1;
 
-            m->round = STARTVIEWCHANGE;
-            m->phase = phase;
             m->view = view;
+            m->vround = STARTVIEWCHANGE;
+            m->phase = phase;
+            m->nround = nround;
             m->replica = p;
             send(all,m);
             continue;
         }
 
-        if(round == STARTVIEWCHANGE && count_messages(mbox, view, STARTVIEWCHANGE) > f){
-            round = DOVIEWCHANGE;
+        if(vround == STARTVIEWCHANGE && p==primary(view,n) && count_messages(mbox, view, STARTVIEWCHANGE, phase, nround) > f){
+            vround = DOVIEWCHANGE;
+            continue;
+        }
 
-            m->round = DOVIEWCHANGE;
+        if(vround == STARTVIEWCHANGE && p!=primary(view,n) && count_messages(mbox, view, STARTVIEWCHANGE, phase, nround) > f){
+            vround = DOVIEWCHANGE;
+
             m->view = view;
+            m->vround = DOVIEWCHANGE;
+            m->phase = phase;
+            m->nround = nround;
+            m->replica = p;
             m->log = local_log();
             send(primary(view,n), m);
 
-            round = STARTVIEW;
+            vround = STARTVIEW;
 
             continue;
         }
 
-        if(round == DOVIEWCHANGE && p==primary(view,n) && count_messages(mbox, view, DOVIEWCHANGE) > f){
+        if(vround == DOVIEWCHANGE && p==primary(view,n) && count_messages(mbox, view, DOVIEWCHANGE, phase, nround) > f){
 
-            round = STARTVIEW;
+            vround = STARTVIEW;
+            computes_new_log();
 
-            m->round = STARTVIEW;
             m->view = view;
+            m->vround = STARTVIEW;
+            m->phase = phase;
+            m->nround = nround;
+            m->replica = p;
             m->log = local_log();
             send(all, m);
 
+            nround = REQUEST;
+            phase = phase+1;
+
             continue;
         }
 
-        if(round == STARTVIEW && count_messages(mbox, view, STARTVIEW) > 0){
+        if(vround == STARTVIEW && p!=primary(view,n) && count_messages(mbox, view, STARTVIEW, phase, nround) > 0){
             
             computes_new_log();
 
             // Back to normalop
-            round = REQUEST;
+            nround = REQUEST;
             phase = phase+1;
             continue;
         }

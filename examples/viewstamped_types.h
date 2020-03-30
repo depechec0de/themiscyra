@@ -1,9 +1,10 @@
 struct Msg
 {
-  int phase;
-  int round;
-  
   int view;
+  int vround;
+  int phase;
+  int nround;
+  
   int replica;
   void* log;
 };
@@ -15,4 +16,5 @@ typedef struct List
   int size;
 } list;
 
-enum round_typ {STARTVIEWCHANGE, DOVIEWCHANGE, STARTVIEW, REQUEST, PREPARE, PREPAREOK, COMMIT};
+enum vround_typ {STARTVIEWCHANGE, DOVIEWCHANGE, STARTVIEW};
+enum nround_typ {REQUEST, PREPARE, PREPAREOK, COMMIT};
