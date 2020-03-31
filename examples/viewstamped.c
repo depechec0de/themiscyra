@@ -63,7 +63,7 @@ int func(int p, int n, int f)
             continue;
         }
 
-        if(vround == STARTVIEW && nround == PREPARE && count_messages(mbox, view, STARTVIEW, phase, PREPARE) > 0){
+        if(vround == STARTVIEW && nround == PREPARE && p!=primary(view,n) && count_messages(mbox, view, STARTVIEW, phase, PREPARE) > 0){
 
             nround = PREPAREOK;
 
@@ -103,7 +103,7 @@ int func(int p, int n, int f)
             continue;
         }
 
-        if(vround == STARTVIEW && nround == COMMIT && count_messages(mbox, view, STARTVIEW, phase, COMMIT) > 0){
+        if(vround == STARTVIEW && nround == COMMIT && p!=primary(view,n) && count_messages(mbox, view, STARTVIEW, phase, COMMIT) > 0){
 
             commit_to_log();
 
