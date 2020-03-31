@@ -27,9 +27,9 @@ int func(int p, int n, int f)
         msg* m = (msg *) malloc(sizeof(msg));
         if(m = recv() && m != NULL){
         
-            if(m->view >= view || m->vround >= vround || m->phase >= phase || m->nround >= nround){
+            if(local_timestamp() <= timestamp(m)){
             
-                if(m->view > view || m->vround > vround || m->phase > phase || m->nround > nround){
+                if(local_timestamp() < timestamp(m)){
                     discard(mbox);
                     view = m->view;
                     vround = m->vround;
