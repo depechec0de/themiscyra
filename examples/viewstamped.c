@@ -121,8 +121,6 @@ int func(int p, int n, int f)
 
             m->view = view;
             m->vround = STARTVIEWCHANGE;
-            m->phase = phase;
-            m->nround = nround;
             m->replica = p;
             send(all,m);
             continue;
@@ -138,8 +136,6 @@ int func(int p, int n, int f)
 
             m->view = view;
             m->vround = DOVIEWCHANGE;
-            m->phase = phase;
-            m->nround = nround;
             m->replica = p;
             m->log = local_log();
             send(primary(view,n), m);
@@ -156,14 +152,12 @@ int func(int p, int n, int f)
 
             m->view = view;
             m->vround = STARTVIEW;
-            m->phase = phase;
-            m->nround = nround;
             m->replica = p;
             m->log = local_log();
             send(all, m);
 
             nround = REQUEST;
-            phase = phase+1;
+            phase = 0;
 
             continue;
         }
@@ -173,8 +167,8 @@ int func(int p, int n, int f)
             computes_new_log();
 
             // Back to normalop
-            nround = REQUEST;
-            phase = phase+1;
+            nround = PREPARE;
+            phase = 0;
             continue;
         }
 
