@@ -24,6 +24,7 @@ int func(int p, int n, int f)
 
     while(1){
 
+        /*
         msg* m = (msg *) malloc(sizeof(msg));
         if(m = recv() && m != NULL){
         
@@ -42,10 +43,12 @@ int func(int p, int n, int f)
             }
 
         }
+        */
+        mbox = havoc();
 
         // NORMALOP
 
-        if(vround == STARTVIEW && nround == REQUEST && p==primary(view,n) && count_messages(mbox, STARTVIEW, phase, REQUEST) > 0){
+        if(vround == STARTVIEW && nround == REQUEST && p==primary(view,n) && count_messages(mbox, view, STARTVIEW, phase, REQUEST) > 0){
 
             nround = PREPARE;
 
@@ -81,7 +84,7 @@ int func(int p, int n, int f)
             continue;
         }
 
-        if(vround == STARTVIEW && nround == PREPAREOK && p==primary(view,n) && count_messages(mbox, view, phase, PREPAREOK) > f){
+        if(vround == STARTVIEW && nround == PREPAREOK && p==primary(view,n) && count_messages(mbox, view, STARTVIEW, phase, PREPAREOK) > f){
 
             nround = COMMIT;
             commit_to_log();
@@ -126,12 +129,12 @@ int func(int p, int n, int f)
             continue;
         }
 
-        if(vround == STARTVIEWCHANGE && p==primary(view,n) && count_messages(mbox, view, STARTVIEWCHANGE, phase, nround) > f){
+        if(vround == STARTVIEWCHANGE && p==primary(view,n) && count_messages(mbox, view, STARTVIEWCHANGE, NULL, NULL) > f){
             vround = DOVIEWCHANGE;
             continue;
         }
 
-        if(vround == STARTVIEWCHANGE && p!=primary(view,n) && count_messages(mbox, view, STARTVIEWCHANGE, phase, nround) > f){
+        if(vround == STARTVIEWCHANGE && p!=primary(view,n) && count_messages(mbox, view, STARTVIEWCHANGE, NULL, NULL) > f){
             vround = DOVIEWCHANGE;
 
             m->view = view;
@@ -145,7 +148,7 @@ int func(int p, int n, int f)
             continue;
         }
 
-        if(vround == DOVIEWCHANGE && p==primary(view,n) && count_messages(mbox, view, DOVIEWCHANGE, phase, nround) > f){
+        if(vround == DOVIEWCHANGE && p==primary(view,n) && count_messages(mbox, view, DOVIEWCHANGE, NULL, NULL) > f){
 
             vround = STARTVIEW;
             computes_new_log();
@@ -157,18 +160,18 @@ int func(int p, int n, int f)
             send(all, m);
 
             nround = REQUEST;
-            phase = 0;
+            phase = phase+1;
 
             continue;
         }
 
-        if(vround == STARTVIEW && p!=primary(view,n) && count_messages(mbox, view, STARTVIEW, phase, nround) > 0){
+        if(vround == STARTVIEW && p!=primary(view,n) && count_messages(mbox, view, STARTVIEW, NULL, NULL) > 0){
             
             computes_new_log();
 
             // Back to normalop
             nround = PREPARE;
-            phase = 0;
+            phase = phase+1;
             continue;
         }
 
