@@ -25,6 +25,7 @@ int func(int p, int n, int f)
     while(1){
 
         mbox = havoc();
+        future_view = get_max_view(mbox);
 
         /*********************
         
@@ -68,22 +69,13 @@ int func(int p, int n, int f)
             continue;
         }
 
-        // if I didn't received the requests between opnumber and my max stored opnumber for a long time I request a state transfer
-        if (requests_timeout())
-        {
-            // I ask for all the requests starting from my last commit
-            state_transfer_from(commit_number);
-        }
-
         /*********************
         
             View Change 
         
         **********************/
 
-        future_view = get_max_view(mbox);
-
-        if( primary_timeout())
+        if( primary_timeout() )
         {
             vround = STARTVIEWCHANGE;
             view = view+1;
