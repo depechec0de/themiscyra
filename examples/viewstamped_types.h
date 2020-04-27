@@ -17,4 +17,4 @@ typedef struct List
 } list;
 
 enum vround_typ {STARTVIEWCHANGE, DOVIEWCHANGE, STARTVIEW};
-enum nround_typ {REQUEST, PREPARE, PREPAREOK, COMMIT};
+enum nround_typ {PREPARE, PREPAREOK, COMMIT};
