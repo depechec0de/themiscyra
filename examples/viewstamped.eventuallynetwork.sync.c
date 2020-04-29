@@ -1,3 +1,7 @@
+/*
+Network assumption: EVENTUALLY process receive at least f+1 messages
+*/
+
 MAIN(){
     STARTVIEWCHANGE
         SEND:
@@ -5,9 +9,11 @@ MAIN(){
 
         UPDATE:
             if(count_messages(mbox) > f){
-                vround = DOVIEWCHANGE;
+                STARTVIEWCHANGE_mbox = mbox;
+            }else{
+                vround = STARTVIEWCHANGE;
             }
-            STARTVIEWCHANGE_mbox = mbox;
+            
 
     DOVIEWCHANGE
         SEND:
@@ -15,13 +21,10 @@ MAIN(){
                 send(primary(view,n), message(view, DOVIEWCHANGE, p, log));
             }
         UPDATE:
-            DOVIEWCHANGE_mbox = mbox
-            if( p!=primary(view,n)){
-                vround = STARTVIEW;
-            }else if(p==primary(view,n) && count_messages(STARTVIEWCHANGE_mbox) > f){
-                vround = STARTVIEW;
+            if(p==primary(view,n) && count_messages(STARTVIEWCHANGE_mbox) > f){
+                DOVIEWCHANGE_mbox = mbox
             }else{
-                vround = ERR_ROUND;
+                vround = STARTVIEWCHANGE;
             }
 
 
@@ -34,19 +37,15 @@ MAIN(){
             if( p==primary(view,n) ){
                 if(count_messages(STARTVIEWCHANGE_mbox) > f && count_messages(DOVIEWCHANGE_mbox) > f){
                     computes_new_log();
-                    nround = PREPARE;
                     NORMALOP();
-                    vround = STARTVIEWCHANGE;
                 }else{
-                    vround = ERR_ROUND;
+                    vround = STARTVIEWCHANGE;
                 }
             }else{
                 if(count_messages(STARTVIEWCHANGE_mbox) > f && count_messages(mbox) == 1){
-                    nround = PREPARE;
                     NORMALOP();
-                    vround = STARTVIEWCHANGE;
                 }else{
-                    vround = ERR_ROUND;
+                    vround = STARTVIEWCHANGE;
                 }
             }
             
@@ -60,13 +59,10 @@ NORMALOP(){
                 send(all, message(view,PREPARE,p));
             }
         UPDATE:
-            PREPARE_mbox = mbox
-            if(p!=primary(view,n) && count_messages(mbox) == 1){
-                nround = PREPAREOK;
-            }else if(p==primary(view,n)){
-                nround = PREPAREOK;
-            }else{
+            if(!(count_messages(mbox) == 1 && mbox[0]->replica == primary(view,n))){
                 out();
+            }else{
+                PREPARE_mbox = mbox
             }
 
     PREPAREOK
@@ -77,13 +73,11 @@ NORMALOP(){
             }
         UPDATE:  
             if( p==primary(view,n) && count_messages(mbox) > f){
-                nround = COMMIT;
-            }else if(p!=primary(view,n)){
-                nround = COMMIT;
+                PREPAREOK_mbox = mbox
             }else{
                 out();
             }
-            PREPAREOK_mbox = mbox
+            
 
     COMMIT
 
@@ -95,10 +89,8 @@ NORMALOP(){
         UPDATE:
             if(p!=primary(view,n) && count_messages(PREPARE_mbox) == 1 && count_messages(mbox) == 1){
                 commit_to_log();
-                nround = PREPARE;
             }else if(p==primary(view,n) && count_messages(PREPAREOK_mbox) > f){
                 commit_to_log();
-                nround = PREPARE;
             }else{
                 out();
             }
