@@ -8,7 +8,9 @@ MAIN(){
             send(all, message(view,STARTVIEWCHANGE,p));
 
         UPDATE:
-            
+            if(!(count_messages(mbox) == 1 && mbox[0]->replica == primary(view,n))){
+                vround = STARTVIEWCHANGE;
+            }
             
     DOVIEWCHANGE
         SEND:
