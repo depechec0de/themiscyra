@@ -25,7 +25,7 @@ MAIN(){
             }
         UPDATE:
             if(!(count_messages(mbox) == 1 && mbox[0]->replica == primary(view,n))){
-                out();
+                vround = STARTVIEWCHANGE;
             }
             computes_new_log();
             NORMALOP();
