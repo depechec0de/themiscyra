@@ -114,9 +114,8 @@ int func(int p, int n, int f)
 
             computes_new_log();
             send(all, message(future_view, STARTVIEW, p, log));
-
-            nround = REQUEST;
-
+            
+            nround = PREPARE;
             continue;
         }
 
