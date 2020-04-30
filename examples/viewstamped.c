@@ -7,7 +7,7 @@ int func(int p, int n, int f)
     // sync variables
     int view = 0;
     int vround = STARTVIEW;
-    int phase = 0;
+    int opnumber = 0;
     int nround = PREPARE;
 
     msg* m;
@@ -20,13 +20,11 @@ int func(int p, int n, int f)
 
         mbox = havoc();
 
-        // NORMALOP
-
         if(vround == STARTVIEW && nround == PREPARE && p==primary(view,n)){
-
+            // NORMALOP
             m->view = view;
             m->vround = vround;
-            m->phase = phase;
+            m->opnumber = opnumber;
             m->nround = PREPARE;
             m->replica = p;
             send(all,m);
@@ -36,13 +34,13 @@ int func(int p, int n, int f)
             continue;
         }
 
-        if(vround == STARTVIEW && nround == PREPARE && p!=primary(view,n) && count_messages(mbox, view, STARTVIEW, phase, PREPARE) == 1){
-
+        if(vround == STARTVIEW && nround == PREPARE && p!=primary(view,n) && count_messages(mbox, view, STARTVIEW, opnumber, PREPARE) == 1){
+            // NORMALOP
             nround = PREPAREOK;
 
             m->view = view;
             m->vround = vround;
-            m->phase = phase;
+            m->opnumber = opnumber;
             m->nround = PREPAREOK;
             m->replica = p;
             send(primary(view,n),m);
@@ -52,8 +50,8 @@ int func(int p, int n, int f)
             continue;
         }
 
-        if(vround == STARTVIEW && nround == PREPAREOK && p==primary(view,n) && count_messages(mbox, view, STARTVIEW, phase, PREPAREOK) > f){
-
+        if(vround == STARTVIEW && nround == PREPAREOK && p==primary(view,n) && count_messages(mbox, view, STARTVIEW, opnumber, PREPAREOK) > f){
+            // NORMALOP
             nround = COMMIT;
             commit_to_log();
 
@@ -61,34 +59,30 @@ int func(int p, int n, int f)
 
             m->view = view;
             m->vround = vround;
-            m->phase = phase;
+            m->opnumber = opnumber;
             m->nround = COMMIT;
             m->replica = p;
             send(all,m);
             
 
-            phase = phase+1;
+            opnumber = opnumber+1;
             nround = PREPARE;
 
             continue;
         }
 
-        if(vround == STARTVIEW && nround == COMMIT && p!=primary(view,n) && count_messages(mbox, view, STARTVIEW, phase, COMMIT) == 1){
-
+        if(vround == STARTVIEW && nround == COMMIT && p!=primary(view,n) && count_messages(mbox, view, STARTVIEW, opnumber, COMMIT) == 1){
+            // NORMALOP
             commit_to_log();
 
-            phase = phase+1;
+            opnumber = opnumber+1;
             nround = PREPARE;
         }
 
-
-        // VIEWCHANGE
-
         if(primary_timeout()){
-            
+            // VIEWCHANGE
             vround = STARTVIEWCHANGE;
-            view = view+1;
-
+            
             m->view = view;
             m->vround = STARTVIEWCHANGE;
             m->replica = p;
@@ -97,11 +91,13 @@ int func(int p, int n, int f)
         }
 
         if(vround == STARTVIEWCHANGE && p==primary(view,n) && count_messages(mbox, view, STARTVIEWCHANGE, NULL, NULL) > f){
+            // VIEWCHANGE
             vround = DOVIEWCHANGE;
             continue;
         }
 
         if(vround == STARTVIEWCHANGE && p!=primary(view,n) && count_messages(mbox, view, STARTVIEWCHANGE, NULL, NULL) > f){
+            // VIEWCHANGE
             vround = DOVIEWCHANGE;
 
             m->view = view;
@@ -116,7 +112,7 @@ int func(int p, int n, int f)
         }
 
         if(vround == DOVIEWCHANGE && p==primary(view,n) && count_messages(mbox, view, DOVIEWCHANGE, NULL, NULL) > f){
-
+            // VIEWCHANGE
             vround = STARTVIEW;
             computes_new_log();
 
@@ -126,19 +122,19 @@ int func(int p, int n, int f)
             m->log = local_log();
             send(all, m);
 
+            view = view+1;
             nround = PREPARE;
-            phase = phase+1;
 
             continue;
         }
 
         if(vround == STARTVIEW && p!=primary(view,n) && count_messages(mbox, view, STARTVIEW, NULL, NULL) == 1){
-            
+            // VIEWCHANGE
             computes_new_log();
+            view = view+1;
 
-            // Back to normalop
+            // NORMALOP
             nround = PREPARE;
-            phase = phase+1;
             continue;
         }
 

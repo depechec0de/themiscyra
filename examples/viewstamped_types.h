@@ -2,7 +2,7 @@ struct Msg
 {
   int view;
   int vround;
-  int phase;
+  int opnumber;
   int nround;
   
   int replica;

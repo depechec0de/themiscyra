@@ -27,14 +27,9 @@ int func(int p, int n, int f)
         mbox = havoc();
         future_view = get_max_view(mbox);
 
-        /*********************
-        
-            Normal operation 
-        
-        **********************/
-
         if( p==primary(view,n) && vround == STARTVIEW && nround == PREPARE && client_request())
         { 
+            // NORMALOP
             add_to_log(opnumber);
             send(all, message(view,vround,opnumber,PREPARE,p));
             nround = PREPAREOK;
@@ -44,6 +39,7 @@ int func(int p, int n, int f)
 
         if( p==primary(view,n) && vround == STARTVIEW && nround == PREPAREOK && count_messages(mbox, view, STARTVIEW, opnumber, PREPAREOK) >= f)
         {
+            // NORMALOP
             commit_number = opnumber;
 
             reply_to_client();
@@ -56,7 +52,7 @@ int func(int p, int n, int f)
 
         if( p!=primary(view,n) && vround == STARTVIEW && nround == PREPARE && count_messages(mbox, view, STARTVIEW, opnumber, PREPARE) == 1)
         {
-            
+            // NORMALOP
             nround = PREPAREOK;
 
             commit_number = opnumber;
@@ -69,14 +65,9 @@ int func(int p, int n, int f)
             continue;
         }
 
-        /*********************
-        
-            View Change 
-        
-        **********************/
-
         if( primary_timeout() )
         {
+            // VIEWCHANGE
             vround = STARTVIEWCHANGE;
             view = view+1;
             send(all, message(view,STARTVIEWCHANGE,p));
@@ -85,6 +76,7 @@ int func(int p, int n, int f)
 
         if( future_view > view && count_messages(mbox, future_view, STARTVIEWCHANGE, NULL, NULL) > 0)
         {
+            // VIEWCHANGE
             vround = STARTVIEWCHANGE;
             view = future_view;
             send(all, message(future_view,STARTVIEWCHANGE,p));
@@ -93,6 +85,7 @@ int func(int p, int n, int f)
 
         if( future_view > view && count_messages(mbox, future_view, DOVIEWCHANGE, NULL, NULL) > 0)
         {
+            // VIEWCHANGE
             vround = STARTVIEWCHANGE;
             view = future_view;
             send(all, message(future_view,STARTVIEWCHANGE,p));
@@ -101,6 +94,7 @@ int func(int p, int n, int f)
 
         if( p!=primary(future_view,n) && future_view > view && count_messages(mbox, future_view, STARTVIEWCHANGE, NULL, NULL) > f)
         {
+            // VIEWCHANGE
             vround = DOVIEWCHANGE;
             send(primary(future_view,n), message(future_view, DOVIEWCHANGE, p, log));
             vround = STARTVIEW;        
@@ -109,21 +103,23 @@ int func(int p, int n, int f)
 
         if( p==primary(future_view,n) && count_messages(mbox, future_view, DOVIEWCHANGE, NULL, NULL) > f)
         {
+            // VIEWCHANGE
             view = future_view;
             vround = STARTVIEW;
 
             computes_new_log();
             send(all, message(future_view, STARTVIEW, p, log));
-            
+            // NORMALOP
             nround = PREPARE;
             continue;
         }
 
         if( p!=primary(future_view,n) && count_messages(mbox, future_view, STARTVIEW, NULL, NULL) > 0)
         {
+            // VIEWCHANGE
             view = future_view;
             computes_new_log();
-            // Back to normalop
+            // NORMALOP
             nround = PREPARE;
             continue;
         }
