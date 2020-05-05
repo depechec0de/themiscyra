@@ -6,7 +6,7 @@ int func(int p, int n, int f)
 
     // sync variables
     int view = 0;
-    int vround = STARTVIEW;
+    int vround = STARTVIEWCHANGE;
     int opnumber = 0;
     int nround = PREPARE;
 
@@ -15,36 +15,22 @@ int func(int p, int n, int f)
 
     list* mbox=NULL;
 
-
     while(1){
 
         mbox = havoc();
 
         if(vround == STARTVIEW && nround == PREPARE && p==primary(view,n)){
             // NORMALOP
-            m->view = view;
-            m->vround = vround;
-            m->opnumber = opnumber;
-            m->nround = PREPARE;
-            m->replica = p;
-            send(all,m);
-            
+            send(all, message(view, STARTVIEW, opnumber, PREPARE, p));      
             nround = PREPAREOK;
-            
+
             continue;
         }
 
         if(vround == STARTVIEW && nround == PREPARE && p!=primary(view,n) && count_messages(mbox, view, STARTVIEW, opnumber, PREPARE) == 1){
             // NORMALOP
             nround = PREPAREOK;
-
-            m->view = view;
-            m->vround = vround;
-            m->opnumber = opnumber;
-            m->nround = PREPAREOK;
-            m->replica = p;
-            send(primary(view,n),m);
-            
+            send(primary(view,n), message(view, STARTVIEW, opnumber, PREPAREOK, p));
             nround = COMMIT;
 
             continue;
@@ -54,17 +40,9 @@ int func(int p, int n, int f)
             // NORMALOP
             nround = COMMIT;
             commit_to_log();
-
             reply_to_clients();
-
-            m->view = view;
-            m->vround = vround;
-            m->opnumber = opnumber;
-            m->nround = COMMIT;
-            m->replica = p;
-            send(all,m);
+            send(all, message(view, STARTVIEW, opnumber, COMMIT, p));     
             
-
             opnumber = opnumber+1;
             nround = PREPARE;
 
@@ -82,11 +60,8 @@ int func(int p, int n, int f)
         if(primary_timeout()){
             // VIEWCHANGE
             vround = STARTVIEWCHANGE;
-            
-            m->view = view;
-            m->vround = STARTVIEWCHANGE;
-            m->replica = p;
-            send(all,m);
+            send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));  
+
             continue;
         }
 
@@ -99,13 +74,7 @@ int func(int p, int n, int f)
         if(vround == STARTVIEWCHANGE && p!=primary(view,n) && count_messages(mbox, view, STARTVIEWCHANGE, NULL, NULL) > f){
             // VIEWCHANGE
             vround = DOVIEWCHANGE;
-
-            m->view = view;
-            m->vround = DOVIEWCHANGE;
-            m->replica = p;
-            m->log = local_log();
-            send(primary(view,n), m);
-
+            send(primary(view,n), message(view, DOVIEWCHANGE, NULL, NULL, p, local_log()));  
             vround = STARTVIEW;
 
             continue;
@@ -115,15 +84,10 @@ int func(int p, int n, int f)
             // VIEWCHANGE
             vround = STARTVIEW;
             computes_new_log();
-
-            m->view = view;
-            m->vround = STARTVIEW;
-            m->replica = p;
-            m->log = local_log();
-            send(all, m);
-
+            send(all, message(view, STARTVIEW, NULL, NULL, p, local_log()));  
             view = view+1;
             nround = PREPARE;
+            // NORMALOP
 
             continue;
         }
@@ -133,13 +97,10 @@ int func(int p, int n, int f)
             computes_new_log();
             view = view+1;
 
-            // NORMALOP
             nround = PREPARE;
+            // NORMALOP
             continue;
         }
-
-
-        
 
     }
 

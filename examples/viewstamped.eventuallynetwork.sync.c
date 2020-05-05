@@ -1,5 +1,15 @@
 /*
-Network assumption: EVENTUALLY process receive at least f+1 messages
+
+This file contains the (desired) sync version of viewstamped.c
+
+The reductions are: viewstamped.c -> viewstamped.reduction1.c -> viewstamped.eventuallynetwork.sync.c
+
+Communication predicate: EVENTUALLY process receive at least f+1 messages
+
+\Pi = set of processes
+
+\forall p \in \Pi, \forall r > 0, \exists r_0 > r : |HO(p, r_0)| >= n - f
+
 */
 
 INIT(){
