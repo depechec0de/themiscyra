@@ -1,21 +1,22 @@
 import copy
+import re
 
 from pycparser import c_parser, c_ast, parse_file, c_generator
 from ast_visitors import *
 
 
 """
-This function assumes a C code with a unique "while" iteration. The result is
-the code unfolded "times" times, where unfolding means replacing every occurrence 
+This function assumes a C code with a unique "while" statement. The result is
+the code unfolded "k" times, where unfolding means replacing every occurrence 
 of a "continue" statement with the content of the "while" body.
 """
-def unfold(ast, times: int):
+def unfold(ast, k: int):
 
     (main_while, while_parent) = get_main_while(ast)
 
     while_body = copy.deepcopy(main_while.stmt.block_items)
 
-    for i in range(1,times):
+    for i in range(1,k):
         _insert_node_after_continue(main_while, while_body)
 
     # Remove the main while
@@ -91,3 +92,51 @@ def _replace_continue_for_return(ast):
 
     elif typ == c_ast.FuncDef:
         _replace_continue_for_return(ast.body)
+
+def remove_c99_comments(text):
+    """ remove c-style comments.
+        text: blob of text with comments (can include newlines)
+        returns: text with comments removed
+    """
+    pattern = r"""
+                            ##  --------- COMMENT ---------
+           //.*?$           ##  Start of // .... comment
+         |                  ##
+           /\*              ##  Start of /* ... */ comment
+           [^*]*\*+         ##  Non-* followed by 1-or-more *'s
+           (                ##
+             [^/*][^*]*\*+  ##
+           )*               ##  0-or-more things which don't start with /
+                            ##    but do end with '*'
+           /                ##  End of /* ... */ comment
+         |                  ##  -OR-  various things which aren't comments:
+           (                ##
+                            ##  ------ " ... " STRING ------
+             "              ##  Start of " ... " string
+             (              ##
+               \\.          ##  Escaped char
+             |              ##  -OR-
+               [^"\\]       ##  Non "\ characters
+             )*             ##
+             "              ##  End of " ... " string
+           |                ##  -OR-
+                            ##
+                            ##  ------ ' ... ' STRING ------
+             '              ##  Start of ' ... ' string
+             (              ##
+               \\.          ##  Escaped char
+             |              ##  -OR-
+               [^'\\]       ##  Non '\ characters
+             )*             ##
+             '              ##  End of ' ... ' string
+           |                ##  -OR-
+                            ##
+                            ##  ------ ANYTHING ELSE -------
+             .              ##  Anything other char
+             [^/"'\\]*      ##  Chars which doesn't start a comment, string
+           )                ##    or escape
+    """
+    regex = re.compile(pattern, re.VERBOSE|re.MULTILINE|re.DOTALL)
+    noncomments = [m.group(2) for m in regex.finditer(text) if m.group(2)]
+
+    return "".join(noncomments)
