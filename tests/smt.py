@@ -113,3 +113,9 @@ add_statement_to_context(decl_node, {}, context)
 
 assert Int('phase') in context and context[Int('phase')] == 1
 
+
+src = "int main(void){enum vround_typ{ STARTVIEWCHANGE, DOVIEWCHANGE, STARTVIEW};}"
+parser = c_parser.CParser()
+ast = parser.parse(src)
+ast.show()
+

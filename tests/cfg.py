@@ -4,7 +4,7 @@ sys.path.insert(0, '..')
 
 import networkx as nx
 from semantic import *
-from ast_visitors import *
+from ast_tools import *
 from pycparser import c_parser, c_ast, parse_file
 
 ######################################

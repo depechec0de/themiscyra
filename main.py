@@ -74,9 +74,8 @@ if __name__ == "__main__":
     ast_tools.unfold(ast, args.unfolds)
 
     # Dead code elimination
-    config={'syncv': {'vround': Int('vround'), 'view': Int('view')}, 
-            'labels': {'STARTVIEWCHANGE': 0, 'DOVIEWCHANGE': 1, 'STARTVIEW': 2 } }
-    smt_tools.remove_unreachable_branches(ast, config, {})
+    constants=ast_tools.get_constants(ast)
+    smt_tools.remove_unreachable_branches(ast, constants, {})
 
     # Generate the C99 code
     generator = c_generator.CGenerator()

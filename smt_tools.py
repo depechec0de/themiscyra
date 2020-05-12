@@ -3,48 +3,48 @@ from typing import List, Set, Dict, Tuple, Optional
 from z3 import *
 
 
-def remove_unreachable_branches(ast : c_ast.Node, config, context : Dict[str, int]):
+def remove_unreachable_branches(ast : c_ast.Node, constants, context : Dict[str, int]):
     
     typ = type(ast) 
     
     if typ == c_ast.FileAST:
         for statement in ast.ext:
-            remove_unreachable_branches(statement, config, context)
+            remove_unreachable_branches(statement, constants, context)
             
     if typ == c_ast.If:
-        remove_unreachable_branches(ast.iftrue, config, context)
+        remove_unreachable_branches(ast.iftrue, constants, context)
 
     elif typ == c_ast.Assignment:
-        add_statement_to_context(ast, config, context)
+        add_statement_to_context(ast, constants, context)
         
     elif typ == c_ast.While:
-        remove_unreachable_branches(ast.stmt, config, context)
+        remove_unreachable_branches(ast.stmt, constants, context)
 
     elif typ == c_ast.Compound:
         to_delete = []
         for statement in ast.block_items:
             if type(statement) == c_ast.If:
-                predicate = ast_to_smt(statement.cond, constants=config['labels'])
+                predicate = ast_to_smt(statement.cond, constants)
                 if is_sat(predicate, context):
                     new_context = copy.deepcopy(context)
-                    remove_unreachable_branches(statement, config, new_context)
+                    remove_unreachable_branches(statement, constants, new_context)
                 else:
                     to_delete.append(statement)
             else:
-                remove_unreachable_branches(statement, config, context)
+                remove_unreachable_branches(statement, constants, context)
         for node in to_delete:
             ast.block_items.remove(node)
 
     elif typ == c_ast.FuncDef:
-        remove_unreachable_branches(ast.body, config, context)
+        remove_unreachable_branches(ast.body, constants, context)
 
-def add_statement_to_context(node: c_ast.Node, config, context : Dict[str, int]):
+def add_statement_to_context(node: c_ast.Node, constants, context : Dict[str, int]):
     if node.op == '=':
         val = None
         if type(node.rvalue) == c_ast.Constant:
             val = int(node.rvalue.value)
-        elif type(node.rvalue) == c_ast.ID:
-            val = config['labels'][node.rvalue.name]
+        elif type(node.rvalue) == c_ast.ID and node.rvalue.name in constants:
+            val = constants[node.rvalue.name]
         elif type(node.rvalue) == c_ast.FuncCall:
             val = Int(node.rvalue.name.name)
 

@@ -2,7 +2,6 @@ import copy
 import re
 
 from pycparser import c_parser, c_ast, parse_file, c_generator
-from ast_visitors import *
 
 
 """
@@ -140,3 +139,61 @@ def remove_c99_comments(text):
     noncomments = [m.group(2) for m in regex.finditer(text) if m.group(2)]
 
     return "".join(noncomments)
+
+class MainWhileVisitor(c_ast.NodeVisitor):
+    def __init__(self):
+        self.current_parent = None
+        self.result = None
+
+    def visit_While(self, node):
+        self.result = (node, self.current_parent)
+
+    def generic_visit(self, node):
+        oldparent = self.current_parent
+        self.current_parent = node
+        for c in node:
+            self.visit(c)
+        self.current_parent = oldparent
+
+def get_main_while(ast):
+    v = MainWhileVisitor()
+    v.visit(ast)
+    return v.result
+
+"""
+Get the function definition node in the AST looking by its name
+"""
+class FuncDefVisitor(c_ast.NodeVisitor):
+    def __init__(self, funcname):
+        self.funcname = funcname
+        self.result = None
+
+    def visit_FuncDef(self, node):
+        if node.decl.name == self.funcname:
+            self.result = node
+        elif hasattr(node, 'args'):
+            self.visit(node.args)
+
+def get_funcdef_node(ast, funcname):
+    v = FuncDefVisitor(funcname)
+    v.visit(ast)
+    return v.result
+c_ast.EnumeratorList
+"""
+Find the enum definitions and generate a dictionary with constants
+"""
+class EnumeratorListVisitor(c_ast.NodeVisitor):
+    def __init__(self):
+        self.constant = 0
+        self.result = {}
+
+    def visit_EnumeratorList(self, node):
+        for enum in node.enumerators:
+          if enum.name not in self.result:
+            self.result[enum.name] = self.constant
+            self.constant = self.constant+1
+
+def get_constants(ast):
+    v = EnumeratorListVisitor()
+    v.visit(ast)
+    return v.result
