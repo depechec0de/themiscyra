@@ -77,13 +77,6 @@ int func(int p, int n, int f)
       send(all, message(view, STARTVIEW, NULL, NULL, p, local_log()));
       view = view + 1;
       mbox = havoc();
-      if (((vround == STARTVIEW) && (p != primary(view, n))) && (count_messages(mbox, view, STARTVIEW, NULL, NULL) == 1))
-      {
-        computes_new_log();
-        view = view + 1;
-        return 0;
-      }
-
     }
 
   }
@@ -99,13 +92,6 @@ int func(int p, int n, int f)
       computes_new_log();
       view = view + 1;
       mbox = havoc();
-      if (((vround == STARTVIEW) && (p != primary(view, n))) && (count_messages(mbox, view, STARTVIEW, NULL, NULL) == 1))
-      {
-        computes_new_log();
-        view = view + 1;
-        return 0;
-      }
-
     }
 
   }
