@@ -79,8 +79,8 @@ int main(int p, int n, int f)
         }
 
         if(vround == DOVIEWCHANGE && p==primary(view,n) && count_messages(mbox, view, DOVIEWCHANGE, NULL, NULL) > f){
-            vround = STARTVIEW;
             computes_new_log();
+            vround = STARTVIEW;
             send(all, message(view, STARTVIEW, NULL, NULL, p, local_log()));  
             view = view+1;
 
