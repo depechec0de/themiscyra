@@ -178,7 +178,7 @@ def get_funcdef_node(ast, funcname):
     v = FuncDefVisitor(funcname)
     v.visit(ast)
     return v.result
-c_ast.EnumeratorList
+
 """
 Find the enum definitions and generate a dictionary with constants
 """

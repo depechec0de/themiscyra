@@ -46,7 +46,7 @@ def add_statement_to_context(node: c_ast.Node, constants, context : Dict[str, in
         elif type(node.rvalue) == c_ast.ID and node.rvalue.name in constants:
             val = constants[node.rvalue.name]
         elif type(node.rvalue) == c_ast.FuncCall:
-            val = Int(node.rvalue.name.name)
+            val = ast_func_to_smt_func(node.rvalue)
 
         context[Int(node.lvalue.name)] = val
 
@@ -83,11 +83,24 @@ def ast_to_smt(node: c_ast.Node, constants={}):
     elif typ == c_ast.ID and node.name == 'true':
         return True
     elif typ == c_ast.FuncCall:
-        return Int(node.name.name)
+        return ast_func_to_smt_func(node)
     elif typ == c_ast.ID and node.name in constants:
         return constants[node.name]
     elif typ == c_ast.ID:
         return Int(node.name)
+
+def ast_func_to_smt_func(node: c_ast.Node):
+    """
+    domain = []
+    if node.args is not None:
+        domain = [IntSort()] * len(node.args.exprs)
+
+    codomain = IntSort()
+
+    f = Function(node.name.name, *domain, codomain)
+    """
+    f = Int(node.name.name)
+    return f
 
 def is_sat(predicate, context):
 

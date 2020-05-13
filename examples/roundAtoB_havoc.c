@@ -1,5 +1,44 @@
-#include "roundAtoB_havoc_types.h"
-#include "roundAtoB_havoc_decl.h"
+struct Msg
+{
+  int round;
+  int ballot;
+};
+typedef struct Msg msg;
+typedef struct List
+{
+  msg *message;
+  struct List *next;
+  int size;
+} list;
+
+enum round_typ {A, B};
+
+/*@ ensures (\result == \null) ||
+    (\result != \null &&
+    \valid(\result) &&
+    \initialized(&\result->round) &&
+    \initialized(&\result->ballot) &&
+    (\result->round == 0 ||  \result->round == 1));
+@*/
+msg * recv(int v, int t){
+    msg* m = (msg *) malloc(sizeof(msg));
+    if (m==NULL) return NULL;
+    m->round = v%2;
+    m->ballot = t;
+    return m;
+}
+
+/*@
+requires \true;
+ensures \result >= 0 && \result <= n;
+@*/
+int count(list * mboxA, int ballot, int round, int n);
+
+void send(int addr, msg * m);
+
+/*@ requires p>=0 && n>0 && n<=2000;
+@*/
+int func(int p, int n);
 int func(int p, int n)
 {
     int round;

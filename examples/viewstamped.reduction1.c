@@ -9,8 +9,40 @@ Transformations:
 
 */
 
-#include "viewstamped_types.h"
-#include "viewstamped_decl.h"
+struct Msg
+{
+  int view;
+  int vround;
+  int opnumber;
+  int nround;
+  int replica;
+  void *log;
+};
+typedef struct Msg msg;
+typedef struct List
+{
+  msg *message;
+  struct List *next;
+  int size;
+} list;
+enum vround_typ
+{
+  STARTVIEWCHANGE,
+  DOVIEWCHANGE,
+  STARTVIEW
+};
+enum nround_typ
+{
+  PREPARE,
+  PREPAREOK,
+  COMMIT
+};
+msg *recv();
+int count(list *mbox, int regency, int round, int n);
+int size(list *mbox);
+void send(int addr, msg *m);
+int count_messages(list *mbox, int view, enum vround_typ vround, int phase, enum nround_typ nround);
+int func(int p, int n, int f);
 int func(int p, int n, int f)
 {
     int all=1000;

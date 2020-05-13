@@ -1,5 +1,56 @@
-#include "modsmartsync_types.h"
-#include "modsmartsync_decl.h"
+struct Msg
+{
+  int round;
+  int reg;
+  void* timedout_msgs;
+  void* decided_log;
+  void* proofs;
+};
+typedef struct Msg msg;
+typedef struct List
+{
+  msg *message;
+  struct List *next;
+  int size;
+} list;
+
+enum round_typ {STOP, STOPDATA, SYNC};
+
+/*@ ensures (\result == \null) ||
+    (\result != \null &&
+    \valid(\result) &&
+    \initialized(&\result->round) &&
+    \initialized(&\result->ballot) &&
+    (\result->round == 0 ||  \result->round == 1));
+@*/
+msg * recv(int v, int t){
+    msg* m = (msg *) malloc(sizeof(msg));
+    if (m==NULL) return NULL;
+    m->round = v%2;
+    m->ballot = t;
+    return m;
+}
+
+/*@
+requires \true;
+ensures \result >= 0 && \result <= n;
+@*/
+int count(list * mbox, int regency, int round, int n);
+
+int count_change_regency(list * mbox, int regency);
+
+list* valid_timedout_messages(list* mbox);
+
+list* signed_stopdata_messages(list* mbox);
+
+int size(list * mbox);
+
+void send(int addr, msg * m);
+
+/*@ requires p>=0 && n>0 && n<=2000;
+@*/
+int func(int p, int n);
+
 int func(int p, int n)
 {
     int round;

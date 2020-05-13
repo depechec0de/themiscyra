@@ -73,7 +73,7 @@ predicate = ast_to_smt(ast_pred)
 value = is_sat(predicate, context={Int('ballot'): 1, Int('round'): 0}) 
 assert value == False
 
-src = "int main(void){if(func()>n && ballot==1){}}"
+src = "int main(void){if(func(a,b,c)>n && ballot==1){}}"
 parser = c_parser.CParser()
 ast = parser.parse(src)
 ast_pred = ast.ext[0].body.block_items[0].cond
@@ -112,10 +112,3 @@ context = {}
 add_statement_to_context(decl_node, {}, context)
 
 assert Int('phase') in context and context[Int('phase')] == 1
-
-
-src = "int main(void){enum vround_typ{ STARTVIEWCHANGE, DOVIEWCHANGE, STARTVIEW};}"
-parser = c_parser.CParser()
-ast = parser.parse(src)
-ast.show()
-
