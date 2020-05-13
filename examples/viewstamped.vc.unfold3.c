@@ -31,8 +31,8 @@ int count(list *mbox, int regency, int round, int n);
 int size(list *mbox);
 void send(int addr, msg *m);
 int count_messages(list *mbox, int view, enum vround_typ vround, int phase, enum nround_typ nround);
-int func(int p, int n, int f);
-int func(int p, int n, int f)
+int main(int p, int n, int f);
+int main(int p, int n, int f)
 {
   int all = 1000;
   int view;
@@ -43,33 +43,40 @@ int func(int p, int n, int f)
   view = 0;
   vround = STARTVIEWCHANGE;
   send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
-  mbox = havoc();
-  if (((vround == STARTVIEWCHANGE) && (p == primary(view, n))) && (count_messages(mbox, view, STARTVIEWCHANGE, NULL, NULL) > f))
+  while (1)
   {
-    vround = DOVIEWCHANGE;
     mbox = havoc();
-    if (((vround == DOVIEWCHANGE) && (p == primary(view, n))) && (count_messages(mbox, view, DOVIEWCHANGE, NULL, NULL) > f))
+    if (((vround == STARTVIEWCHANGE) && (p == primary(view, n))) && (count_messages(mbox, view, STARTVIEWCHANGE, NULL, NULL) > f))
     {
-      vround = STARTVIEW;
-      computes_new_log();
-      send(all, message(view, STARTVIEW, NULL, NULL, p, local_log()));
-      view = view + 1;
+      vround = DOVIEWCHANGE;
       mbox = havoc();
+      if (((vround == DOVIEWCHANGE) && (p == primary(view, n))) && (count_messages(mbox, view, DOVIEWCHANGE, NULL, NULL) > f))
+      {
+        vround = STARTVIEW;
+        computes_new_log();
+        send(all, message(view, STARTVIEW, NULL, NULL, p, local_log()));
+        view = view + 1;
+        vround = STARTVIEWCHANGE;
+        mbox = havoc();
+      }
+
     }
 
-  }
-
-  if (((vround == STARTVIEWCHANGE) && (p != primary(view, n))) && (count_messages(mbox, view, STARTVIEWCHANGE, NULL, NULL) > f))
-  {
-    vround = DOVIEWCHANGE;
-    send(primary(view, n), message(view, DOVIEWCHANGE, NULL, NULL, p, local_log()));
-    vround = STARTVIEW;
-    mbox = havoc();
-    if (((vround == STARTVIEW) && (p != primary(view, n))) && (count_messages(mbox, view, STARTVIEW, NULL, NULL) == 1))
+    if (((vround == STARTVIEWCHANGE) && (p != primary(view, n))) && (count_messages(mbox, view, STARTVIEWCHANGE, NULL, NULL) > f))
     {
-      computes_new_log();
-      view = view + 1;
+      vround = DOVIEWCHANGE;
+      send(primary(view, n), message(view, DOVIEWCHANGE, NULL, NULL, p, local_log()));
+      vround = STARTVIEW;
       mbox = havoc();
+      if (((vround == STARTVIEW) && (p != primary(view, n))) && (count_messages(mbox, view, STARTVIEW, NULL, NULL) == 1))
+      {
+        computes_new_log();
+        view = view + 1;
+        vround = STARTVIEWCHANGE;
+        send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
+        mbox = havoc();
+      }
+
     }
 
   }

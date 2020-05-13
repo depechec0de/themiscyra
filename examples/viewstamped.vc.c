@@ -43,8 +43,8 @@ int count_messages(list * mbox, int view, enum vround_typ vround, int phase, enu
 
 /*@ requires p>=0 && n>0 && n<=2000;
 @*/
-int func(int p, int n, int f);
-int func(int p, int n, int f)
+int main(int p, int n, int f);
+int main(int p, int n, int f)
 {
     int all=1000;
 
@@ -59,8 +59,7 @@ int func(int p, int n, int f)
     
     view = 0;
     vround = STARTVIEWCHANGE;
-
-    send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));  
+    send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p)); 
 
     while(1){
 
@@ -84,6 +83,8 @@ int func(int p, int n, int f)
             computes_new_log();
             send(all, message(view, STARTVIEW, NULL, NULL, p, local_log()));  
             view = view+1;
+
+            vround = STARTVIEWCHANGE;
     
             continue;
         }
@@ -91,6 +92,9 @@ int func(int p, int n, int f)
         if(vround == STARTVIEW && p!=primary(view,n) && count_messages(mbox, view, STARTVIEW, NULL, NULL) == 1){
             computes_new_log();
             view = view+1;
+            
+            vround = STARTVIEWCHANGE;
+            send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p)); 
 
             continue;
         }

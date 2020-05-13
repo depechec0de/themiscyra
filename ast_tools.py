@@ -18,6 +18,7 @@ def unfold(ast, k: int):
     for i in range(1,k):
         _insert_node_after_continue(main_while, while_body)
 
+    """
     # Remove the main while
     new_while_code = copy.deepcopy(main_while.stmt)
 
@@ -27,7 +28,7 @@ def unfold(ast, k: int):
 
     # Remove the old "while"
     while_parent.block_items.remove(main_while)
-
+    """
     _replace_continue_for_return(while_parent)
 
 
