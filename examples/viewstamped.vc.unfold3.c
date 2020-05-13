@@ -41,15 +41,17 @@ int main(int p, int n, int f)
   msg *recv_msg;
   list *mbox = NULL;
   view = 0;
-  vround = STARTVIEWCHANGE;
-  send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
+  
   while (1)
   {
+    vround = STARTVIEWCHANGE;
+        send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
+
     while(1) {msg * m = recv(); if(timeout()){ break;} }
     if (((vround == STARTVIEWCHANGE) && (p == primary(view, n))) && (count_messages(mbox, view, STARTVIEWCHANGE, NULL, NULL) > f))
     {
       vround = DOVIEWCHANGE;
-      while(1) {msg * m = recv(); if(timeout()){ break;} }
+
       if (((vround == DOVIEWCHANGE) && (p == primary(view, n))) && (count_messages(mbox, view, DOVIEWCHANGE, NULL, NULL) > f))
       {
         vround = STARTVIEW;
@@ -67,14 +69,12 @@ int main(int p, int n, int f)
       vround = DOVIEWCHANGE;
       send(primary(view, n), message(view, DOVIEWCHANGE, NULL, NULL, p, local_log()));
       vround = STARTVIEW;
-      while(1) {msg * m = recv(); if(timeout()){ break;} }
+
       if (((vround == STARTVIEW) && (p != primary(view, n))) && (count_messages(mbox, view, STARTVIEW, NULL, NULL) == 1))
       {
         computes_new_log();
         view = view + 1;
-        vround = STARTVIEWCHANGE;
-        send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
-        list_dispose(mbox);
+        vround = AUX_ROUND;
       }
 
     }
