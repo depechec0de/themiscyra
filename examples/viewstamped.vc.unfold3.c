@@ -45,9 +45,8 @@ int main(int p, int n, int f)
   while (1)
   {
     vround = STARTVIEWCHANGE;
-        send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
-
-    while(1) {msg * m = recv(); if(timeout()){ break;} }
+    send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
+    
     if (((vround == STARTVIEWCHANGE) && (p == primary(view, n))) && (count_messages(mbox, view, STARTVIEWCHANGE, NULL, NULL) > f))
     {
       vround = DOVIEWCHANGE;
