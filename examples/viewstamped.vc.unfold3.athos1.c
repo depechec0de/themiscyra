@@ -27,8 +27,6 @@ enum nround_typ
   COMMIT
 };
 msg *recv();
-int count(list *mbox, int regency, int round, int n);
-int size(list *mbox);
 void send(int addr, msg *m);
 int count_messages(list *mbox, int view, enum vround_typ vround, int phase, enum nround_typ nround);
 int main(int p, int n, int f);
@@ -36,7 +34,7 @@ int main(int p, int n, int f)
 {
   int all = 1000;
   int view;
-  int vround;
+  enum vround_typ vround;
   msg *m;
   msg *recv_msg;
   list *mbox = NULL;
