@@ -28,14 +28,6 @@ enum nround_typ {PREPARE, PREPAREOK, COMMIT};
 @*/
 msg * recv();
 
-/*@
-requires \true;
-ensures \result >= 0 && \result <= n;
-@*/
-int count(list * mbox, int regency, int round, int n);
-
-int size(list * mbox);
-
 void send(int addr, msg * m);
 
 // Count how many messages in mbox satisfy to be equal in view, vround, phase and nround.
@@ -46,11 +38,10 @@ int count_messages(list * mbox, int view, enum vround_typ vround, int phase, enu
 int main(int p, int n, int f);
 int main(int p, int n, int f)
 {
-    int all=1000;
-
+    int all;
     // sync variables
     int view;
-    int vround;
+    enum vround_typ vround;
 
     msg* m;
     msg* recv_msg;
@@ -64,12 +55,11 @@ int main(int p, int n, int f)
     while(1){
 
         mbox = havoc();
-
         if(vround == STARTVIEWCHANGE && p==primary(view,n) && count_messages(mbox, view, STARTVIEWCHANGE, NULL, NULL) > f){
             vround = DOVIEWCHANGE;
             continue;
-        }
-
+        }      
+        
         if(vround == STARTVIEWCHANGE && p!=primary(view,n) && count_messages(mbox, view, STARTVIEWCHANGE, NULL, NULL) > f){
             vround = DOVIEWCHANGE;
             send(primary(view,n), message(view, DOVIEWCHANGE, NULL, NULL, p, local_log()));  
@@ -88,7 +78,7 @@ int main(int p, int n, int f)
     
             continue;
         }
-
+        
         if(vround == STARTVIEW && p!=primary(view,n) && count_messages(mbox, view, STARTVIEW, NULL, NULL) == 1){
             computes_new_log();
             view = view+1;
@@ -98,7 +88,7 @@ int main(int p, int n, int f)
 
             continue;
         }
-
+        
     }
 
 }

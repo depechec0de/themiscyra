@@ -38,16 +38,20 @@ if __name__ == "__main__":
     ast = parser.parse(input_str_pycparser)
     ast_tools.unfold(ast, args.unfolds)
 
-    # Dead code elimination
-    constants=ast_tools.get_constants(ast)
-    smt_tools.remove_unreachable_branches(ast, constants, {})
+    #### Dead code elimination
+    
+    # We need the enums definitions and constants for the SMT solver
+    dict_enumtype_constants = ast_tools.get_enum_declarations(ast)
+    dict_variable_enumtype = ast_tools.get_declared_enum_vars(ast)
+
+    smt_tools.dead_code_elimination(ast, dict_variable_smtvar, dict_const_smtconst)
 
     # Generate the C99 code
     generator = c_generator.CGenerator()
     final_code = generator.visit(ast)
     
     print(final_code)
-
+    
     # frama-c-gui -val -main func examples/roundAtoB.unfold1.c
 
 

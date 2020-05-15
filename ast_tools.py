@@ -183,18 +183,38 @@ def get_funcdef_node(ast, funcname):
 """
 Find the enum definitions and generate a dictionary with constants
 """
-class EnumeratorListVisitor(c_ast.NodeVisitor):
+class EnumDeclarationVisitor(c_ast.NodeVisitor):
     def __init__(self):
-        self.constant = 0
         self.result = {}
 
-    def visit_EnumeratorList(self, node):
-        for enum in node.enumerators:
-          if enum.name not in self.result:
-            self.result[enum.name] = self.constant
-            self.constant = self.constant+1
+    def visit_Decl(self, node):
+        if type(node.type) == c_ast.Enum:
+            enum_name = node.type.name
+            enum_constants = []
+            for c in node.type.values.enumerators:
+                enum_constants.append(c.name)
 
-def get_constants(ast):
-    v = EnumeratorListVisitor()
+            self.result[enum_name] = enum_constants
+
+def get_enum_declarations(ast):
+    v = EnumDeclarationVisitor()
     v.visit(ast)
     return v.result
+
+"""
+Find the enum definitions and generate a dictionary with constants
+"""
+class EnumVariableDeclarationVisitor(c_ast.NodeVisitor):
+    def __init__(self):
+        self.result = {}
+
+    def visit_Decl(self, node):
+        if type(node.type) == c_ast.TypeDecl and type(node.type.type) == c_ast.Enum:
+            self.result[node.name] = node.type.type.name
+
+
+def get_declared_enum_vars(ast):
+    v = EnumVariableDeclarationVisitor()
+    v.visit(ast)
+    return v.result
+

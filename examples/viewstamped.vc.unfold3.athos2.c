@@ -48,11 +48,11 @@ int main(int p, int n, int f)
     send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
     
     if(p == primary(view, n)){
-      while(1) {msg * m = recv(); if(timeout()){ break;} }
+      
       if ((vround == STARTVIEWCHANGE) && (count_messages(mbox, view, STARTVIEWCHANGE, NULL, NULL) > f))
       {
         vround = DOVIEWCHANGE;
-        while(1) {msg * m = recv(); if(timeout()){ break;} }
+
         if (((vround == DOVIEWCHANGE)) && (count_messages(mbox, view, DOVIEWCHANGE, NULL, NULL) > f))
         {
           computes_new_log();
@@ -66,13 +66,13 @@ int main(int p, int n, int f)
       }
 
     }else{
-      while(1) {msg * m = recv(); if(timeout()){ break;} }
+
       if (((vround == STARTVIEWCHANGE)) && (count_messages(mbox, view, STARTVIEWCHANGE, NULL, NULL) > f))
       {
         vround = DOVIEWCHANGE;
         send(primary(view, n), message(view, DOVIEWCHANGE, NULL, NULL, p, local_log()));
         vround = STARTVIEW;
-        while(1) {msg * m = recv(); if(timeout()){ break;} }
+
         if (((vround == STARTVIEW)) && (count_messages(mbox, view, STARTVIEW, NULL, NULL) == 1))
         {
           computes_new_log();
