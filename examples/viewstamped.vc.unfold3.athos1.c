@@ -59,19 +59,20 @@ int main(int p, int n, int f)
 
       }
 
-    }
-
-    if (((vround == STARTVIEWCHANGE) && (p != primary(view, n))) && (count_messages(mbox, view, STARTVIEWCHANGE, NULL, NULL) > f))
-    {
-      vround = DOVIEWCHANGE;
-      send(primary(view, n), message(view, DOVIEWCHANGE, NULL, NULL, p, local_log()));
-      vround = STARTVIEW;
-
-      if (((vround == STARTVIEW) && (p != primary(view, n))) && (count_messages(mbox, view, STARTVIEW, NULL, NULL) == 1))
+    }else{
+      if (((vround == STARTVIEWCHANGE) && (p != primary(view, n))) && (count_messages(mbox, view, STARTVIEWCHANGE, NULL, NULL) > f))
       {
-        computes_new_log();
-        view = view + 1;
-        vround = STARTVIEWCHANGE;
+        vround = DOVIEWCHANGE;
+        send(primary(view, n), message(view, DOVIEWCHANGE, NULL, NULL, p, local_log()));
+        vround = STARTVIEW;
+
+        if (((vround == STARTVIEW) && (p != primary(view, n))) && (count_messages(mbox, view, STARTVIEW, NULL, NULL) == 1))
+        {
+          computes_new_log();
+          view = view + 1;
+          vround = STARTVIEWCHANGE;
+        }
+
       }
 
     }
