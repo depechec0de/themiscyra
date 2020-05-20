@@ -48,8 +48,8 @@ int main(int p, int n, int f)
 
     list* mbox=NULL;
     
-    view = 0;
     vround = STARTVIEWCHANGE;
+    view = 0;
     send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p)); 
 
     while(1){
