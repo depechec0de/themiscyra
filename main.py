@@ -40,11 +40,11 @@ if __name__ == "__main__":
 
     #### Dead code elimination
     
-    # We need the enums definitions and constants for the SMT solver
+    # We need the enums definitions and variables for the SMT solver
     dict_enumtype_constants = ast_tools.get_enum_declarations(ast)
     dict_variable_enumtype = ast_tools.get_declared_enum_vars(ast)
 
-    smt_tools.dead_code_elimination(ast, dict_variable_smtvar, dict_const_smtconst)
+    smt_tools.dead_code_elimination(ast, dict_enumtype_constants, dict_variable_enumtype)
 
     # Generate the C99 code
     generator = c_generator.CGenerator()

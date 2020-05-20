@@ -2,7 +2,7 @@ from pycparser import c_parser, c_ast, parse_file, c_generator
 from typing import List, Set, Dict, Tuple, Optional
 from z3 import *
 
-def dead_code_elimination(ast : c_ast.Node, dict_variable_smtvar, dict_const_smtconst):
+def dead_code_elimination(ast : c_ast.Node, dict_enumtype_constants, dict_variable_enumtype):
 
     # All this mess is to generate the following dictionaries to handle Enum variables and constants:
     
@@ -14,7 +14,7 @@ def dead_code_elimination(ast : c_ast.Node, dict_variable_smtvar, dict_const_smt
     dict_const_smtconst = {}
 
     for enum_name, enum_constants in dict_enumtype_constants.items():
-        smt_enum_sort, smt_constants = smt_tools.create_enum_sort(enum_name, enum_constants)
+        smt_enum_sort, smt_constants = create_enum_sort(enum_name, enum_constants)
         dict_enumtype_smtsort[enum_name] = smt_enum_sort
         
         dict_const_smtconst = dict(dict_const_smtconst, **smt_constants)
@@ -23,7 +23,7 @@ def dead_code_elimination(ast : c_ast.Node, dict_variable_smtvar, dict_const_smt
         dict_variable_smtvar[var_name] = Const(var_name, dict_enumtype_smtsort[dict_variable_enumtype[var_name]])
 
     # Recursively explore the AST tree and cut the unfeasible branches
-    smt_tools.remove_unreachable_branches(ast, dict_variable_smtvar, dict_const_smtconst, {})
+    remove_unreachable_branches(ast, dict_variable_smtvar, dict_const_smtconst, {})
 
 def remove_unreachable_branches(ast : c_ast.Node, enum_variables, enum_constants, context : Dict[str, int]):
     

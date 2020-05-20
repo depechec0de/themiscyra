@@ -32,7 +32,6 @@ int main(int p, int n, int f)
   msg *m;
   msg *recv_msg;
   list *mbox = NULL;
-
   vround = STARTVIEWCHANGE;
   view = 0;
   send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
@@ -50,7 +49,8 @@ int main(int p, int n, int f)
         send(all, message(view, STARTVIEW, NULL, NULL, p, local_log()));
         view = view + 1;
         vround = STARTVIEWCHANGE;
-        return 0;
+        send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
+        continue;
       }
 
     }
@@ -67,7 +67,7 @@ int main(int p, int n, int f)
         view = view + 1;
         vround = STARTVIEWCHANGE;
         send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
-        return 0;
+        continue;
       }
 
     }

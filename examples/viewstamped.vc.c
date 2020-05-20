@@ -17,7 +17,6 @@ typedef struct List
 } list;
 
 enum vround_typ {STARTVIEWCHANGE, DOVIEWCHANGE, STARTVIEW};
-enum nround_typ {PREPARE, PREPAREOK, COMMIT};
 
 /*@ ensures (\result == \null) ||
     (\result != \null &&
@@ -31,7 +30,7 @@ msg * recv();
 void send(int addr, msg * m);
 
 // Count how many messages in mbox satisfy to be equal in view, vround, phase and nround.
-int count_messages(list * mbox, int view, enum vround_typ vround, int phase, enum nround_typ nround);
+int count_messages(list * mbox, int view, enum vround_typ vround);
 
 /*@ requires p>=0 && n>0 && n<=2000;
 @*/
@@ -55,12 +54,12 @@ int main(int p, int n, int f)
     while(1){
 
         mbox = havoc();
-        if(vround == STARTVIEWCHANGE && p==primary(view,n) && count_messages(mbox, view, STARTVIEWCHANGE, NULL, NULL) > f){
+        if(vround == STARTVIEWCHANGE && p==primary(view,n) && count_messages(mbox, view, STARTVIEWCHANGE) > f){
             vround = DOVIEWCHANGE;
             continue;
         }      
         
-        if(vround == STARTVIEWCHANGE && p!=primary(view,n) && count_messages(mbox, view, STARTVIEWCHANGE, NULL, NULL) > f){
+        if(vround == STARTVIEWCHANGE && p!=primary(view,n) && count_messages(mbox, view, STARTVIEWCHANGE) > f){
             vround = DOVIEWCHANGE;
             send(primary(view,n), message(view, DOVIEWCHANGE, NULL, NULL, p, local_log()));  
             vround = STARTVIEW;
@@ -68,21 +67,22 @@ int main(int p, int n, int f)
             continue;
         }
 
-        if(vround == DOVIEWCHANGE && p==primary(view,n) && count_messages(mbox, view, DOVIEWCHANGE, NULL, NULL) > f){
+        if(vround == DOVIEWCHANGE && p==primary(view,n) && count_messages(mbox, view, DOVIEWCHANGE) > f){
             computes_new_log();
             vround = STARTVIEW;
-            send(all, message(view, STARTVIEW, NULL, NULL, p, local_log()));  
-            view = view+1;
+            send(all, message(view, STARTVIEW, NULL, NULL, p, local_log())); 
 
+            view = view+1;
             vround = STARTVIEWCHANGE;
+            send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p)); 
     
             continue;
         }
         
-        if(vround == STARTVIEW && p!=primary(view,n) && count_messages(mbox, view, STARTVIEW, NULL, NULL) == 1){
+        if(vround == STARTVIEW && p!=primary(view,n) && count_messages(mbox, view, STARTVIEW) == 1){
             computes_new_log();
-            view = view+1;
             
+            view = view+1;
             vround = STARTVIEWCHANGE;
             send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p)); 
 

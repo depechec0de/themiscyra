@@ -34,17 +34,16 @@ int main(int p, int n, int f)
   msg *m;
   msg *recv_msg;
   list *mbox = NULL;
-  
   vround = STARTVIEWCHANGE;
   view = 0;
   send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
   while (1)
   {
-    
+    mbox = havoc();
     if (((vround == STARTVIEWCHANGE) && (p == primary(view, n))) && (count_messages(mbox, view, STARTVIEWCHANGE) > f))
     {
       vround = DOVIEWCHANGE;
-
+      mbox = havoc();
       if (((vround == DOVIEWCHANGE) && (p == primary(view, n))) && (count_messages(mbox, view, DOVIEWCHANGE) > f))
       {
         computes_new_log();
@@ -54,6 +53,7 @@ int main(int p, int n, int f)
         vround = STARTVIEWCHANGE;
         // b_1
         send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
+        continue;
       }
 
     }
@@ -63,7 +63,7 @@ int main(int p, int n, int f)
       vround = DOVIEWCHANGE;
       send(primary(view, n), message(view, DOVIEWCHANGE, NULL, NULL, p, local_log()));
       vround = STARTVIEW;
-
+      mbox = havoc();
       if (((vround == STARTVIEW) && (p != primary(view, n))) && (count_messages(mbox, view, STARTVIEW) == 1))
       {
         computes_new_log();
@@ -71,6 +71,7 @@ int main(int p, int n, int f)
         vround = STARTVIEWCHANGE;
         // b_2
         send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
+        continue;
       }
 
     }

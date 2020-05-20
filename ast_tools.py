@@ -5,9 +5,14 @@ from pycparser import c_parser, c_ast, parse_file, c_generator
 
 
 """
-This function assumes a C code with a unique "while" statement. The result is
-the code unfolded "k" times, where unfolding means replacing every occurrence 
-of a "continue" statement with the content of the "while" body.
+    This function assumes a C code with a unique "while" statement. The result is
+    the code unfolded "k" times, where unfolding means replacing every occurrence 
+    of a "continue" statement with the content of the "while" body.
+
+    ast: a pycparser AST 
+    k: number of unfoldings of the main loop
+    returns: nothing, it alters the original "ast" object
+
 """
 def unfold(ast, k: int):
 
@@ -18,18 +23,11 @@ def unfold(ast, k: int):
     for i in range(1,k):
         _insert_node_after_continue(main_while, while_body)
 
-    """
-    # Remove the main while
-    new_while_code = copy.deepcopy(main_while.stmt)
+    # replace continues with returns
+    #zero = c_ast.Constant(type=int, value='0')
+    #return_ast = c_ast.Return(expr=zero)
 
-    # We move the content of the unfolded "while" outside of it
-    index =  while_parent.block_items.index(main_while) 
-    while_parent.block_items[index:index] = new_while_code.block_items
-
-    # Remove the old "while"
-    while_parent.block_items.remove(main_while)
-    """
-    _replace_continue_for_return(while_parent)
+    #_replace_node(while_parent, c_ast.Continue, return_ast)
 
 
 def _insert_node_after_continue(ast, node):
@@ -64,40 +62,46 @@ def _insert_node_after_continue(ast, node):
     elif typ == c_ast.FuncDef:
         _insert_node_after_continue(ast.body, node)
 
+"""
+    Replace every "continue;" statement with "returns 0;"
 
-def _replace_continue_for_return(ast):
+    ast: a pycparser AST 
+    returns: nothing, it alters the original "ast" object 
+"""
+def _replace_node(ast, find_type, replace):
 
     typ = type(ast) 
 
     if typ == c_ast.If:
-        _replace_continue_for_return(ast.iftrue)
+        _replace_node(ast.iftrue, find_type, replace)
 
         if ast.iffalse is not None:
-            _replace_continue_for_return(ast.iffalse)
+            _replace_node(ast.iffalse, find_type, replace)
         
     elif typ == c_ast.While:
-        _replace_continue_for_return(ast.stmt)
+        _replace_node(ast.stmt, find_type, replace)
 
     elif typ == c_ast.Compound:
             
             for i in ast.block_items:
-                if type(i) == c_ast.Continue:
-                    zero = c_ast.Constant(type=int, value='0')
-                    return_ast = c_ast.Return(expr=zero)
+                if type(i) == find_type:
+                    replace_copy = copy.deepcopy(replace)
                     index = ast.block_items.index(i)
-                    ast.block_items.insert(index, return_ast)
+                    ast.block_items.insert(index, replace_copy)
                     ast.block_items.remove(i)
                 else:
-                    _replace_continue_for_return(i)
+                    _replace_node(i, find_type, replace)
 
     elif typ == c_ast.FuncDef:
-        _replace_continue_for_return(ast.body)
+        _replace_node(ast.body, find_type, replace)
 
+""" 
+    remove c-style comments.
+    text: blob of text with comments (can include newlines)
+    returns: text with comments removed
+"""
 def remove_c99_comments(text):
-    """ remove c-style comments.
-        text: blob of text with comments (can include newlines)
-        returns: text with comments removed
-    """
+
     pattern = r"""
                             ##  --------- COMMENT ---------
            //.*?$           ##  Start of // .... comment
@@ -141,6 +145,10 @@ def remove_c99_comments(text):
 
     return "".join(noncomments)
 
+"""
+    ast: A pycparser AST 
+    returns: the outer while of the AST
+"""
 class MainWhileVisitor(c_ast.NodeVisitor):
     def __init__(self):
         self.current_parent = None
@@ -162,7 +170,9 @@ def get_main_while(ast):
     return v.result
 
 """
-Get the function definition node in the AST looking by its name
+    ast: a pycparser AST 
+    funcname: a function name to find
+    returns: the corresponding FuncDef node in the AST defined as "funcname"
 """
 class FuncDefVisitor(c_ast.NodeVisitor):
     def __init__(self, funcname):
@@ -181,7 +191,8 @@ def get_funcdef_node(ast, funcname):
     return v.result
 
 """
-Find the enum definitions and generate a dictionary with constants
+    ast: a pycparser AST 
+    returns: enum definitions in the AST as a dictionary: {enum_type_name: [const1, ...]}
 """
 class EnumDeclarationVisitor(c_ast.NodeVisitor):
     def __init__(self):
@@ -202,7 +213,8 @@ def get_enum_declarations(ast):
     return v.result
 
 """
-Find the enum definitions and generate a dictionary with constants
+    ast: a pycparser AST 
+    returns: enum variable declarations as a dictionary {variable: enum_type_name}
 """
 class EnumVariableDeclarationVisitor(c_ast.NodeVisitor):
     def __init__(self):
