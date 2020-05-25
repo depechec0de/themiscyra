@@ -38,13 +38,8 @@ if __name__ == "__main__":
     ast = parser.parse(input_str_pycparser)
     ast_tools.unfold(ast, args.unfolds)
 
-    #### Dead code elimination
-    
-    # We need the enums definitions and variables for the SMT solver
-    dict_enumtype_constants = ast_tools.get_enum_declarations(ast)
-    dict_variable_enumtype = ast_tools.get_declared_enum_vars(ast)
-
-    smt_tools.dead_code_elimination(ast, dict_enumtype_constants, dict_variable_enumtype)
+    # Dead code elimination
+    smt_tools.dead_code_elimination(ast)
 
     # Generate the C99 code
     generator = c_generator.CGenerator()

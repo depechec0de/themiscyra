@@ -2,21 +2,26 @@ from pycparser import c_parser, c_ast, parse_file, c_generator
 from typing import List, Set, Dict, Tuple, Optional
 from z3 import *
 
-def dead_code_elimination(ast : c_ast.Node, dict_enumtype_constants, dict_variable_enumtype):
+import ast_tools
 
-    # All this mess is to generate the following dictionaries to handle Enum variables and constants:
+def dead_code_elimination(ast : c_ast.Node):
+
+    # We need the enums definitions and variables for the SMT solver
+    dict_enumtype_constants = ast_tools.get_enum_declarations(ast)
+    dict_variable_enumtype = ast_tools.get_declared_enum_vars(ast)
     
-    # Enum type -> z3 EnumSort
-    dict_enumtype_smtsort = {}
-    # variable name -> z3 constant declaration in their corresponding EnumSort domain
+    # variable name : str -> corresponding SMT variable : z3.Const
     dict_variable_smtvar = {}
-
+    # constant name : str -> corresponding SMT const : z3.Const
     dict_const_smtconst = {}
+
+    # c99 enum type name : str -> corresponding SMT sort : z3.EnumSort
+    dict_enumtype_smtsort = {}
 
     for enum_name, enum_constants in dict_enumtype_constants.items():
         smt_enum_sort, smt_constants = create_enum_sort(enum_name, enum_constants)
         dict_enumtype_smtsort[enum_name] = smt_enum_sort
-        
+        # dictionary union
         dict_const_smtconst = dict(dict_const_smtconst, **smt_constants)
 
     for var_name, smt_variable in dict_variable_enumtype.items():
@@ -144,7 +149,5 @@ def is_sat(predicate, context):
 
     for var in context:
         solver.add(context[var])
-    #print(solver)
-    #print(solver.check() == z3.sat)
 
     return solver.check() == z3.sat
