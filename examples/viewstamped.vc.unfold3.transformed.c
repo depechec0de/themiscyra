@@ -34,43 +34,62 @@ int main(int p, int n, int f)
   msg *m;
   msg *recv_msg;
   list *mbox = NULL;
-  vround = STARTVIEWCHANGE;
-  view = 0;
-  send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
+
+  _Bool start_flag = true;
+  _Bool primary_restart_flag = false;
+  _Bool follower_restart_flag = false;
+
   while (1)
   {
-    mbox = havoc();
-    if (((vround == STARTVIEWCHANGE) && (p == primary(view, n))) && (count_messages(mbox, view, STARTVIEWCHANGE) > f))
+  
+    if(start_flag){
+      view = 0;
+      vround = STARTVIEWCHANGE;
+      send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
+      start_flag = false;
+    }
+    if(primary_restart_flag){
+      view = view + 1;
+      vround = STARTVIEWCHANGE;
+      send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
+    }
+    if(follower_restart_flag){
+      view = view + 1;
+      vround = STARTVIEWCHANGE;
+      send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
+    }
+    
+    mbox = havoc(view, vround);
+    if (((vround == STARTVIEWCHANGE) && (p == primary(view, n))) && (mbox->size > f))
     {
       vround = DOVIEWCHANGE;
-      mbox = havoc();
-      if (((vround == DOVIEWCHANGE) && (p == primary(view, n))) && (count_messages(mbox, view, DOVIEWCHANGE) > f))
+      mbox = havoc(view, vround);
+      if (((vround == DOVIEWCHANGE) && (p == primary(view, n))) && (mbox->size > f))
       {
         computes_new_log();
         vround = STARTVIEW;
         send(all, message(view, STARTVIEW, NULL, NULL, p, local_log()));
-        view = view + 1;
-        vround = STARTVIEWCHANGE;
-        // b_1
-        send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
+        primary_restart_flag = true;
+        follower_restart_flag = false;
+
         continue;
       }
 
     }
 
-    if (((vround == STARTVIEWCHANGE) && (p != primary(view, n))) && (count_messages(mbox, view, STARTVIEWCHANGE) > f))
+    if (((vround == STARTVIEWCHANGE) && (p != primary(view, n))) && (mbox->size > f))
     {
       vround = DOVIEWCHANGE;
       send(primary(view, n), message(view, DOVIEWCHANGE, NULL, NULL, p, local_log()));
       vround = STARTVIEW;
-      mbox = havoc();
-      if (((vround == STARTVIEW) && (p != primary(view, n))) && (count_messages(mbox, view, STARTVIEW) == 1))
+      mbox = havoc(view, vround);
+      if (((vround == STARTVIEW) && (p != primary(view, n))) && (mbox->size == 1))
       {
         computes_new_log();
-        view = view + 1;
-        vround = STARTVIEWCHANGE;
-        // b_2
-        send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
+
+        primary_restart_flag = false;
+        follower_restart_flag = true;
+
         continue;
       }
 
