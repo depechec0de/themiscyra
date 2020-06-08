@@ -39,7 +39,8 @@ enum nround_typ
 
 enum checkpoint_typ
 {
-  INSTALLSNAPSHOT
+  INSTALLSNAPSHOT,
+  INSTALLSNAPSHOT_ACK
 };
 msg *recv();
 int count(list *mbox, int regency, int round, int n);
@@ -208,6 +209,8 @@ int func(int p, int n, int f)
 
             // remove all entries < snapshot.last_included_opnumber
             delete_old_entries(log, current_state->last_included_opnumber);
+
+            send(primary(view,n), message(INSTALLSNAPSHOT_ACK));
 
             continue;
 
