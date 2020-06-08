@@ -187,12 +187,16 @@ int func(int p, int n, int f)
             
             delete_all_entries(log);
 
+            continue;
+
         }
 
         // if I received a message asking for an old view / opnumber we update the replica
         if(p==primary(view,n) && count_delayed_messages(mbox, view, opnumber) > 0){
 
             send(get_delayed_replica(mbox, view, opnumber), message(INSTALLSNAPSHOT, current_state));
+
+            continue;
 
         }
 
@@ -204,6 +208,8 @@ int func(int p, int n, int f)
 
             // remove all entries < snapshot.last_included_opnumber
             delete_old_entries(log, current_state->last_included_opnumber);
+
+            continue;
 
         }
     }
