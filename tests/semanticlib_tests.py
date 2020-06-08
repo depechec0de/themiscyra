@@ -3,7 +3,7 @@ import sys
 sys.path.insert(0, '..')
 
 from pycparser import c_parser, c_ast, parse_file, c_generator
-from smt_tools import *
+from semanticlib import *
 
 parser = c_parser.CParser()
 

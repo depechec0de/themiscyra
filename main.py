@@ -1,18 +1,19 @@
 import sys
 import argparse
 import os.path 
-import ast_tools
-import smt_tools
 from z3 import *
-
 from pycparser import c_parser, c_ast, parse_file, c_generator
+
+import syntaxlib
+import semanticlib
+import athos
 
 def prepare_for_pycparser(filename):
 
     with open(filename) as f:
         original_file_str = f.read()
 
-    result_str = ast_tools.remove_c99_comments(original_file_str)
+    result_str = syntaxlib.remove_c99_comments(original_file_str)
     
     return result_str
 
@@ -36,16 +37,18 @@ if __name__ == "__main__":
     parser = c_parser.CParser()
 
     ast = parser.parse(input_str_pycparser)
-    ast_tools.unfold(ast, args.unfolds)
+    syntaxlib.unfold(ast, args.unfolds)
 
     # Dead code elimination
-    smt_tools.dead_code_elimination(ast)
+    semanticlib.dead_code_elimination(ast)
+
+    compho = athos.async_to_sync(ast, 'vround', ['STARTVIEWCHANGE', 'DOVIEWCHANGE', 'STARTVIEW'])
 
     # Generate the C99 code
     generator = c_generator.CGenerator()
     final_code = generator.visit(ast)
     
-    print(final_code)
+    #print(final_code)
     
     # frama-c-gui -val -main func examples/roundAtoB.unfold1.c
 

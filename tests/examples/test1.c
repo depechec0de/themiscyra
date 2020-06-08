@@ -4,10 +4,12 @@ int main()
 
         if(true){
             printf();
+            printf2();
         }
         
         if(true){
-            compute();            
+            compute();  
+            compute2();                  
         }
 
         something();

@@ -2,13 +2,13 @@ from pycparser import c_parser, c_ast, parse_file, c_generator
 from typing import List, Set, Dict, Tuple, Optional
 from z3 import *
 
-import ast_tools
+import syntaxlib
 
 def dead_code_elimination(ast : c_ast.Node):
 
-    # We need the enums definitions and variables for the SMT solver
-    dict_enumtype_constants = ast_tools.get_enum_declarations(ast)
-    dict_variable_enumtype = ast_tools.get_declared_enum_vars(ast)
+    # We gather every enum definitions and variables and obtain their SMT counterpart
+    dict_enumtype_constants = syntaxlib.get_enum_declarations(ast)
+    dict_variable_enumtype = syntaxlib.get_declared_enum_vars(ast)
     
     # variable name : str -> corresponding SMT variable : z3.Const
     dict_variable_smtvar = {}
@@ -65,7 +65,6 @@ def remove_unreachable_branches(ast : c_ast.Node, enum_variables, enum_constants
     elif typ == c_ast.FuncDef:
         remove_unreachable_branches(ast.body, enum_variables, enum_constants, context)
 
-# Asume a conjunctive normal form (CNF) in node.cond
 def ast_to_smt(node: c_ast.Node, enum_variables=None, enum_constants=None):
     typ = type(node) 
     
