@@ -2,8 +2,14 @@ struct Msg
 {
   int view;
   int vround;
+
   int opnumber;
   int nround;
+
+  int last_checkpoint_opnumber;
+  int last_checkpoint_view;
+  int cround;
+
   int replica;
   void *log;
   void *state;
@@ -16,13 +22,6 @@ typedef struct List
   struct List *next;
   int size;
 } list;
-
-typedef struct State
-{
-  int last_included_opnumber;
-  int last_included_view;
-  void *data;
-} state;
 
 enum vround_typ
 {
@@ -39,38 +38,52 @@ enum nround_typ
 
 enum checkpoint_typ
 {
-  INSTALLSNAPSHOT,
-  INSTALLSNAPSHOT_ACK
+  LISTENINGCHECKPOINT,
+  CHECKPOINT_ACK
 };
 msg *recv();
 int count(list *mbox, int regency, int round, int n);
 int size(list *mbox);
 void send(int addr, msg *m);
-int count_messages(list *mbox, int view, enum vround_typ vround, int phase, enum nround_typ nround);
-int count_checkpoint_messages(list *mbox, enum checkpoint_typ vround);
 int func(int p, int n, int f);
 int func(int p, int n, int f)
 {
     int all=1000;
 
     // sync variables
-    int view = 0;
-    int vround = STARTVIEWCHANGE;
-    int opnumber = 0;
+    int view;
+    int vround;
+
+    int opnumber;
     int nround;
+    
+    int last_checkpoint_opnumber;
+    int cround;
 
     // protocol variables
+    int last_checkpoint_view;
+    
     int commit_number = 0;
     int future_view = 0;
     list* log = NULL;
-    state* current_state = NULL;
+
+    // last snapshot
+    void* current_state = NULL;
 
     // checkpoint variables
     int CHECKPOINT_CYCLE = 128;
 
     /***** Starting state *****/
+    view = 0;
+    vround = STARTVIEWCHANGE;
 
+    opnumber = 0;
     nround = PREPARE;
+
+    last_checkpoint_opnumber = 0;
+    cround = LISTENINGCHECKPOINT;
+
+    last_checkpoint_view = 0;
     
     msg* m;
     msg* recv_msg;
@@ -91,7 +104,7 @@ int func(int p, int n, int f)
             continue;
         }
 
-        if( future_view > view && count_messages(mbox, future_view, STARTVIEWCHANGE, NULL, NULL) > 0)
+        if( future_view > view && count_messages(mbox, future_view, STARTVIEWCHANGE) > 0)
         {
             // VIEWCHANGE
             vround = STARTVIEWCHANGE;
@@ -100,7 +113,7 @@ int func(int p, int n, int f)
             continue;
         }
 
-        if( future_view > view && count_messages(mbox, future_view, DOVIEWCHANGE, NULL, NULL) > 0)
+        if( future_view > view && count_messages(mbox, future_view, DOVIEWCHANGE) > 0)
         {
             // VIEWCHANGE
             vround = STARTVIEWCHANGE;
@@ -109,7 +122,7 @@ int func(int p, int n, int f)
             continue;
         }
 
-        if( p!=primary(future_view,n) && future_view > view && count_messages(mbox, future_view, STARTVIEWCHANGE, NULL, NULL) > f)
+        if( p!=primary(future_view,n) && future_view > view && count_messages(mbox, future_view, STARTVIEWCHANGE) > f)
         {
             // VIEWCHANGE
             vround = DOVIEWCHANGE;
@@ -118,7 +131,7 @@ int func(int p, int n, int f)
             continue;
         }
 
-        if( p==primary(future_view,n) && count_messages(mbox, future_view, DOVIEWCHANGE, NULL, NULL) > f)
+        if( p==primary(future_view,n) && count_messages(mbox, future_view, DOVIEWCHANGE) > f)
         {
             // VIEWCHANGE
             view = future_view;
@@ -131,7 +144,7 @@ int func(int p, int n, int f)
             continue;
         }
 
-        if( p!=primary(future_view,n) && count_messages(mbox, future_view, STARTVIEW, NULL, NULL) > 0)
+        if( p!=primary(future_view,n) && count_messages(mbox, future_view, STARTVIEW) > 0)
         {
             // VIEWCHANGE
             view = future_view;
@@ -182,9 +195,9 @@ int func(int p, int n, int f)
         
         if(opnumber % CHECKPOINT_CYCLE == 0){
 
-            current_state->data = generate_snapshot(log);
-            current_state->last_included_opnumber = opnumber;
-            current_state->last_included_view = view;
+            current_state = generate_snapshot(log);
+            last_checkpoint_opnumber = opnumber;
+            last_checkpoint_view = view;
             
             delete_all_entries(log);
 
@@ -193,24 +206,36 @@ int func(int p, int n, int f)
         }
 
         // if I received a message asking for an old view / opnumber we update the replica
-        if(p==primary(view,n) && count_delayed_messages(mbox, view, opnumber) > 0){
+        if(p==primary(view,n) && cround == LISTENINGCHECKPOINT && heard_delayed_replica(mbox)){
 
-            send(get_delayed_replica(mbox, view, opnumber), message(INSTALLSNAPSHOT, current_state));
-
+            send(get_delayed_replica(mbox, view, opnumber), checkpoint_message(last_checkpoint_opnumber, LISTENINGCHECKPOINT, current_state));
+            cround = CHECKPOINT_ACK;
             continue;
-
         }
 
-        if(p!=primary(view,n) && count_checkpoint_messages(mbox, INSTALLSNAPSHOT) > 0){
+        if(p==primary(view,n) && cround == CHECKPOINT_ACK && count_messages(mbox, CHECKPOINT_ACK) > 0){
+            cround = LISTENINGCHECKPOINT;
+            continue;
+        }
+
+        if(p!=primary(view,n) && cround == LISTENINGCHECKPOINT && count_messages(mbox, LISTENINGCHECKPOINT) > 0){
+
+            cround = CHECKPOINT_ACK; 
 
             recv_msg = get_snapshot_message(mbox);
 
+            last_checkpoint_opnumber = recv_msg->last_checkpoint_opnumber;
+            last_checkpoint_view = recv_msg->last_checkpoint_view;
             current_state = recv_msg->state;
 
-            // remove all entries < snapshot.last_included_opnumber
-            delete_old_entries(log, current_state->last_included_opnumber);
+            opnumber = last_checkpoint_opnumber;
 
-            send(primary(view,n), message(INSTALLSNAPSHOT_ACK));
+            // remove all entries < snapshot.last_included_opnumber
+            delete_old_entries(log, last_checkpoint_opnumber);
+
+            send(primary(view,n), checkpoint_message(last_checkpoint_opnumber, CHECKPOINT_ACK));
+
+            cround = LISTENINGCHECKPOINT;
 
             continue;
 
