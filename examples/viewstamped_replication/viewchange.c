@@ -45,7 +45,7 @@ int main(int p, int n, int f)
     msg* m;
     msg* recv_msg;
 
-    list* mbox=NULL;
+    list* mbox;
     
     vround = STARTVIEWCHANGE;
     view = 0;
@@ -72,7 +72,7 @@ int main(int p, int n, int f)
             vround = STARTVIEW;
             send(all, message(view, STARTVIEW, NULL, NULL, p, local_log())); 
 
-            view = view+1;
+            view++;
             vround = STARTVIEWCHANGE;
             send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p)); 
     
@@ -82,7 +82,7 @@ int main(int p, int n, int f)
         if(vround == STARTVIEW && p!=primary(view,n) && mbox->size == 1){
             computes_new_log();
             
-            view = view+1;
+            view++;
             vround = STARTVIEWCHANGE;
             send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p)); 
 

@@ -1,0 +1,7 @@
+phase : view
+round : vround
+mbox : mbox
+labels :
+    - STARTVIEWCHANGE
+    - DOVIEWCHANGE
+    - STARTVIEW

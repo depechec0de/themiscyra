@@ -1,3 +1,5 @@
+import re
+
 from pycparser import c_parser, c_ast, parse_file, c_generator
 from typing import List, Set, Dict, Tuple, Optional
 from z3 import *
@@ -6,7 +8,8 @@ import syntaxlib
 
 def dead_code_elimination(ast : c_ast.Node):
 
-    # We gather every enum definitions and variables and obtain their SMT counterpart
+    # We gather every enum definitions and variables and obtain their SMT 
+    # counterpart
     dict_enumtype_constants = syntaxlib.get_enum_declarations(ast)
     dict_variable_enumtype = syntaxlib.get_declared_enum_vars(ast)
     
@@ -19,53 +22,76 @@ def dead_code_elimination(ast : c_ast.Node):
     dict_enumtype_smtsort = {}
 
     for enum_name, enum_constants in dict_enumtype_constants.items():
-        smt_enum_sort, smt_constants = create_enum_sort(enum_name, enum_constants)
+        smt_enum_sort, smt_constants = create_enum_sort(enum_name, 
+                                                        enum_constants)
         dict_enumtype_smtsort[enum_name] = smt_enum_sort
         # dictionary union
         dict_const_smtconst = dict(dict_const_smtconst, **smt_constants)
 
     for var_name, smt_variable in dict_variable_enumtype.items():
-        dict_variable_smtvar[var_name] = Const(var_name, dict_enumtype_smtsort[dict_variable_enumtype[var_name]])
+        dict_variable_smtvar[var_name] = \
+        z3.Const(var_name, 
+                dict_enumtype_smtsort[dict_variable_enumtype[var_name]])
 
     # Recursively explore the AST tree and cut the unfeasible branches
-    remove_unreachable_branches(ast, dict_variable_smtvar, dict_const_smtconst, {})
+    remove_unreachable_branches(ast, dict_variable_smtvar, 
+                                dict_const_smtconst, {})
 
-def remove_unreachable_branches(ast : c_ast.Node, enum_variables, enum_constants, context : Dict[str, int]):
+def remove_unreachable_branches(ast : c_ast.Node, enum_variables, 
+                                enum_constants, context : Dict[str, int]):
     
     typ = type(ast) 
     
     if typ == c_ast.FileAST:
         for statement in ast.ext:
-            remove_unreachable_branches(statement, enum_variables, enum_constants, context)
+            remove_unreachable_branches(statement, enum_variables, 
+                                        enum_constants, context)
             
     if typ == c_ast.If:
-        remove_unreachable_branches(ast.iftrue, enum_variables, enum_constants, context)
+        remove_unreachable_branches(ast.iftrue, enum_variables, enum_constants,
+                                    context)
 
     elif typ == c_ast.Assignment:
         constraint = ast_to_smt(ast, enum_variables, enum_constants)
         context[ast.lvalue.name] = constraint        
     elif typ == c_ast.While:
-        remove_unreachable_branches(ast.stmt, enum_variables, enum_constants, context)
+        remove_unreachable_branches(ast.stmt, enum_variables, enum_constants, 
+                                    context)
 
     elif typ == c_ast.Compound:
         to_delete = []
         for statement in ast.block_items:
             if type(statement) == c_ast.If:
-                predicate = ast_to_smt(statement.cond, enum_variables, enum_constants)
+                predicate = ast_to_smt( statement.cond, enum_variables, 
+                                        enum_constants)
                 if is_sat(predicate, context):
                     new_context = copy.deepcopy(context)
-                    remove_unreachable_branches(statement, enum_variables, enum_constants, new_context)
+                    remove_unreachable_branches(statement, enum_variables, 
+                                                enum_constants, new_context)
                 else:
                     to_delete.append(statement)
             else:
-                remove_unreachable_branches(statement, enum_variables, enum_constants, context)
+                remove_unreachable_branches(statement, enum_variables, 
+                                            enum_constants, context)
         for node in to_delete:
             ast.block_items.remove(node)
 
     elif typ == c_ast.FuncDef:
-        remove_unreachable_branches(ast.body, enum_variables, enum_constants, context)
+        remove_unreachable_branches(ast.body, enum_variables, enum_constants,
+                                    context)
 
-def ast_to_smt(node: c_ast.Node, enum_variables=None, enum_constants=None):
+def ast_to_smt( node: c_ast.Node, 
+                enum_variables: Dict[str, z3.EnumSort] = None, 
+                enum_constants=None):
+    """Translates a pycparser c_ast.Node to a z3 predicate.
+
+    Parameters
+    ----------
+    enum_constants (optional) : dictionary
+        declared enum types as z3.EnumSort 
+    enum_variables (optional) : dictionary
+        declared enum variables based on their corresponding z3.EnumSort domain
+    """
     typ = type(node) 
     
     if typ == c_ast.BinaryOp:
@@ -91,7 +117,9 @@ def ast_to_smt(node: c_ast.Node, enum_variables=None, enum_constants=None):
             return leftnode != rightnode
 
     elif typ == c_ast.Assignment and node.op == '=':
-        if type(node.rvalue) == c_ast.Constant or type(node.rvalue) == c_ast.ID:
+        if  type(node.rvalue) == c_ast.Constant or \
+            type(node.rvalue) == c_ast.ID:
+
             leftnode = ast_to_smt(node.lvalue, enum_variables, enum_constants)
             rightnode = ast_to_smt(node.rvalue, enum_variables, enum_constants) 
             return leftnode == rightnode
@@ -107,16 +135,18 @@ def ast_to_smt(node: c_ast.Node, enum_variables=None, enum_constants=None):
         return ast_func_to_smt_func(node)
     elif typ == c_ast.ID:
         # The variable is an Enum
-        if enum_variables is not None and node.name in enum_variables:
-            return enum_variables[node.name]
-        elif enum_constants is not None and node.name in enum_constants:
-            return enum_constants[node.name]
+        var_name = node.name
+
+        if enum_variables is not None and var_name in enum_variables:
+            return enum_variables[var_name]
+        elif enum_constants is not None and var_name in enum_constants:
+            return enum_constants[var_name]
         else:
-            return Int(node.name)
+            return Int(var_name)
     else:
         return True
 
-def ast_func_to_smt_func(node: c_ast.Node):
+def ast_func_to_smt_func(node: c_ast.Node) -> z3.Function:
     domain = []
     args = []
     if node.args is not None:
@@ -130,7 +160,8 @@ def ast_func_to_smt_func(node: c_ast.Node):
     
     return f(*args)
 
-def create_enum_sort(name, values):
+def create_enum_sort(name, values) \
+    -> (z3.DatatypeSortRef, Dict[str, z3.DatatypeRef]):
     S, enum_values = EnumSort(name, values)
 
     map_enum = {}
@@ -141,7 +172,7 @@ def create_enum_sort(name, values):
 
     return S, map_enum
 
-def is_sat(predicate, context):
+def is_sat(predicate, context) -> Bool:
 
     solver = Solver()
     solver.add(predicate)

@@ -1,8 +1,12 @@
 import sys
 import argparse
 import os.path 
+import importlib
+import yaml
+
 from z3 import *
 from pycparser import c_parser, c_ast, parse_file, c_generator
+from typing import List, Set, Dict, Tuple, Optional
 
 import syntaxlib
 import semanticlib
@@ -27,28 +31,42 @@ if __name__ == "__main__":
     # Parse the program arguments
     argparser = argparse.ArgumentParser('Event driven async to sync')
     argparser.add_argument('filename', help='name of file to parse')
-    argparser.add_argument('unfolds', help='number of unfolds to perform', type=check_positive)
+    argparser.add_argument('configfile', help='configuration file with syncvars and labels')
+    argparser.add_argument('--unfold', help='number of unfolds to perform', type=check_positive)
+    argparser.add_argument('--athos', help='perform async to sync translation', action='store_true')
     args = argparser.parse_args()
 
     # Pycparser doesn't support directives, we replace them for its content
     input_str_pycparser = prepare_for_pycparser(args.filename)
 
+    # Read config file
+    config = yaml.safe_load(open(args.configfile))
+
     # Now we can use pycparser to obtain the AST
     parser = c_parser.CParser()
-
-    ast = parser.parse(input_str_pycparser)
-    syntaxlib.unfold(ast, args.unfolds)
-
-    # Dead code elimination
-    semanticlib.dead_code_elimination(ast)
-
-    compho = athos.async_to_sync(ast, 'vround', ['STARTVIEWCHANGE', 'DOVIEWCHANGE', 'STARTVIEW'])
-
-    # Generate the C99 code
     generator = c_generator.CGenerator()
-    final_code = generator.visit(ast)
-    
-    #print(final_code)
+    ast = parser.parse(input_str_pycparser)
+
+    if args.unfold:
+        syncvariables = [config['round'], config['mbox']]
+        syntaxlib.unfold(ast, args.unfold, syncvariables)
+
+        semanticlib.dead_code_elimination(ast)
+
+        code = generator.visit(ast)
+        print(code)
+
+    elif args.athos:
+        
+        compho = athos.async_to_sync(ast, config)      
+        
+        for label in compho:
+            print(label)
+            for ast_code in compho[label]:
+                print("################Path######################")
+                code = generator.visit(ast_code)
+                print(code)
+                print("##########################################")
     
     # frama-c-gui -val -main func examples/roundAtoB.unfold1.c
 

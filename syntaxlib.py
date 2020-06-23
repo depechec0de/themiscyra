@@ -3,34 +3,55 @@ import re
 import networkx as nx
 import matplotlib.pyplot as plt
 
+from typing import Type, List, Set, Dict, Tuple, Optional
 from pycparser import c_parser, c_ast, parse_file, c_generator
 
+# Sync variables are anotated with the unfolding number where they belong
+SYNCVAR_UNFOLD = '_(\d)'
 
-"""
-    This function assumes a C code with a unique "while" statement. The result is
-    the code unfolded "k" times, where unfolding means replacing every occurrence 
-    of a "continue" statement with the content of the "while" body.
+def rename_syncvar(name, iteration):
+    newname = name + SYNCVAR_UNFOLD
+    return newname.replace('(\d)', str(iteration))
 
-    ast: a pycparser AST 
-    k: number of unfoldings of the main loop
-    returns: nothing, it alters the original "ast" object
+def unfold(ast, k: int, syncvariables):
+    """This function assumes a C code with a unique "while" statement. The 
+    result is the code unfolded "k" times, where unfolding means replacing 
+    every occurrence of a "continue" statement with the content of the "while"
+    body.
 
-"""
-def unfold(ast, k: int):
+    Parameters
+    ----------
+    ast : pycparser.c_ast.Node
+    k : number of unfoldings of the main loop
+    syncvariables : synchronization variables defined in the config
+    """
+    declare_iterated_variables(ast, syncvariables, k)
 
-    (main_while, while_parent) = get_main_while(ast)
+    main_while = get_main_while(ast)
 
     while_body = copy.deepcopy(main_while.stmt.block_items)
 
+    rename_if_body_variables(main_while, syncvariables, 0)
+
     for i in range(1,k):
-        insert_node_after_continue(main_while, while_body)
+        body_iteration = copy.deepcopy(while_body)
 
-    # replace continues with returns
-    #zero = c_ast.Constant(type=int, value='0')
-    #return_ast = c_ast.Return(expr=zero)
+        # syncvars outside upons (typically mbox) must be renamed
+        # TODO: consider a visitor that ignores if bodies
+        for n in body_iteration:
+            if type(n) == c_ast.Assignment and n.lvalue.name in syncvariables:
+                n.lvalue.name = rename_syncvar(n.lvalue.name, i-1)
+        
+        # syncvariables referenced in upon conditions are renamed to the 
+        # previous unfolding
+        rename_if_cond_variables(body_iteration, syncvariables, i-1)
 
-    #replace_node_by_type(while_parent, c_ast.Continue, return_ast)
+        # syncvariables inside upon statements live in the new unfolding
+        rename_if_body_variables(body_iteration, syncvariables, i)
 
+        insert_node_after_continue(main_while, body_iteration)   
+
+    
 
 def insert_node_after_continue(ast, node):
     
@@ -64,13 +85,13 @@ def insert_node_after_continue(ast, node):
     elif typ == c_ast.FuncDef:
         insert_node_after_continue(ast.body, node)
 
-"""
-    Replace every "continue;" statement with "returns 0;"
-
-    ast: a pycparser AST 
-    returns: nothing, it alters the original "ast" object 
-"""
 def replace_node_by_type(ast, find_type, replace):
+    """Replace nodes with `replace` where its type match `find_type` 
+
+    Parameters
+    ----------
+    ast : a pycparser.c_ast.Node
+    """
 
     typ = type(ast) 
 
@@ -97,12 +118,8 @@ def replace_node_by_type(ast, find_type, replace):
     elif typ == c_ast.FuncDef:
         replace_node_by_type(ast.body, find_type, replace)
 
-""" 
-    remove c-style comments.
-    text: blob of text with comments (can include newlines)
-    returns: text with comments removed
-"""
 def remove_c99_comments(text):
+    """remove c-style comments"""
 
     pattern = r"""
                             ##  --------- COMMENT ---------
@@ -149,9 +166,9 @@ def remove_c99_comments(text):
 
 
 class ControlFlowGraph(nx.DiGraph):
-
     """
-    Placeholders AST nodes for delimitating the scope of "while"s and "if"s in the CFG
+    Placeholders AST nodes for delimitating the scope of c_ast.While and 
+    c_ast.If in the CFG
     """
     class WhileEnd(c_ast.EmptyStatement):
         def __init__(self, coord=None):
@@ -175,10 +192,10 @@ class ControlFlowGraph(nx.DiGraph):
         if ast is not None:
             ast_to_cfg(self, ast)
 
-    """
-    Return the induced graph of the nodes in all paths from start to end
-    """
     def get_subgraph_between_nodes(self, start, end):
+        """ Return the induced graph of the nodes in all paths from start to 
+        end.
+        """
         nodes = set()
         nodes.add(start)
 
@@ -198,12 +215,16 @@ class ControlFlowGraph(nx.DiGraph):
 
         return self.subgraph(nodes) 
     
-    """
-    This method insert "graph" (a CFG) after "place" (a node), connecting "place" 
-    to the first node of "graph"
-    """
     def insert_graph(self, place, graph):
-        
+        """
+        This method insert `graph` after `place`, connecting `place` to the 
+        first node of `graph`.
+
+        Parameters
+        ----------
+        graph : ControlFlowGraph()
+        place : pycparser.c_ast.Node
+        """
         if len(graph)>0:
             
             # Create and insert the graph
@@ -243,23 +264,28 @@ class ControlFlowGraph(nx.DiGraph):
                 print(str(type(s))+" "+str(s.coord)+" "+str(hex(id(s))))
             print("")
             
-"""
-Recursively compute the CFG from a AST. Given a AST node (can be any complex structure) the function will return 
-the first and last nodes of the CFG in a tuple and will modify de "cfg" parameter adding the corresponding nodes 
-and edges representing the final CFG.
-
-:param ast: AST node to be translated into a CFG
-:type node: pycparser.c_ast.Node
-:type cfg: ControlFlowGraph
-:return: A tuple with references to the first and last element of the CFG
-:rtype: (first, last)
-"""
 def ast_to_cfg(digraph, ast: c_ast.Node) -> (c_ast.Node, c_ast.Node):
+    """Recursively compute the CFG from a AST. Given a AST node (can be any 
+    complex structure) the function will return the first and last nodes of the
+    CFG in a tuple and will modify `cfg` adding the corresponding nodes and 
+    edges representing the final CFG.
 
-    # Depending on the node type, we need to build a DiGraph and return its starting/ending nodes
-    # We call ast_to_cfg = cfg in the comments
-    # Nodes marqued with * are adhoc nodes to have only one end in the graph
+    Parameters
+    ----------
+    digraph : networkx.DiGraph
+    ast : pycparser.c_ast.Node to be translated into a CFG
+    
+    Returns
+    -------
+    A tuple with references to the first and last element of the CFG
 
+    Notes
+    -----
+    Depending on the node type, we need to build a DiGraph and return its 
+    starting/ending nodes.
+    Nodes marqued with * in figures are adhoc nodes to have only one end in the
+    graph.
+    """
     typ = type(ast) 
 
     # A c_ast.If in CFG is:
@@ -300,13 +326,15 @@ def ast_to_cfg(digraph, ast: c_ast.Node) -> (c_ast.Node, c_ast.Node):
         digraph.add_edge(true_branch_first, true_branch_body_first)    
         digraph.add_edge(true_branch_body_last, last)   
 
-        false_branch_first = c_ast.If(c_ast.UnaryOp("!",ast.cond), None, None, coord=ast.coord)
+        false_branch_first = c_ast.If(  c_ast.UnaryOp("!",ast.cond), None, 
+                                        None, coord=ast.coord)
         digraph.add_node(false_branch_first)
         digraph.add_edge(first, false_branch_first)
 
         if ast.iffalse is not None:
 
-            false_branch_body_start, false_branch_body_last = ast_to_cfg(digraph, ast.iffalse)
+            false_branch_body_start, false_branch_body_last = \
+            ast_to_cfg(digraph, ast.iffalse)
             
             digraph.add_node(false_branch_body_start)
             digraph.add_node(false_branch_body_last)
@@ -395,12 +423,15 @@ def ast_to_cfg(digraph, ast: c_ast.Node) -> (c_ast.Node, c_ast.Node):
         digraph.add_node(ast)
         return ast, ast   
  
-"""
-    Generates a AST from a CFG path (No FileAST support, it handles FuncDecl, If, While and no compound objects)
-"""
-def cfg_path_to_ast(cfg):
 
-    
+def cfg_path_to_ast(cfg):
+    """Generates a AST from a CFG path (No FileAST support, it handles 
+    FuncDecl, If, While and no compound objects).
+
+    Parameters
+    ----------
+    cfg : ControlFlowGraph
+    """
     current_compound = c_ast.Compound([])
     ast = current_compound
     previous_compound = None
@@ -415,7 +446,8 @@ def cfg_path_to_ast(cfg):
             current_compound = c_ast.Compound([])
 
             if type(n) == c_ast.FuncDef:
-                inner_ast = c_ast.FuncDef(n.decl, n.param_decls, current_compound)
+                inner_ast = c_ast.FuncDef(n.decl, n.param_decls, 
+                                          current_compound)
             elif type(n) == c_ast.While:
                 inner_ast = c_ast.While(n.cond, current_compound)
             elif type(n) == c_ast.If:
@@ -423,23 +455,114 @@ def cfg_path_to_ast(cfg):
 
             previous_compound.block_items.append(inner_ast)
 
-        elif type(n) not in {ControlFlowGraph.FuncDefEnd, ControlFlowGraph.IfEnd, ControlFlowGraph.IfStart, ControlFlowGraph.WhileEnd}:
+        elif type(n) not in {ControlFlowGraph.FuncDefEnd,
+                            ControlFlowGraph.IfEnd, 
+                            ControlFlowGraph.IfStart, 
+                            ControlFlowGraph.WhileEnd}:
             
             current_compound.block_items.append(n)
 
     return ast 
 
+def get_if_path(path):
+    nodes = [node for node in list(nx.topological_sort(path)) 
+            if type(node)==c_ast.If]
+    
+    new_path = ControlFlowGraph()
+    nx.add_path(new_path, nodes)
 
-def is_var_assigment(n : c_ast.Node, variable):
-    return type(n) == c_ast.Assignment and n.op == '=' and n.lvalue.name == variable
+    return new_path
 
-def get_assigment_value(n : c_ast.Node):
+def remove_whiles(ast : c_ast.Node):
+    typ = type(ast) 
+
+    if typ == c_ast.If:
+        remove_whiles(ast.iftrue)
+
+        if ast.iffalse is not None:
+            remove_whiles(ast.iffalse)
+
+    elif typ == c_ast.Compound:
+            new_block_items = copy.copy(ast.block_items)
+            for i in range(0,len(ast.block_items)):
+                if type(ast.block_items[i]) == c_ast.While:
+                    new_block_items[i] = c_ast.Compound(ast.block_items[i].stmt)
+                else:
+                    remove_whiles(i)
+
+                ast.block_items = new_block_items
+
+    elif typ == c_ast.FuncDef:
+        remove_whiles(ast.body)
+
+def variable_assigments_by_value(cfg, variable) -> Dict[str, List[c_ast.Assignment]]:
+    """Returns a dictionary that maps rvalues to all nodes in the `cfg` where 
+    `variable` is assigned.
+
+    Parameters
+    ----------
+    cfg : ControlFlowGraph
+    variable : string
+        The name of the variable to match in the CFG assigments
+
+    Example
+    -------
+    considering the following C99 code in form of a CFG:
+
+    1   foo = val1;
+    2   foo = val2;
+    3   foo = val1;
+    4   foo = val3;
+    5   var = val1;
+
+    >>> variable_assigments_by_value(cfg, 'foo') 
+    >>> {val1: [node:1, node:3], val2: [node:2], val3: [node:4]}
+    """
+    map_rvalue_nodes = {}
+
+    variable_assigments = [node for node in cfg if is_syncvar_assignment(node, variable)]
+
+    for n in variable_assigments:
+        value = get_assigment_value(n)
+
+        if not value in map_rvalue_nodes:
+            map_rvalue_nodes[value] = []
+
+        map_rvalue_nodes[value].append(n)
+
+    return map_rvalue_nodes
+
+def variable_increments(cfg, variable):
+    return [node for node in cfg if is_var_increment(node, variable)]
+
+def is_syncvar_assignment(n : c_ast.Node, variable):
+    if type(n) == c_ast.Assignment:
+        # we discard the unfolding index
+        basename = re.sub(SYNCVAR_UNFOLD, '', n.lvalue.name)
+        return  n.op == '=' and basename == variable
+    else:
+        return False
+
+def is_syncvar_assigned_to_value(n : c_ast.Node, variable, value):
+    if type(n) == c_ast.Assignment:
+        # we discard the unfolding index
+        basename = re.sub(SYNCVAR_UNFOLD, '', n.lvalue.name)
+        return  n.op == '=' and basename == variable and n.rvalue.name == value
+    else:
+        return False
+
+def is_var_increment(n : c_ast.Node, variable):
+    return  type(n) == c_ast.UnaryOp and n.op == 'p++' and \
+            n.expr.name == variable
+
+def get_assigment_value(n : c_ast.Assignment):
+    # TODO: support different types 
     return str(n.rvalue.name)
 
 def count_variable_assigments(path, variable):
     i = 0
     for n in path:
-        if is_var_assigment(n, variable):
+        if is_syncvar_assignment(n, variable):
             i=i+1
     return i
 
@@ -450,35 +573,23 @@ def count_continues(path):
             i=i+1
     return i
 
-"""
-    ast: A pycparser AST 
-    returns: the outer while of the AST
-"""
+##########################################################
+############ pycparser.c_ast VISITORS ####################
+##########################################################
+
 class MainWhileVisitor(c_ast.NodeVisitor):
     def __init__(self):
-        self.current_parent = None
         self.result = None
 
     def visit_While(self, node):
-        self.result = (node, self.current_parent)
-
-    def generic_visit(self, node):
-        oldparent = self.current_parent
-        self.current_parent = node
-        for c in node:
-            self.visit(c)
-        self.current_parent = oldparent
+        self.result = node
 
 def get_main_while(ast):
+    """ Return the outer while of the AST """
     v = MainWhileVisitor()
     v.visit(ast)
     return v.result
 
-"""
-    ast: a pycparser AST 
-    funcname: a function name to find
-    returns: the corresponding FuncDef node in the AST defined as "funcname"
-"""
 class FuncDefVisitor(c_ast.NodeVisitor):
     def __init__(self, funcname):
         self.funcname = funcname
@@ -490,15 +601,19 @@ class FuncDefVisitor(c_ast.NodeVisitor):
         elif hasattr(node, 'args'):
             self.visit(node.args)
 
-def get_funcdef_node(ast, funcname):
+def get_funcdef_node(ast, funcname) -> c_ast.FuncDef:
+    """ Returns  the corresponding FuncDef node in the AST defined as 
+    `funcname`.
+
+    Parameters
+    ----------
+    ast : a pycparser AST 
+    funcname : a function name to find
+    """
     v = FuncDefVisitor(funcname)
     v.visit(ast)
     return v.result
 
-"""
-    ast: a pycparser AST 
-    returns: enum definitions in the AST as a dictionary: {enum_type_name: [const1, ...]}
-"""
 class EnumDeclarationVisitor(c_ast.NodeVisitor):
     def __init__(self):
         self.result = {}
@@ -512,15 +627,18 @@ class EnumDeclarationVisitor(c_ast.NodeVisitor):
 
             self.result[enum_name] = enum_constants
 
-def get_enum_declarations(ast):
+def get_enum_declarations(ast) -> Dict[str, List[str]]:
+    """ Returns enum definitions in the AST as a dictionary: {enum_type_name: [const1, ...]}
+
+    Parameters
+    ----------
+    ast : pycparser.c_ast.Node 
+    """
     v = EnumDeclarationVisitor()
     v.visit(ast)
     return v.result
 
-"""
-    ast: a pycparser AST 
-    returns: enum variable declarations as a dictionary {variable: enum_type_name}
-"""
+
 class EnumVariableDeclarationVisitor(c_ast.NodeVisitor):
     def __init__(self):
         self.result = {}
@@ -531,7 +649,113 @@ class EnumVariableDeclarationVisitor(c_ast.NodeVisitor):
 
 
 def get_declared_enum_vars(ast):
+    """ Returns enum variable declarations as a dictionary {variable: enum_type_name}
+
+    Parameters
+    ----------
+    ast: a pycparser AST 
+    """
     v = EnumVariableDeclarationVisitor()
     v.visit(ast)
     return v.result
 
+class RenameVariablesVisitor(c_ast.NodeVisitor):
+    def __init__(self, variables, iteration):
+        self.variables = variables
+        self.iteration = iteration
+
+    def visit_ID(self, node):
+        if node.name in self.variables:
+            node.name = rename_syncvar(node.name, self.iteration)
+    
+def rename_iterated_variables(ast, variables, iteration):
+    v = RenameVariablesVisitor(variables, iteration)
+    v.visit(ast)
+
+class RenameIfBodyVisitor(c_ast.NodeVisitor):
+    def __init__(self, variables, iteration):
+        self.variables = variables
+        self.iteration = iteration
+
+    def visit_If(self, node):
+        rename_iterated_variables(node.iftrue, self.variables, self.iteration)
+    
+def rename_if_body_variables(ast, variables, iteration):
+    v = RenameIfBodyVisitor(variables, iteration)
+    v.visit(ast)
+
+class RenameIfCondVisitor(c_ast.NodeVisitor):
+    def __init__(self, variables, string):
+        self.variables = variables
+        self.string = string
+
+    def visit_If(self, node):
+        rename_iterated_variables(node.cond, self.variables, self.string)
+    
+def rename_if_cond_variables(ast, variables, string):
+    v = RenameIfCondVisitor(variables, string)
+    v.visit(ast)
+
+class DeclareIteratedVariablesVisitor(c_ast.NodeVisitor):
+    def __init__(self, variables, iterations):
+        self.variables = variables
+        self.iterations = iterations
+        self.visited = []
+        self.current_parent = None
+
+    def visit_Decl(self, node):
+        if  type(node.type) == c_ast.TypeDecl:
+            if  type(node.type.type) == c_ast.Enum and \
+                node.name in self.variables and \
+                node not in self.visited:
+                    self.visited.append(node)
+                    for i in range(0,self.iterations):
+                        new_decl = copy.deepcopy(node)
+                        new_decl.name = new_decl.name + '_' + str(i)
+                        new_decl.type.declname = new_decl.name
+                        
+                        self.visited.append(new_decl)
+                        self.current_parent.block_items.insert(0,new_decl)
+
+        elif type(node.type) == c_ast.PtrDecl:
+            if  node.type.type.declname in self.variables and \
+                node not in self.visited:
+                self.visited.append(node)
+                for i in range(0,self.iterations):
+                    new_decl = copy.deepcopy(node)
+                    new_decl.name = new_decl.name + '_' + str(i)
+                    new_decl.type.type.declname = new_decl.name
+                    
+                    self.visited.append(new_decl)
+                    self.current_parent.block_items.insert(0,new_decl)
+
+    def generic_visit(self, node):
+        """ Called if no explicit visitor function exists for a
+            node. Implements preorder visiting of the node.
+        """
+        oldparent = self.current_parent
+        self.current_parent = node
+        for c in node:
+            self.visit(c)
+        self.current_parent = oldparent
+
+        
+
+def declare_iterated_variables(ast, variables, iterations):
+    """ Look for `var` in `variables` and copy its declarations adding the 
+    iteration number.
+
+    Example
+    -------
+    If the code declares:
+
+    enum phase;
+
+    and `iterations` equals 2, we need to add two declarations:
+
+    enum phase;
+    enum phase_1;
+    enum phase_2;
+    """
+    v = DeclareIteratedVariablesVisitor(variables, iterations)
+    v.visit(ast)
