@@ -7,11 +7,15 @@ from typing import Type, List, Set, Dict, Tuple, Optional
 from pycparser import c_parser, c_ast, parse_file, c_generator
 
 # Sync variables are anotated with the unfolding number where they belong
-SYNCVAR_UNFOLD = '_(\d)'
+SYNCVAR_UNFOLD_REGEX = '_(\d)_(\d)'
+SYNCVAR_UNFOLD = '_ITER_PATH'
 
-def rename_syncvar(name, iteration):
+def rename_syncvar(name, iteration, path):
     newname = name + SYNCVAR_UNFOLD
-    return newname.replace('(\d)', str(iteration))
+    newname = newname.replace('PATH', str(path))
+    newname = newname.replace('ITER', str(iteration))
+
+    return newname
 
 def unfold(ast, k: int, syncvariables):
     """This function assumes a C code with a unique "while" statement. The 
@@ -25,38 +29,56 @@ def unfold(ast, k: int, syncvariables):
     k : number of unfoldings of the main loop
     syncvariables : synchronization variables defined in the config
     """
-    declare_iterated_variables(ast, syncvariables, k)
 
     main_while = get_main_while(ast)
+    while_statements = main_while.stmt.block_items
 
     while_body = copy.deepcopy(main_while.stmt.block_items)
 
-    rename_if_body_variables(main_while, syncvariables, 0)
+    upons = [n for n in while_statements if type(n) == c_ast.If]
 
-    for i in range(1,k):
-        body_iteration = copy.deepcopy(while_body)
+    declare_iterated_variables(ast, syncvariables, k, len(upons))
 
-        # syncvars outside upons (typically mbox) must be renamed
-        # TODO: consider a visitor that ignores if bodies
-        for n in body_iteration:
+    _unfold(while_statements, while_body, syncvariables, 0, 0, k-1)
+
+
+def _unfold(ast, while_body, syncvariables, iteration, parent_path, unfoldings):
+
+    # rename out of scope variables like mbox
+    if iteration>0:
+        for n in ast:
             if type(n) == c_ast.Assignment and n.lvalue.name in syncvariables:
-                n.lvalue.name = rename_syncvar(n.lvalue.name, i-1)
-        
-        # syncvariables referenced in upon conditions are renamed to the 
-        # previous unfolding
-        rename_if_cond_variables(body_iteration, syncvariables, i-1)
+                n.lvalue.name = rename_syncvar(n.lvalue.name, iteration-1, parent_path)
 
-        # syncvariables inside upon statements live in the new unfolding
-        rename_if_body_variables(body_iteration, syncvariables, i)
+    upons = [n for n in ast if type(n) == c_ast.If]
 
-        insert_node_after_continue(main_while, body_iteration)   
+    if unfoldings-iteration > 0:
+        path = 0
 
-    
+        for upon in upons:
+            
+            if iteration>0:
+                rename_if_cond_variables(upon, syncvariables, iteration-1, parent_path)
+
+            rename_if_body_variables(upon, syncvariables, iteration, path)
+
+            insert_node_after_continue(upon, copy.deepcopy(while_body))  
+
+            _unfold(upon.iftrue, while_body, syncvariables, iteration+1, path, unfoldings)
+
+            path=path+1
+    else:
+        for upon in upons:
+            rename_if_cond_variables(upon, syncvariables, iteration-1, parent_path)
+            # path is 0 because we don't branch anymore, there is only one path
+            rename_if_body_variables(upon, syncvariables, iteration, 0)
+
+
 
 def insert_node_after_continue(ast, node):
     
     typ = type(ast) 
-
+    
     if typ == c_ast.If:
         insert_node_after_continue(ast.iftrue, node)
 
@@ -78,6 +100,7 @@ def insert_node_after_continue(ast, node):
                     body = copy.deepcopy(node)
                     for e in body:
                         ast.block_items.append(e)
+                    ast.block_items.append(i)
         else:
             for i in ast.block_items:
                 insert_node_after_continue(i, node)
@@ -538,7 +561,7 @@ def variable_increments(cfg, variable):
 def is_syncvar_assignment(n : c_ast.Node, variable):
     if type(n) == c_ast.Assignment:
         # we discard the unfolding index
-        basename = re.sub(SYNCVAR_UNFOLD, '', n.lvalue.name)
+        basename = re.sub(SYNCVAR_UNFOLD_REGEX, '', n.lvalue.name)
         return  n.op == '=' and basename == variable
     else:
         return False
@@ -546,7 +569,7 @@ def is_syncvar_assignment(n : c_ast.Node, variable):
 def is_syncvar_assigned_to_value(n : c_ast.Node, variable, value):
     if type(n) == c_ast.Assignment:
         # we discard the unfolding index
-        basename = re.sub(SYNCVAR_UNFOLD, '', n.lvalue.name)
+        basename = re.sub(SYNCVAR_UNFOLD_REGEX, '', n.lvalue.name)
         return  n.op == '=' and basename == variable and n.rvalue.name == value
     else:
         return False
@@ -660,45 +683,49 @@ def get_declared_enum_vars(ast):
     return v.result
 
 class RenameVariablesVisitor(c_ast.NodeVisitor):
-    def __init__(self, variables, iteration):
+    def __init__(self, variables, iteration, path):
         self.variables = variables
         self.iteration = iteration
+        self.path = path
 
     def visit_ID(self, node):
         if node.name in self.variables:
-            node.name = rename_syncvar(node.name, self.iteration)
+            node.name = rename_syncvar(node.name, self.iteration, self.path)
     
-def rename_iterated_variables(ast, variables, iteration):
-    v = RenameVariablesVisitor(variables, iteration)
+def rename_iterated_variables(ast, variables, iteration, path):
+    v = RenameVariablesVisitor(variables, iteration, path)
     v.visit(ast)
 
 class RenameIfBodyVisitor(c_ast.NodeVisitor):
-    def __init__(self, variables, iteration):
+    def __init__(self, variables, iteration, path):
         self.variables = variables
         self.iteration = iteration
+        self.path = path
 
     def visit_If(self, node):
-        rename_iterated_variables(node.iftrue, self.variables, self.iteration)
+        rename_iterated_variables(node.iftrue, self.variables, self.iteration, self.path)
     
-def rename_if_body_variables(ast, variables, iteration):
-    v = RenameIfBodyVisitor(variables, iteration)
+def rename_if_body_variables(ast, variables, iteration, path):
+    v = RenameIfBodyVisitor(variables, iteration, path)
     v.visit(ast)
 
 class RenameIfCondVisitor(c_ast.NodeVisitor):
-    def __init__(self, variables, string):
+    def __init__(self, variables, iteration, path):
         self.variables = variables
-        self.string = string
+        self.iteration = iteration
+        self.path = path
 
     def visit_If(self, node):
-        rename_iterated_variables(node.cond, self.variables, self.string)
+        rename_iterated_variables(node.cond, self.variables, self.iteration, self.path)
     
-def rename_if_cond_variables(ast, variables, string):
-    v = RenameIfCondVisitor(variables, string)
+def rename_if_cond_variables(ast, variables, iteration, path):
+    v = RenameIfCondVisitor(variables, iteration, path)
     v.visit(ast)
 
 class DeclareIteratedVariablesVisitor(c_ast.NodeVisitor):
-    def __init__(self, variables, iterations):
+    def __init__(self, variables, iterations, paths):
         self.variables = variables
+        self.paths = paths
         self.iterations = iterations
         self.visited = []
         self.current_parent = None
@@ -710,24 +737,26 @@ class DeclareIteratedVariablesVisitor(c_ast.NodeVisitor):
                 node not in self.visited:
                     self.visited.append(node)
                     for i in range(0,self.iterations):
-                        new_decl = copy.deepcopy(node)
-                        new_decl.name = new_decl.name + '_' + str(i)
-                        new_decl.type.declname = new_decl.name
+                        for p in range(0,self.paths):
+                            new_decl = copy.deepcopy(node)
+                            new_decl.name = rename_syncvar(new_decl.name, i, p)
+                            new_decl.type.declname = new_decl.name
                         
-                        self.visited.append(new_decl)
-                        self.current_parent.block_items.insert(0,new_decl)
+                            self.visited.append(new_decl)
+                            self.current_parent.block_items.insert(0,new_decl)
 
         elif type(node.type) == c_ast.PtrDecl:
             if  node.type.type.declname in self.variables and \
                 node not in self.visited:
                 self.visited.append(node)
                 for i in range(0,self.iterations):
-                    new_decl = copy.deepcopy(node)
-                    new_decl.name = new_decl.name + '_' + str(i)
-                    new_decl.type.type.declname = new_decl.name
-                    
-                    self.visited.append(new_decl)
-                    self.current_parent.block_items.insert(0,new_decl)
+                    for p in range(0,self.paths):
+                        new_decl = copy.deepcopy(node)
+                        new_decl.name = rename_syncvar(new_decl.name, i, p)
+                        new_decl.type.type.declname = new_decl.name
+                        
+                        self.visited.append(new_decl)
+                        self.current_parent.block_items.insert(0,new_decl)
 
     def generic_visit(self, node):
         """ Called if no explicit visitor function exists for a
@@ -741,7 +770,7 @@ class DeclareIteratedVariablesVisitor(c_ast.NodeVisitor):
 
         
 
-def declare_iterated_variables(ast, variables, iterations):
+def declare_iterated_variables(ast, variables, iterations, paths):
     """ Look for `var` in `variables` and copy its declarations adding the 
     iteration number.
 
@@ -757,5 +786,5 @@ def declare_iterated_variables(ast, variables, iterations):
     enum phase_1;
     enum phase_2;
     """
-    v = DeclareIteratedVariablesVisitor(variables, iterations)
+    v = DeclareIteratedVariablesVisitor(variables, iterations, paths)
     v.visit(ast)

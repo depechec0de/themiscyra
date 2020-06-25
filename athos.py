@@ -80,25 +80,26 @@ def async_to_sync(ast : c_ast.Node, config):
             for prefix_path in prefix_paths:
                 # we don't prefix with ended paths, i.e. with continues
                 count_continues = syntaxlib.count_continues(prefix_path)
-                count_round_assigments = syntaxlib.count_variable_assigments(prefix_path, round_variable)
             
-                # TODO: fix this
-                #if count_continues == 0 and count_round_assigments == 1:
                 if count_continues == 0:
                     cfg_end = suffix_path.copy()
                     # CFG path only containing ifs
-                    prefix_ifs = [n for n in list(nx.topological_sort(prefix_path)) if type(n)==c_ast.If]
-    
-                    ifs_path = syntaxlib.ControlFlowGraph()
-                    nx.add_path(ifs_path, prefix_ifs)
+                    #prefix_nodes = [n for n in list(nx.topological_sort(prefix_path)) if type(n)==c_ast.If]
+                    prefix_nodes = list(nx.topological_sort(prefix_path))
+                    # discard the node in common, the last
+                    prefix_nodes = prefix_nodes[:-1]
 
-                    # TODO: we could iterate the path and check if is SAT
+                    valid_prefix_path = syntaxlib.ControlFlowGraph()
+                    nx.add_path(valid_prefix_path, prefix_nodes)
 
-                    if len(ifs_path) > 0:
-                        nodes_beginning = list(nx.topological_sort(ifs_path))
+                    # TODO: we could iterate the path and check if is SAT or
+                    # reduce redundant ifs
+
+                    if len(valid_prefix_path) > 0:
+                        nodes_beginning = list(nx.topological_sort(valid_prefix_path))
                         nodes_end = list(nx.topological_sort(cfg_end))
 
-                        complete_path = nx.compose(ifs_path, cfg_end)
+                        complete_path = nx.compose(valid_prefix_path, cfg_end)
                         complete_path.add_edge(nodes_beginning[-1], nodes_end[0])
                         
                         path = complete_path
