@@ -62,8 +62,8 @@ def _unfold(ast, while_body, syncvariables, iteration, parent_path, unfoldings):
                 rename_if_cond_variables(upon, syncvariables, iteration-1, parent_path)
 
             rename_if_body_variables(upon, syncvariables, iteration, path)
-
-            insert_node_after_continue(upon, copy.deepcopy(while_body))  
+ 
+            call_recursively(upon, insert_node_after_continue, [copy.deepcopy(while_body)])
 
             _unfold(upon.iftrue, while_body, syncvariables, iteration+1, path, unfoldings)
 
@@ -80,35 +80,43 @@ def dead_code_elimination(codeast : c_ast.FileAST, phasevar):
     theory = C99Theory(codeast)
 
     # Syntactic tree prune, everything after a phase increment is removed
-    prune_after_phase_increment(codeast, phasevar)
+    call_recursively(codeast, prune_after_phase_increment, [phasevar])
 
     # Recursively explore the AST tree and cut the unfeasible branches
-    prune_unreachable_branches(codeast, theory)
+    call_recursively(codeast, prune_unreachable_branches, [theory])
 
-def prune_after_phase_increment(codeast : c_ast.FileAST, phasevar):
-
-    typ = type(codeast) 
+def call_recursively(node : c_ast.Node, function, args):
+    
+    typ = type(node) 
     
     if typ == c_ast.FileAST:
-        for statement in codeast.ext:
-            prune_after_phase_increment(statement, phasevar)
+        for statement in node.ext:
+            function(statement, *args)
             
     elif typ == c_ast.If:
-        prune_after_phase_increment(codeast.iftrue, phasevar)
-        if codeast.iffalse:
-            prune_after_phase_increment(codeast.iffalse, phasevar)
-    
+        function(node.iftrue, *args)
+        if node.iffalse:
+            function(node.iffalse, *args)
+
     elif typ == c_ast.While:
-        prune_after_phase_increment(codeast.stmt, phasevar)
+        function(node.stmt, *args)
 
     elif typ == c_ast.Compound:
+        for statement in node.block_items:
+            function(statement, *args)
+
+    elif typ == c_ast.FuncDef:
+        function(node.body, *args)
+
+def prune_after_phase_increment(codeast : c_ast.FileAST, phasevar):
+    if type(codeast) == c_ast.Compound:
         to_delete = []
         start_deleting = False
         for statement in codeast.block_items:
             if start_deleting:
                 to_delete.append(statement)
             else:
-                prune_after_phase_increment(statement, phasevar)
+                call_recursively(statement, prune_after_phase_increment, [phasevar])
                 
             if is_var_increment(statement, phasevar):
                 start_deleting = True
@@ -118,166 +126,88 @@ def prune_after_phase_increment(codeast : c_ast.FileAST, phasevar):
         # recover continue after phase++
         if start_deleting:
             codeast.block_items.append(c_ast.Continue())
+    else:
+        call_recursively(codeast, prune_after_phase_increment, [phasevar])
 
-    elif typ == c_ast.FuncDef:
-        prune_after_phase_increment(codeast.body, phasevar)
-
-def prune_unreachable_branches(codeast : c_ast.FileAST, theory : C99Theory):
-    
-    typ = type(codeast) 
-    
-    if typ == c_ast.FileAST:
-        for statement in codeast.ext:
-            prune_unreachable_branches(statement, theory)
-            
-    elif typ == c_ast.If:
-        prune_unreachable_branches(codeast.iftrue, theory)
-        if codeast.iffalse:
-            prune_unreachable_branches(codeast.iffalse)
-
-    elif typ == c_ast.Assignment: 
+def prune_unreachable_branches(codeast : c_ast.FileAST, theory : C99Theory):   
+    if type(codeast) == c_ast.Assignment: 
         theory.handle_assigment(codeast)      
-    elif typ == c_ast.While:
-        prune_unreachable_branches(codeast.stmt, theory)
-
-    elif typ == c_ast.Compound:
+    elif type(codeast) == c_ast.Compound:
         to_delete = []
         for statement in codeast.block_items:
             if type(statement) == c_ast.If:
                 if theory.is_sat(statement.cond):
                     new_context = copy.deepcopy(theory)
                     new_context.handle_if(statement)
-                    prune_unreachable_branches(statement, new_context)
+                    call_recursively(statement, prune_unreachable_branches, [new_context])
                 else:
                     to_delete.append(statement)
             else:
-                prune_unreachable_branches(statement, theory)
+                call_recursively(codeast, prune_unreachable_branches, [theory])
         for node in to_delete:
             codeast.block_items.remove(node)
+    else:
+        call_recursively(codeast, prune_unreachable_branches, [theory])
 
-    elif typ == c_ast.FuncDef:
-        prune_unreachable_branches(codeast.body, theory)
 
-
-def insert_node_after_continue(ast, node):
-    
-    typ = type(ast) 
-    
-    if typ == c_ast.If:
-        insert_node_after_continue(ast.iftrue, node)
-
-        if ast.iffalse is not None:
-            insert_node_after_continue(ast.iffalse, node)
-        
-    elif typ == c_ast.While:
-        insert_node_after_continue(ast.stmt, node)
-
-    elif typ == c_ast.Compound:
-        continues = [n for n in ast.block_items if type(n)==c_ast.Continue]
+def insert_node_after_continue(codeast, node):
+    if type(codeast) == c_ast.Compound:
+        continues = [n for n in codeast.block_items if type(n)==c_ast.Continue]
         
         if len(continues)>0:
             
-            items = copy.copy(ast.block_items)
+            items = copy.copy(codeast.block_items)
             for i in items:
                 if type(i) == c_ast.Continue:
-                    ast.block_items.remove(i)
+                    codeast.block_items.remove(i)
                     body = copy.deepcopy(node)
                     for e in body:
-                        ast.block_items.append(e)
-                    ast.block_items.append(i)
+                        codeast.block_items.append(e)
+                    codeast.block_items.append(i)
         else:
-            for i in ast.block_items:
-                insert_node_after_continue(i, node)
+            for i in codeast.block_items:
+                call_recursively(i, insert_node_after_continue, [node])
 
-    elif typ == c_ast.FuncDef:
-        insert_node_after_continue(ast.body, node)
-
-def replace_node_by_type(ast, find_type, replace):
-    """Replace nodes with `replace` where its type match `find_type` 
-
-    Parameters
-    ----------
-    ast : a pycparser.c_ast.Node
-    """
-
-    typ = type(ast) 
-
-    if typ == c_ast.If:
-        replace_node_by_type(ast.iftrue, find_type, replace)
-
-        if ast.iffalse is not None:
-            replace_node_by_type(ast.iffalse, find_type, replace)
-        
-    elif typ == c_ast.While:
-        replace_node_by_type(ast.stmt, find_type, replace)
-
-    elif typ == c_ast.Compound:
-            
-            for i in ast.block_items:
-                if type(i) == find_type:
-                    replace_copy = copy.deepcopy(replace)
-                    index = ast.block_items.index(i)
-                    ast.block_items.insert(index, replace_copy)
-                    ast.block_items.remove(i)
-                else:
-                    replace_node_by_type(i, find_type, replace)
-
-    elif typ == c_ast.FuncDef:
-        replace_node_by_type(ast.body, find_type, replace)
+    else:
+        call_recursively(codeast, insert_node_after_continue, [node])
 
 def remove_declarations(codeast : c_ast.Node):
-    typ = type(codeast) 
-
-    if typ == c_ast.FileAST:
+    if type(codeast) == c_ast.FileAST:
         to_delete = []
         for statement in codeast.ext:
             if is_var_declaration(statement):
                 to_delete.append(statement)
             else:
-                remove_declarations(statement)
+                call_recursively(statement, remove_declarations, [])
         for node in to_delete:
             codeast.block_items.remove(node)
 
-    elif typ == c_ast.If:
-        remove_declarations(codeast.iftrue)
-
-        if codeast.iffalse is not None:
-            remove_declarations(codeast.iffalse)
-
-    elif typ == c_ast.Compound:
+    elif type(codeast) == c_ast.Compound:
         to_delete = []
         for statement in codeast.block_items:
             if is_var_declaration(statement):
                 to_delete.append(statement)
             else:
-                remove_declarations(statement)
+                call_recursively(statement, remove_declarations, [])
         for node in to_delete:
             codeast.block_items.remove(node)
 
-    elif typ == c_ast.FuncDef:
-        remove_declarations(codeast.body)
+    else:
+        call_recursively(codeast, remove_declarations, [])
 
-def remove_whiles(ast : c_ast.Node):
-    typ = type(ast) 
-
-    if typ == c_ast.If:
-        remove_whiles(ast.iftrue)
-
-        if ast.iffalse is not None:
-            remove_whiles(ast.iffalse)
-
-    elif typ == c_ast.Compound:
-            new_block_items = copy.copy(ast.block_items)
-            for i in range(0,len(ast.block_items)):
-                if type(ast.block_items[i]) == c_ast.While:
-                    new_block_items[i] = c_ast.Compound(ast.block_items[i].stmt)
+def remove_whiles(codeast : c_ast.Node):
+    if type(codeast) == c_ast.Compound:
+            new_block_items = copy.copy(codeast.block_items)
+            for i in range(0,len(codeast.block_items)):
+                if type(codeast.block_items[i]) == c_ast.While:
+                    new_block_items[i] = c_ast.Compound(codeast.block_items[i].stmt)
                 else:
-                    remove_whiles(i)
+                    call_recursively(i, remove_whiles, [])
 
-                ast.block_items = new_block_items
+                codeast.block_items = new_block_items
 
-    elif typ == c_ast.FuncDef:
-        remove_whiles(ast.body)
+    else:
+        call_recursively(codeast, remove_whiles, [])
 
 def variable_assigments_by_value(cfg, variable) -> Dict[str, List[c_ast.Assignment]]:
     """Returns a dictionary that maps rvalues to all nodes in the `cfg` where 

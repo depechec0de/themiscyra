@@ -32,7 +32,7 @@ def async_to_sync(codeast : c_ast.Node, config):
     
     # we discard what we won't use
     main_ast = ast.get_funcdef_node(codeast,'main')
-    ast.remove_whiles(main_ast)
+    ast.call_recursively(main_ast, ast.remove_whiles, [])
 
     codecfg = cfg.ControlFlowGraph(main_ast)
     

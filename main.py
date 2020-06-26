@@ -64,7 +64,7 @@ if __name__ == "__main__":
             print(label)
             for ast_code in compho[label]:
                 print("################Path######################")
-                ast.remove_declarations(ast_code)
+                ast.call_recursively(ast_code, ast.remove_declarations, [])
                 code = generator.visit(ast_code)
                 print(code)
                 print("##########################################")
