@@ -8,8 +8,7 @@ from z3 import *
 from pycparser import c_parser, c_ast, parse_file, c_generator
 from typing import List, Set, Dict, Tuple, Optional
 
-import syntaxlib
-import semanticlib
+from syntaxlib import ast
 import athos
 
 def prepare_for_pycparser(filename):
@@ -17,7 +16,7 @@ def prepare_for_pycparser(filename):
     with open(filename) as f:
         original_file_str = f.read()
 
-    result_str = syntaxlib.remove_c99_comments(original_file_str)
+    result_str = ast.remove_c99_comments(original_file_str)
     
     return result_str
 
@@ -45,20 +44,20 @@ if __name__ == "__main__":
     # Now we can use pycparser to obtain the AST
     parser = c_parser.CParser()
     generator = c_generator.CGenerator()
-    ast = parser.parse(input_str_pycparser)
+    codeast = parser.parse(input_str_pycparser)
 
     if args.unfold:
         syncvariables = [config['round'], config['mbox']]
-        syntaxlib.unfold(ast, args.unfold, syncvariables)
+        ast.unfold(codeast, args.unfold, syncvariables)
 
-        semanticlib.dead_code_elimination(ast)
+        ast.dead_code_elimination(codeast)
 
-        code = generator.visit(ast)
+        code = generator.visit(codeast)
         print(code)
 
     elif args.athos:
         
-        compho = athos.async_to_sync(ast, config)      
+        compho = athos.async_to_sync(codeast, config)      
         
         for label in compho:
             print(label)

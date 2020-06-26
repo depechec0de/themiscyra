@@ -18,27 +18,16 @@ typedef struct List
 
 enum vround_typ {STARTVIEWCHANGE, DOVIEWCHANGE, STARTVIEW};
 
-/*@ ensures (\result == \null) ||
-    (\result != \null &&
-    \valid(\result) &&
-    \initialized(&\result->round) &&
-    \initialized(&\result->ballot) &&
-    (\result->round == 0 ||  \result->round == 1));
-@*/
 msg * recv();
 
 void send(int addr, msg * m);
 
-// Count how many messages in mbox satisfy to be equal in view, vround, phase and nround.
 int count_messages(list * mbox, int view, enum vround_typ vround);
 
-/*@ requires p>=0 && n>0 && n<=2000;
-@*/
 int main(int p, int n, int f);
 int main(int p, int n, int f)
 {
     int all;
-    // sync variables
     int view;
     enum vround_typ vround;
 
