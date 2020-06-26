@@ -74,13 +74,50 @@ def _unfold(ast, while_body, syncvariables, iteration, parent_path, unfoldings):
             # path is 0 because we don't branch anymore, there is only one path
             rename_if_body_variables(upon, syncvariables, iteration, 0)
 
-def dead_code_elimination(codeast : c_ast.FileAST):
+def dead_code_elimination(codeast : c_ast.FileAST, phasevar):
 
     # Construct a theory using definitions and declarations
     theory = C99Theory(codeast)
 
+    # Syntactic tree prune, everything after a phase increment is removed
+    remove_after_phase_increment(codeast, phasevar)
+
     # Recursively explore the AST tree and cut the unfeasible branches
     remove_unreachable_branches(codeast, theory)
+
+def remove_after_phase_increment(codeast : c_ast.FileAST, phasevar):
+
+    typ = type(codeast) 
+    
+    if typ == c_ast.FileAST:
+        for statement in codeast.ext:
+            remove_after_phase_increment(statement, phasevar)
+            
+    elif typ == c_ast.If:
+        remove_after_phase_increment(codeast.iftrue, phasevar)
+        if codeast.iffalse:
+            remove_after_phase_increment(codeast.iffalse, phasevar)
+    
+    elif typ == c_ast.While:
+        remove_after_phase_increment(codeast.stmt, phasevar)
+
+    elif typ == c_ast.Compound:
+        to_delete = []
+        start_deleting = False
+        for statement in codeast.block_items:
+            if start_deleting:
+                to_delete.append(statement)
+            else:
+                remove_after_phase_increment(statement, phasevar)
+                
+            if is_var_increment(statement, phasevar):
+                start_deleting = True
+            
+        for node in to_delete:
+            codeast.block_items.remove(node)
+
+    elif typ == c_ast.FuncDef:
+        remove_after_phase_increment(codeast.body, phasevar)
 
 def remove_unreachable_branches(codeast : c_ast.FileAST, theory : C99Theory):
     
@@ -90,8 +127,10 @@ def remove_unreachable_branches(codeast : c_ast.FileAST, theory : C99Theory):
         for statement in codeast.ext:
             remove_unreachable_branches(statement, theory)
             
-    if typ == c_ast.If:
+    elif typ == c_ast.If:
         remove_unreachable_branches(codeast.iftrue, theory)
+        if codeast.iffalse:
+            remove_unreachable_branches(codeast.iffalse)
 
     elif typ == c_ast.Assignment: 
         theory.handle_assigment(codeast)      
@@ -104,6 +143,7 @@ def remove_unreachable_branches(codeast : c_ast.FileAST, theory : C99Theory):
             if type(statement) == c_ast.If:
                 if theory.is_sat(statement.cond):
                     new_context = copy.deepcopy(theory)
+                    new_context.handle_if(statement)
                     remove_unreachable_branches(statement, new_context)
                 else:
                     to_delete.append(statement)

@@ -6,3 +6,9 @@ labels :
     - SECOND_ROUND
     - THIRD_ROUND
     - FOURTH_ROUND
+
+# Unfold script
+# python3 main.py examples/chandra_toueg/chandratoueg.c examples/chandra_toueg/chandratoueg.yaml --unfold 4 > examples/chandra_toueg/chandratoueg.unfolded.c
+
+# Paths script
+# python3 main.py examples/chandra_toueg/chandratoueg.unfolded.c examples/chandra_toueg/chandratoueg.yaml --athos > examples/chandra_toueg/chandratoueg.unfolded.paths.c

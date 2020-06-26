@@ -53,7 +53,11 @@ class C99Theory():
             i=i+1
 
         return S, map_enum
-    
+
+    def handle_if(self, node : c_ast.If):
+        constraint = self.ast_to_smt(node.cond)
+        self.context[node] = constraint 
+
     def handle_assigment(self, node : c_ast.Assignment):
         constraint = self.ast_to_smt(node)
         self.context[node.lvalue.name] = constraint 

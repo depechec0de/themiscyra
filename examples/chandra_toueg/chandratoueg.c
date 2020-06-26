@@ -90,7 +90,12 @@ int main(int p, int n, int f)
         }
 
         if(round == SECOND_ROUND && failure_detector(leader(phase,n)) == 1){
+            round = THIRD_ROUND;
             send(message(phase, THIRD_ROUND, estimate, p, timestamp, NACK, NULL), leader(phase,n));
+
+            phase++;
+            round = FIRST_ROUND;
+            continue;
         } 
 
         if(round == SECOND_ROUND && count(mbox, SECOND_ROUND, phase, leader(phase,n)) > 0 && count(mbox, FOURTH_ROUND) == 0){

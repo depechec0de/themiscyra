@@ -48,9 +48,10 @@ if __name__ == "__main__":
 
     if args.unfold:
         syncvariables = [config['round'], config['mbox']]
+        
         ast.unfold(codeast, args.unfold, syncvariables)
 
-        ast.dead_code_elimination(codeast)
+        ast.dead_code_elimination(codeast, config['phase'])
 
         code = generator.visit(codeast)
         print(code)
