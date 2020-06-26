@@ -3,28 +3,6 @@ STARTVIEWCHANGE
 {
   int main(int p, int n, int f)
 {
-  list *mbox_1_3;
-  list *mbox_1_2;
-  list *mbox_1_1;
-  list *mbox_1_0;
-  list *mbox_0_3;
-  list *mbox_0_2;
-  list *mbox_0_1;
-  list *mbox_0_0;
-  enum vround_typ vround_1_3;
-  enum vround_typ vround_1_2;
-  enum vround_typ vround_1_1;
-  enum vround_typ vround_1_0;
-  enum vround_typ vround_0_3;
-  enum vround_typ vround_0_2;
-  enum vround_typ vround_0_1;
-  enum vround_typ vround_0_0;
-  int all;
-  int view;
-  enum vround_typ vround;
-  msg *m;
-  msg *recv_msg;
-  list *mbox;
   vround = STARTVIEWCHANGE;
   view = 0;
   send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
@@ -44,28 +22,6 @@ STARTVIEWCHANGE
 {
 int main(int p, int n, int f)
 {
-  list *mbox_1_3;
-  list *mbox_1_2;
-  list *mbox_1_1;
-  list *mbox_1_0;
-  list *mbox_0_3;
-  list *mbox_0_2;
-  list *mbox_0_1;
-  list *mbox_0_0;
-  enum vround_typ vround_1_3;
-  enum vround_typ vround_1_2;
-  enum vround_typ vround_1_1;
-  enum vround_typ vround_1_0;
-  enum vround_typ vround_0_3;
-  enum vround_typ vround_0_2;
-  enum vround_typ vround_0_1;
-  enum vround_typ vround_0_0;
-  int all;
-  int view;
-  enum vround_typ vround;
-  msg *m;
-  msg *recv_msg;
-  list *mbox;
   vround = STARTVIEWCHANGE;
   view = 0;
   send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
@@ -90,28 +46,6 @@ DOVIEWCHANGE
 {
 int main(int p, int n, int f)
 {
-  list *mbox_1_3;
-  list *mbox_1_2;
-  list *mbox_1_1;
-  list *mbox_1_0;
-  list *mbox_0_3;
-  list *mbox_0_2;
-  list *mbox_0_1;
-  list *mbox_0_0;
-  enum vround_typ vround_1_3;
-  enum vround_typ vround_1_2;
-  enum vround_typ vround_1_1;
-  enum vround_typ vround_1_0;
-  enum vround_typ vround_0_3;
-  enum vround_typ vround_0_2;
-  enum vround_typ vround_0_1;
-  enum vround_typ vround_0_0;
-  int all;
-  int view;
-  enum vround_typ vround;
-  msg *m;
-  msg *recv_msg;
-  list *mbox;
   vround = STARTVIEWCHANGE;
   view = 0;
   send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
@@ -138,28 +72,6 @@ int main(int p, int n, int f)
 {
 int main(int p, int n, int f)
 {
-  list *mbox_1_3;
-  list *mbox_1_2;
-  list *mbox_1_1;
-  list *mbox_1_0;
-  list *mbox_0_3;
-  list *mbox_0_2;
-  list *mbox_0_1;
-  list *mbox_0_0;
-  enum vround_typ vround_1_3;
-  enum vround_typ vround_1_2;
-  enum vround_typ vround_1_1;
-  enum vround_typ vround_1_0;
-  enum vround_typ vround_0_3;
-  enum vround_typ vround_0_2;
-  enum vround_typ vround_0_1;
-  enum vround_typ vround_0_0;
-  int all;
-  int view;
-  enum vround_typ vround;
-  msg *m;
-  msg *recv_msg;
-  list *mbox;
   vround = STARTVIEWCHANGE;
   view = 0;
   send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
@@ -186,28 +98,6 @@ STARTVIEW
 {
 int main(int p, int n, int f)
 {
-  list *mbox_1_3;
-  list *mbox_1_2;
-  list *mbox_1_1;
-  list *mbox_1_0;
-  list *mbox_0_3;
-  list *mbox_0_2;
-  list *mbox_0_1;
-  list *mbox_0_0;
-  enum vround_typ vround_1_3;
-  enum vround_typ vround_1_2;
-  enum vround_typ vround_1_1;
-  enum vround_typ vround_1_0;
-  enum vround_typ vround_0_3;
-  enum vround_typ vround_0_2;
-  enum vround_typ vround_0_1;
-  enum vround_typ vround_0_0;
-  int all;
-  int view;
-  enum vround_typ vround;
-  msg *m;
-  msg *recv_msg;
-  list *mbox;
   vround = STARTVIEWCHANGE;
   view = 0;
   send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
@@ -236,28 +126,6 @@ int main(int p, int n, int f)
 {
 int main(int p, int n, int f)
 {
-  list *mbox_1_3;
-  list *mbox_1_2;
-  list *mbox_1_1;
-  list *mbox_1_0;
-  list *mbox_0_3;
-  list *mbox_0_2;
-  list *mbox_0_1;
-  list *mbox_0_0;
-  enum vround_typ vround_1_3;
-  enum vround_typ vround_1_2;
-  enum vround_typ vround_1_1;
-  enum vround_typ vround_1_0;
-  enum vround_typ vround_0_3;
-  enum vround_typ vround_0_2;
-  enum vround_typ vround_0_1;
-  enum vround_typ vround_0_0;
-  int all;
-  int view;
-  enum vround_typ vround;
-  msg *m;
-  msg *recv_msg;
-  list *mbox;
   vround = STARTVIEWCHANGE;
   view = 0;
   send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));

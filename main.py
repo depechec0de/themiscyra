@@ -64,10 +64,8 @@ if __name__ == "__main__":
             print(label)
             for ast_code in compho[label]:
                 print("################Path######################")
+                ast.remove_declarations(ast_code)
                 code = generator.visit(ast_code)
                 print(code)
                 print("##########################################")
     
-    # frama-c-gui -val -main func examples/roundAtoB.unfold1.c
-
-

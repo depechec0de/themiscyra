@@ -80,26 +80,26 @@ def dead_code_elimination(codeast : c_ast.FileAST, phasevar):
     theory = C99Theory(codeast)
 
     # Syntactic tree prune, everything after a phase increment is removed
-    remove_after_phase_increment(codeast, phasevar)
+    prune_after_phase_increment(codeast, phasevar)
 
     # Recursively explore the AST tree and cut the unfeasible branches
-    remove_unreachable_branches(codeast, theory)
+    prune_unreachable_branches(codeast, theory)
 
-def remove_after_phase_increment(codeast : c_ast.FileAST, phasevar):
+def prune_after_phase_increment(codeast : c_ast.FileAST, phasevar):
 
     typ = type(codeast) 
     
     if typ == c_ast.FileAST:
         for statement in codeast.ext:
-            remove_after_phase_increment(statement, phasevar)
+            prune_after_phase_increment(statement, phasevar)
             
     elif typ == c_ast.If:
-        remove_after_phase_increment(codeast.iftrue, phasevar)
+        prune_after_phase_increment(codeast.iftrue, phasevar)
         if codeast.iffalse:
-            remove_after_phase_increment(codeast.iffalse, phasevar)
+            prune_after_phase_increment(codeast.iffalse, phasevar)
     
     elif typ == c_ast.While:
-        remove_after_phase_increment(codeast.stmt, phasevar)
+        prune_after_phase_increment(codeast.stmt, phasevar)
 
     elif typ == c_ast.Compound:
         to_delete = []
@@ -108,34 +108,37 @@ def remove_after_phase_increment(codeast : c_ast.FileAST, phasevar):
             if start_deleting:
                 to_delete.append(statement)
             else:
-                remove_after_phase_increment(statement, phasevar)
+                prune_after_phase_increment(statement, phasevar)
                 
             if is_var_increment(statement, phasevar):
                 start_deleting = True
             
         for node in to_delete:
             codeast.block_items.remove(node)
+        # recover continue after phase++
+        if start_deleting:
+            codeast.block_items.append(c_ast.Continue())
 
     elif typ == c_ast.FuncDef:
-        remove_after_phase_increment(codeast.body, phasevar)
+        prune_after_phase_increment(codeast.body, phasevar)
 
-def remove_unreachable_branches(codeast : c_ast.FileAST, theory : C99Theory):
+def prune_unreachable_branches(codeast : c_ast.FileAST, theory : C99Theory):
     
     typ = type(codeast) 
     
     if typ == c_ast.FileAST:
         for statement in codeast.ext:
-            remove_unreachable_branches(statement, theory)
+            prune_unreachable_branches(statement, theory)
             
     elif typ == c_ast.If:
-        remove_unreachable_branches(codeast.iftrue, theory)
+        prune_unreachable_branches(codeast.iftrue, theory)
         if codeast.iffalse:
-            remove_unreachable_branches(codeast.iffalse)
+            prune_unreachable_branches(codeast.iffalse)
 
     elif typ == c_ast.Assignment: 
         theory.handle_assigment(codeast)      
     elif typ == c_ast.While:
-        remove_unreachable_branches(codeast.stmt, theory)
+        prune_unreachable_branches(codeast.stmt, theory)
 
     elif typ == c_ast.Compound:
         to_delete = []
@@ -144,16 +147,16 @@ def remove_unreachable_branches(codeast : c_ast.FileAST, theory : C99Theory):
                 if theory.is_sat(statement.cond):
                     new_context = copy.deepcopy(theory)
                     new_context.handle_if(statement)
-                    remove_unreachable_branches(statement, new_context)
+                    prune_unreachable_branches(statement, new_context)
                 else:
                     to_delete.append(statement)
             else:
-                remove_unreachable_branches(statement, theory)
+                prune_unreachable_branches(statement, theory)
         for node in to_delete:
             codeast.block_items.remove(node)
 
     elif typ == c_ast.FuncDef:
-        remove_unreachable_branches(codeast.body, theory)
+        prune_unreachable_branches(codeast.body, theory)
 
 
 def insert_node_after_continue(ast, node):
@@ -221,6 +224,38 @@ def replace_node_by_type(ast, find_type, replace):
 
     elif typ == c_ast.FuncDef:
         replace_node_by_type(ast.body, find_type, replace)
+
+def remove_declarations(codeast : c_ast.Node):
+    typ = type(codeast) 
+
+    if typ == c_ast.FileAST:
+        to_delete = []
+        for statement in codeast.ext:
+            if is_var_declaration(statement):
+                to_delete.append(statement)
+            else:
+                remove_declarations(statement)
+        for node in to_delete:
+            codeast.block_items.remove(node)
+
+    elif typ == c_ast.If:
+        remove_declarations(codeast.iftrue)
+
+        if codeast.iffalse is not None:
+            remove_declarations(codeast.iffalse)
+
+    elif typ == c_ast.Compound:
+        to_delete = []
+        for statement in codeast.block_items:
+            if is_var_declaration(statement):
+                to_delete.append(statement)
+            else:
+                remove_declarations(statement)
+        for node in to_delete:
+            codeast.block_items.remove(node)
+
+    elif typ == c_ast.FuncDef:
+        remove_declarations(codeast.body)
 
 def remove_whiles(ast : c_ast.Node):
     typ = type(ast) 
@@ -303,6 +338,9 @@ def is_syncvar_assigned_to_value(n : c_ast.Node, variable, value):
 def is_var_increment(n : c_ast.Node, variable):
     return  type(n) == c_ast.UnaryOp and n.op == 'p++' and \
             n.expr.name == variable
+
+def is_var_declaration(n : c_ast.Node):
+    return  type(n) == c_ast.Decl
 
 def get_assigment_value(n : c_ast.Assignment):
     # TODO: support different types 

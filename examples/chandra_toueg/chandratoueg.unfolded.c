@@ -113,6 +113,7 @@ int main(int p, int n, int f)
         round_1_2 = THIRD_ROUND;
         send(message(phase, THIRD_ROUND, estimate, p, timestamp, NACK, NULL), leader(phase, n));
         phase++;
+        continue;
       }
 
       if (((round_0_0 == SECOND_ROUND) && (count(mbox_0_0, SECOND_ROUND, phase, leader(phase, n)) > 0)) && (count(mbox_0_0, FOURTH_ROUND) == 0))
@@ -141,6 +142,7 @@ int main(int p, int n, int f)
         }
 
         phase++;
+        continue;
       }
 
       continue;
@@ -158,6 +160,7 @@ int main(int p, int n, int f)
         round_1_2 = THIRD_ROUND;
         send(message(phase, THIRD_ROUND, estimate, p, timestamp, NACK, NULL), leader(phase, n));
         phase++;
+        continue;
       }
 
       if (((round_0_1 == SECOND_ROUND) && (count(mbox_0_1, SECOND_ROUND, phase, leader(phase, n)) > 0)) && (count(mbox_0_1, FOURTH_ROUND) == 0))
@@ -177,6 +180,7 @@ int main(int p, int n, int f)
           }
 
           phase++;
+          continue;
         }
 
         continue;
@@ -195,6 +199,7 @@ int main(int p, int n, int f)
       }
 
       phase++;
+      continue;
     }
 
   }
