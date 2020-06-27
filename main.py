@@ -33,6 +33,7 @@ if __name__ == "__main__":
     argparser.add_argument('configfile', help='configuration file with syncvars and labels')
     argparser.add_argument('--unfold', help='number of unfolds to perform', type=check_positive)
     argparser.add_argument('--athos', help='perform async to sync translation', action='store_true')
+    argparser.add_argument('--deadcode', help='perform a deadcode elimination', action='store_true')
     args = argparser.parse_args()
 
     # Pycparser doesn't support directives, we replace them for its content
@@ -51,8 +52,6 @@ if __name__ == "__main__":
         
         ast.unfold(codeast, args.unfold, syncvariables)
 
-        ast.dead_code_elimination(codeast, config['phase'])
-
         code = generator.visit(codeast)
         print(code)
 
@@ -68,4 +67,11 @@ if __name__ == "__main__":
                 code = generator.visit(ast_code)
                 print(code)
                 print("##########################################")
+
+    elif args.deadcode:
+
+        ast.dead_code_elimination(codeast, config['phase'])
+
+        code = generator.visit(codeast)
+        print(code)
     

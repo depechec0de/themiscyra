@@ -62,12 +62,37 @@ int main(int p, int n, int f)
     {
       vround_0_0 = DOVIEWCHANGE;
       mbox_0_0 = havoc(view, vround);
+      if (((vround_0_0 == STARTVIEWCHANGE) && (p == primary(view, n))) && (mbox_0_0->size > f))
+      {
+        vround_1_0 = DOVIEWCHANGE;
+        continue;
+      }
+
+      if (((vround_0_0 == STARTVIEWCHANGE) && (p != primary(view, n))) && (mbox_0_0->size > f))
+      {
+        vround_1_0 = DOVIEWCHANGE;
+        send(primary(view, n), message(view, DOVIEWCHANGE, NULL, NULL, p, local_log()));
+        vround_1_0 = STARTVIEW;
+        continue;
+      }
+
       if (((vround_0_0 == DOVIEWCHANGE) && (p == primary(view, n))) && (mbox_0_0->size > f))
       {
         computes_new_log();
         vround_1_0 = STARTVIEW;
         send(all, message(view, STARTVIEW, NULL, NULL, p, local_log()));
         view++;
+        vround_1_0 = STARTVIEWCHANGE;
+        send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
+        continue;
+      }
+
+      if (((vround_0_0 == STARTVIEW) && (p != primary(view, n))) && (mbox_0_0->size == 1))
+      {
+        computes_new_log();
+        view++;
+        vround_1_0 = STARTVIEWCHANGE;
+        send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
         continue;
       }
 
@@ -80,10 +105,127 @@ int main(int p, int n, int f)
       send(primary(view, n), message(view, DOVIEWCHANGE, NULL, NULL, p, local_log()));
       vround_0_1 = STARTVIEW;
       mbox_0_1 = havoc(view, vround);
+      if (((vround_0_1 == STARTVIEWCHANGE) && (p == primary(view, n))) && (mbox_0_1->size > f))
+      {
+        vround_1_0 = DOVIEWCHANGE;
+        continue;
+      }
+
+      if (((vround_0_1 == STARTVIEWCHANGE) && (p != primary(view, n))) && (mbox_0_1->size > f))
+      {
+        vround_1_0 = DOVIEWCHANGE;
+        send(primary(view, n), message(view, DOVIEWCHANGE, NULL, NULL, p, local_log()));
+        vround_1_0 = STARTVIEW;
+        continue;
+      }
+
+      if (((vround_0_1 == DOVIEWCHANGE) && (p == primary(view, n))) && (mbox_0_1->size > f))
+      {
+        computes_new_log();
+        vround_1_0 = STARTVIEW;
+        send(all, message(view, STARTVIEW, NULL, NULL, p, local_log()));
+        view++;
+        vround_1_0 = STARTVIEWCHANGE;
+        send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
+        continue;
+      }
+
       if (((vround_0_1 == STARTVIEW) && (p != primary(view, n))) && (mbox_0_1->size == 1))
       {
         computes_new_log();
         view++;
+        vround_1_0 = STARTVIEWCHANGE;
+        send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
+        continue;
+      }
+
+      continue;
+    }
+
+    if (((vround == DOVIEWCHANGE) && (p == primary(view, n))) && (mbox->size > f))
+    {
+      computes_new_log();
+      vround_0_2 = STARTVIEW;
+      send(all, message(view, STARTVIEW, NULL, NULL, p, local_log()));
+      view++;
+      vround_0_2 = STARTVIEWCHANGE;
+      send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
+      mbox_0_2 = havoc(view, vround);
+      if (((vround_0_2 == STARTVIEWCHANGE) && (p == primary(view, n))) && (mbox_0_2->size > f))
+      {
+        vround_1_0 = DOVIEWCHANGE;
+        continue;
+      }
+
+      if (((vround_0_2 == STARTVIEWCHANGE) && (p != primary(view, n))) && (mbox_0_2->size > f))
+      {
+        vround_1_0 = DOVIEWCHANGE;
+        send(primary(view, n), message(view, DOVIEWCHANGE, NULL, NULL, p, local_log()));
+        vround_1_0 = STARTVIEW;
+        continue;
+      }
+
+      if (((vround_0_2 == DOVIEWCHANGE) && (p == primary(view, n))) && (mbox_0_2->size > f))
+      {
+        computes_new_log();
+        vround_1_0 = STARTVIEW;
+        send(all, message(view, STARTVIEW, NULL, NULL, p, local_log()));
+        view++;
+        vround_1_0 = STARTVIEWCHANGE;
+        send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
+        continue;
+      }
+
+      if (((vround_0_2 == STARTVIEW) && (p != primary(view, n))) && (mbox_0_2->size == 1))
+      {
+        computes_new_log();
+        view++;
+        vround_1_0 = STARTVIEWCHANGE;
+        send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
+        continue;
+      }
+
+      continue;
+    }
+
+    if (((vround == STARTVIEW) && (p != primary(view, n))) && (mbox->size == 1))
+    {
+      computes_new_log();
+      view++;
+      vround_0_3 = STARTVIEWCHANGE;
+      send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
+      mbox_0_3 = havoc(view, vround);
+      if (((vround_0_3 == STARTVIEWCHANGE) && (p == primary(view, n))) && (mbox_0_3->size > f))
+      {
+        vround_1_0 = DOVIEWCHANGE;
+        continue;
+      }
+
+      if (((vround_0_3 == STARTVIEWCHANGE) && (p != primary(view, n))) && (mbox_0_3->size > f))
+      {
+        vround_1_0 = DOVIEWCHANGE;
+        send(primary(view, n), message(view, DOVIEWCHANGE, NULL, NULL, p, local_log()));
+        vround_1_0 = STARTVIEW;
+        continue;
+      }
+
+      if (((vround_0_3 == DOVIEWCHANGE) && (p == primary(view, n))) && (mbox_0_3->size > f))
+      {
+        computes_new_log();
+        vround_1_0 = STARTVIEW;
+        send(all, message(view, STARTVIEW, NULL, NULL, p, local_log()));
+        view++;
+        vround_1_0 = STARTVIEWCHANGE;
+        send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
+        continue;
+      }
+
+      if (((vround_0_3 == STARTVIEW) && (p != primary(view, n))) && (mbox_0_3->size == 1))
+      {
+        computes_new_log();
+        view++;
+        vround_1_0 = STARTVIEWCHANGE;
+        send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
         continue;
       }
 

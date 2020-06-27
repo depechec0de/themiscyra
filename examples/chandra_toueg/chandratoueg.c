@@ -114,7 +114,7 @@ int main(int p, int n, int f)
             continue;
         }  
         
-        if(p == leader(phase,n) && round == THIRD_ROUND && count(mbox, THIRD_ROUND, phase) > n+1/2 && count(mbox, FOURTH_ROUND) == 0){
+        if(p == leader(phase,n) && round == THIRD_ROUND && count(mbox, THIRD_ROUND, phase) > (n+1)/2 && count(mbox, FOURTH_ROUND) == 0){
             
             if(all_ack(mbox) == 1){ 
                 round = FOURTH_ROUND;

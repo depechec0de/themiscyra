@@ -9,5 +9,8 @@ labels :
 # Unfold script
 # python3 main.py examples/viewstamped_replication/viewchange.c examples/viewstamped_replication/viewchange.yaml --unfold 2 > examples/viewstamped_replication/viewchange.unfolded.c
 
+# Dead code script
+# python3 main.py examples/viewstamped_replication/viewchange.unfolded.c examples/viewstamped_replication/viewchange.yaml --deadcode > examples/viewstamped_replication/viewchange.deadcode.c
+
 # Paths script
 # python3 main.py examples/viewstamped_replication/viewchange.unfolded.c examples/viewstamped_replication/viewchange.yaml --athos > examples/viewstamped_replication/viewchange.unfolded.paths.c

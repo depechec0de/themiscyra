@@ -83,7 +83,9 @@ def dead_code_elimination(codeast : c_ast.FileAST, phasevar):
     call_recursively(codeast, prune_after_phase_increment, [phasevar])
 
     # Recursively explore the AST tree and cut the unfeasible branches
-    call_recursively(codeast, prune_unreachable_branches, [theory])
+    to_delete = []
+    call_recursively(codeast, get_unreachable_branches, [theory, to_delete])
+    call_recursively(codeast, delete_nodes, [to_delete])
 
 def call_recursively(node : c_ast.Node, function, args):
     
@@ -129,26 +131,32 @@ def prune_after_phase_increment(codeast : c_ast.FileAST, phasevar):
     else:
         call_recursively(codeast, prune_after_phase_increment, [phasevar])
 
-def prune_unreachable_branches(codeast : c_ast.FileAST, theory : C99Theory):   
+def get_unreachable_branches(codeast : c_ast.FileAST, theory : C99Theory, to_delete):   
+    
     if type(codeast) == c_ast.Assignment: 
-        theory.handle_assigment(codeast)      
-    elif type(codeast) == c_ast.Compound:
-        to_delete = []
-        for statement in codeast.block_items:
-            if type(statement) == c_ast.If:
-                if theory.is_sat(statement.cond):
-                    new_context = copy.deepcopy(theory)
-                    new_context.handle_if(statement)
-                    call_recursively(statement, prune_unreachable_branches, [new_context])
-                else:
-                    to_delete.append(statement)
-            else:
-                call_recursively(codeast, prune_unreachable_branches, [theory])
-        for node in to_delete:
-            codeast.block_items.remove(node)
+        theory.handle_assigment(codeast)
+    elif type(codeast) == c_ast.If:
+        if theory.is_sat(codeast.cond):
+            new_context = copy.deepcopy(theory)
+            new_context.handle_if(codeast)
+            call_recursively(codeast, get_unreachable_branches, [new_context, to_delete])
+        else:
+            to_delete.append(codeast)
     else:
-        call_recursively(codeast, prune_unreachable_branches, [theory])
+        call_recursively(codeast, get_unreachable_branches, [theory, to_delete])
 
+def delete_nodes(node, to_delete):
+    if type(node) == c_ast.Compound:
+        delete = []
+        for i in node.block_items:
+            if i in to_delete:
+                delete.append(i)
+            else:
+                call_recursively(node, delete_nodes, [to_delete])
+        for i in delete:
+            node.block_items.remove(i)    
+    else:
+        call_recursively(node, delete_nodes, [to_delete])    
 
 def insert_node_after_continue(codeast, node):
     if type(codeast) == c_ast.Compound:
@@ -197,14 +205,14 @@ def remove_declarations(codeast : c_ast.Node):
 
 def remove_whiles(codeast : c_ast.Node):
     if type(codeast) == c_ast.Compound:
-            new_block_items = copy.copy(codeast.block_items)
-            for i in range(0,len(codeast.block_items)):
-                if type(codeast.block_items[i]) == c_ast.While:
-                    new_block_items[i] = c_ast.Compound(codeast.block_items[i].stmt)
-                else:
-                    call_recursively(i, remove_whiles, [])
+        new_block_items = copy.copy(codeast.block_items)
+        for i in range(0,len(codeast.block_items)):
+            if type(codeast.block_items[i]) == c_ast.While:
+                new_block_items[i] = c_ast.Compound(codeast.block_items[i].stmt)
+            else:
+                call_recursively(i, remove_whiles, [])
 
-                codeast.block_items = new_block_items
+            codeast.block_items = new_block_items
 
     else:
         call_recursively(codeast, remove_whiles, [])
@@ -444,6 +452,13 @@ class RenameIfBodyVisitor(c_ast.NodeVisitor):
 def rename_if_body_variables(ast, variables, iteration, path):
     v = RenameIfBodyVisitor(variables, iteration, path)
     v.visit(ast)
+
+class ContinuesCounterVisitor(c_ast.NodeVisitor):
+    def __init__(self):
+        self.count = 0
+
+    def visit_Continue(self, node):
+        self.count = self.count + 1
 
 class RenameIfCondVisitor(c_ast.NodeVisitor):
     def __init__(self, variables, iteration, path):

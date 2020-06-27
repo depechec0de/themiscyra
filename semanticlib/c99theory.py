@@ -148,5 +148,5 @@ class C99Theory():
 
         for var in self.context:
             solver.add(self.context[var])
-
+        
         return solver.check() == z3.sat
