@@ -26,19 +26,15 @@ enum ack_typ
   ACK,
   NACK
 };
-msg *recv();
 void out(int v1, int v2);
 int in();
-int timeout();
-int reset_timeout();
-int rand_bool();
 msg *max_timestamp(struct List *mbox);
 int all_ack(struct List *mbox);
-void dispose(msg *c);
-void list_dispose(struct List *l);
 void send(msg *message, int pid);
 int leader(int phase, int net_size);
-int all_agree(struct List *l);
+int count(msg *mbox, int phase, enum round_typ round, int from);
+int havoc();
+int failure_detector(int process);
 msg *message(int phase, enum round_typ round, int estimate, int p, int timestamp, int response, _Bool decided);
 int true = 1;
 int main(int p, int n, int f)
@@ -116,9 +112,10 @@ int main(int p, int n, int f)
         continue;
       }
 
-      if (((round_0_0 == SECOND_ROUND) && (count(mbox_0_0, SECOND_ROUND, phase, leader(phase, n)) > 0)) && (count(mbox_0_0, FOURTH_ROUND) == 0))
+      if (((round_0_0 == SECOND_ROUND) && (count(mbox_0_0, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0_0, NULL, FOURTH_ROUND, NULL) == 0))
       {
-        estimate = mbox_1_3->message->estimate;
+        m = mbox_1_3->message;
+        estimate = m->estimate;
         timestamp = phase;
         ack = 1;
         round_1_3 = THIRD_ROUND;
@@ -132,12 +129,13 @@ int main(int p, int n, int f)
         continue;
       }
 
-      if (count(mbox_0_0, FOURTH_ROUND) > 0)
+      if (count(mbox_0_0, NULL, FOURTH_ROUND, NULL) > 0)
       {
         round_1_5 = FOURTH_ROUND;
-        if (mbox_1_5->message->decided)
+        m = mbox_1_5->message;
+        if (m->decided == 1)
         {
-          estimate = mbox_1_5->message->estimate;
+          estimate = m->estimate;
           out(p, estimate);
         }
 
@@ -148,7 +146,7 @@ int main(int p, int n, int f)
       continue;
     }
 
-    if ((((p == leader(phase, n)) && (round == FIRST_ROUND)) && (count(mbox, FIRST_ROUND, phase) > ((n + 1) / 2))) && (count(mbox, FOURTH_ROUND) == 0))
+    if ((((p == leader(phase, n)) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, NULL) > ((n + 1) / 2))) && (count(mbox, NULL, FOURTH_ROUND, NULL) == 0))
     {
       m = max_timestamp(mbox_0_1);
       estimate = m->estimate;
@@ -163,15 +161,16 @@ int main(int p, int n, int f)
         continue;
       }
 
-      if (((round_0_1 == SECOND_ROUND) && (count(mbox_0_1, SECOND_ROUND, phase, leader(phase, n)) > 0)) && (count(mbox_0_1, FOURTH_ROUND) == 0))
+      if (((round_0_1 == SECOND_ROUND) && (count(mbox_0_1, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0_1, NULL, FOURTH_ROUND, NULL) == 0))
       {
-        estimate = mbox_1_3->message->estimate;
+        m = mbox_1_3->message;
+        estimate = m->estimate;
         timestamp = phase;
         ack = 1;
         round_1_3 = THIRD_ROUND;
         send(message(phase, THIRD_ROUND, estimate, p, timestamp, ACK, NULL), leader(phase, n));
         mbox_1_3 = havoc();
-        if ((((p == leader(phase, n)) && (round_1_3 == THIRD_ROUND)) && (count(mbox_1_3, THIRD_ROUND, phase) > ((n + 1) / 2))) && (count(mbox_1_3, FOURTH_ROUND) == 0))
+        if ((((p == leader(phase, n)) && (round_1_3 == THIRD_ROUND)) && (count(mbox_1_3, phase, THIRD_ROUND, NULL) > ((n + 1) / 2))) && (count(mbox_1_3, NULL, FOURTH_ROUND, NULL) == 0))
         {
           if (all_ack(mbox_2_0) == 1)
           {
@@ -189,12 +188,13 @@ int main(int p, int n, int f)
       continue;
     }
 
-    if (count(mbox, FOURTH_ROUND) > 0)
+    if (count(mbox, NULL, FOURTH_ROUND, NULL) > 0)
     {
       round_0_5 = FOURTH_ROUND;
-      if (mbox_0_5->message->decided)
+      m = mbox_0_5->message;
+      if (m->decided == 1)
       {
-        estimate = mbox_0_5->message->estimate;
+        estimate = m->estimate;
         out(p, estimate);
       }
 

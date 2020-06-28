@@ -136,7 +136,7 @@ def get_unreachable_branches(codeast : c_ast.FileAST, theory : C99Theory, to_del
     if type(codeast) == c_ast.Assignment: 
         theory.handle_assigment(codeast)
     elif type(codeast) == c_ast.If:
-        if theory.is_sat(codeast.cond):
+        if theory.is_sat(codeast):
             new_context = copy.deepcopy(theory)
             new_context.handle_if(codeast)
             call_recursively(codeast, get_unreachable_branches, [new_context, to_delete])
@@ -273,6 +273,22 @@ def is_syncvar_assigned_to_value(n : c_ast.Node, variable, value):
     else:
         return False
 
+def get_decl_type(n : c_ast.Decl):
+    ntype = n.type.type
+
+    if type(ntype) == c_ast.Enum:
+        return ntype.name
+    elif type(ntype) == c_ast.IdentifierType:
+        return ntype.names[0]
+
+def get_structref_name(n : c_ast.StructRef):
+    """ A StructRef name can contain several dereferences e.g. var->foo->bar
+    """
+    if type(n.name) == c_ast.StructRef:
+        return get_structref_name(n.name) + n.type + n.field.name
+    else:
+        return n.name.name + n.type + n.field.name
+
 def is_var_increment(n : c_ast.Node, variable):
     return  type(n) == c_ast.UnaryOp and n.op == 'p++' and \
             n.expr.name == variable
@@ -402,6 +418,25 @@ def get_enum_declarations(ast) -> Dict[str, List[str]]:
     ast : pycparser.c_ast.Node 
     """
     v = EnumDeclarationVisitor()
+    v.visit(ast)
+    return v.result
+
+def get_func_declarations(ast) -> Dict[str, List[c_ast.FuncDecl]]:
+    """ Returns enum definitions in the AST as a dictionary: {enum_type_name: [const1, ...]}
+
+    Parameters
+    ----------
+    ast : pycparser.c_ast.Node 
+    """
+    class FuncDeclarationVisitor(c_ast.NodeVisitor):
+        def __init__(self):
+            self.result = {}
+
+        def visit_Decl(self, node):
+            if type(node.type) == c_ast.FuncDecl:
+                self.result[node.name] = node.type
+
+    v = FuncDeclarationVisitor()
     v.visit(ast)
     return v.result
 

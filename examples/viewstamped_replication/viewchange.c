@@ -23,6 +23,8 @@ msg * recv();
 void send(int addr, msg * m);
 
 int count_messages(list * mbox, int view, enum vround_typ vround);
+int havoc(int view, enum vround_typ vround);
+int primary(int view, int n);
 
 int main(int p, int n, int f);
 int main(int p, int n, int f)

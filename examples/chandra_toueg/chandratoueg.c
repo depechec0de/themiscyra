@@ -17,31 +17,15 @@ typedef struct List
 enum round_typ {FIRST_ROUND, SECOND_ROUND, THIRD_ROUND, FOURTH_ROUND};
 enum ack_typ {ACK, NACK};
 
-msg * recv();
-
 void out(int v1, int v2);
-
 int in();
-
-int timeout();
-
-int reset_timeout();
-
-int rand_bool();
-
 msg* max_timestamp(struct List* mbox);
-
 int all_ack(struct List* mbox);
-
-void dispose(msg *c);
-
-void list_dispose(struct List *l);
-
 void send(msg *message, int pid);
-
 int leader(int phase, int net_size);
-
-int all_agree(struct List *l);
+int count(msg* mbox, int phase, enum round_typ round, int from);
+int havoc();
+int failure_detector(int process);
 
 msg* message(int phase, enum round_typ round, int estimate, int p, int timestamp, int response, _Bool decided);
 
@@ -79,7 +63,7 @@ int main(int p, int n, int f)
             continue;
         }
 
-        if(p == leader(phase,n) && round == FIRST_ROUND && count(mbox, FIRST_ROUND, phase) > (n+1)/2 && count(mbox, FOURTH_ROUND) == 0){
+        if(p == leader(phase,n) && round == FIRST_ROUND && count(mbox, phase, FIRST_ROUND, NULL) > (n+1)/2 && count(mbox, NULL, FOURTH_ROUND, NULL) == 0){
             
             m = max_timestamp(mbox);
             estimate = m->estimate;
@@ -98,9 +82,10 @@ int main(int p, int n, int f)
             continue;
         } 
 
-        if(round == SECOND_ROUND && count(mbox, SECOND_ROUND, phase, leader(phase,n)) > 0 && count(mbox, FOURTH_ROUND) == 0){
+        if(round == SECOND_ROUND && count(mbox, phase, SECOND_ROUND, leader(phase,n)) > 0 && count(mbox, NULL, FOURTH_ROUND, NULL) == 0){
             
-            estimate = mbox->message->estimate;
+            m = mbox->message;
+            estimate = m->estimate;
             timestamp = phase;
             ack = 1;
 
@@ -114,7 +99,7 @@ int main(int p, int n, int f)
             continue;
         }  
         
-        if(p == leader(phase,n) && round == THIRD_ROUND && count(mbox, THIRD_ROUND, phase) > (n+1)/2 && count(mbox, FOURTH_ROUND) == 0){
+        if(p == leader(phase,n) && round == THIRD_ROUND && count(mbox, phase, THIRD_ROUND, NULL) > (n+1)/2 && count(mbox, NULL, FOURTH_ROUND, NULL) == 0){
             
             if(all_ack(mbox) == 1){ 
                 round = FOURTH_ROUND;
@@ -127,12 +112,12 @@ int main(int p, int n, int f)
             continue;
         } 
 
-        if(count(mbox, FOURTH_ROUND) > 0){
+        if(count(mbox, NULL, FOURTH_ROUND, NULL) > 0){
             
             round = FOURTH_ROUND;
-            
-            if(mbox->message->decided){
-                estimate = mbox->message->estimate;
+            m = mbox->message;
+            if(m->decided == 1){
+                estimate = m->estimate;
                 out(p, estimate);
             }
 
