@@ -1,46 +1,44 @@
-struct Msg
+struct msg
 {
   int view;
-  int vround;
-  int opnumber;
-  int nround;
-  
+  enum vround_typ vround;  
   int replica;
-  void* log;
+  struct list* log;
 };
-typedef struct Msg msg;
-typedef struct List
+struct list
 {
-  msg *message;
-  struct List *next;
+  struct msg *message;
+  struct list *next;
   int size;
-} list;
+};
 
 enum vround_typ {STARTVIEWCHANGE, DOVIEWCHANGE, STARTVIEW};
+enum null {BOOL_NULL, INT_NULL};
 
-msg * recv();
-
-void send(int addr, msg * m);
-
-int count_messages(list * mbox, int view, enum vround_typ vround);
-int havoc(int view, enum vround_typ vround);
+_Bool send(int addr, struct msg * m);
+struct list* havoc(int view, enum vround_typ vround);
 int primary(int view, int n);
+struct msg* message(int phase, enum vround_typ round, int p, int timestamp);
+struct list* local_log();
+struct list* null_log();
 
-int main(int p, int n, int f);
-int main(int p, int n, int f)
+int main()
 {
+    int p;
+    int f;
+    int n;
     int all;
     int view;
     enum vround_typ vround;
 
-    msg* m;
-    msg* recv_msg;
+    struct msg* m;
+    struct msg* recv_msg;
 
-    list* mbox;
+    struct list* mbox;
     
     vround = STARTVIEWCHANGE;
     view = 0;
-    send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p)); 
+    send(all, message(view, STARTVIEWCHANGE, p, null_log())); 
 
     while(1){
 
@@ -52,7 +50,7 @@ int main(int p, int n, int f)
         
         if(vround == STARTVIEWCHANGE && p!=primary(view,n) && mbox->size > f){
             vround = DOVIEWCHANGE;
-            send(primary(view,n), message(view, DOVIEWCHANGE, NULL, NULL, p, local_log()));  
+            send(primary(view,n), message(view, DOVIEWCHANGE, p, local_log()));  
             vround = STARTVIEW;
 
             continue;
@@ -61,11 +59,11 @@ int main(int p, int n, int f)
         if(vround == DOVIEWCHANGE && p==primary(view,n) && mbox->size > f){
             computes_new_log();
             vround = STARTVIEW;
-            send(all, message(view, STARTVIEW, NULL, NULL, p, local_log())); 
+            send(all, message(view, STARTVIEW, p, local_log())); 
 
             view++;
             vround = STARTVIEWCHANGE;
-            send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p)); 
+            send(all, message(view, STARTVIEWCHANGE, p, null_log())); 
     
             continue;
         }
@@ -75,7 +73,7 @@ int main(int p, int n, int f)
             
             view++;
             vround = STARTVIEWCHANGE;
-            send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p)); 
+            send(all, message(view, STARTVIEWCHANGE, p, null_log())); 
 
             continue;
         }

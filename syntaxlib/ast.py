@@ -213,7 +213,6 @@ def remove_whiles(codeast : c_ast.Node):
                 call_recursively(i, remove_whiles, [])
 
             codeast.block_items = new_block_items
-
     else:
         call_recursively(codeast, remove_whiles, [])
 
@@ -274,12 +273,35 @@ def is_syncvar_assigned_to_value(n : c_ast.Node, variable, value):
         return False
 
 def get_decl_type(n : c_ast.Decl):
-    ntype = n.type.type
+    if type(n.type) == c_ast.TypeDecl or type(n.type) == c_ast.PtrDecl:
+        return get_decl_type(n.type)
+    elif type(n.type) == c_ast.Enum or type(n.type) == c_ast.Struct:
+        return n.type.name
+    elif type(n.type) == c_ast.IdentifierType:
+        return n.type.names[0]
+    else:
+        return '?'
 
-    if type(ntype) == c_ast.Enum:
-        return ntype.name
-    elif type(ntype) == c_ast.IdentifierType:
-        return ntype.names[0]
+def get_struct_fields_decl(n : c_ast.Decl):
+    fields = {}
+    for f in n.type.decls:
+        fields[f.name] = get_decl_type(f)
+    return fields
+
+def get_funccall_args(n : c_ast.FuncCall):
+    return n.args.exprs
+
+def get_funccall_name(n : c_ast.FuncCall):
+    return n.name.name   
+
+def get_structref_basename(n : c_ast.StructRef):
+    """ A StructRef name can contain several dereferences e.g. var->foo->bar
+    should return `var`
+    """
+    if type(n) == c_ast.StructRef:
+        return get_structref_basename(n.name)
+    elif type(n) == c_ast.ID:
+        return n.name
 
 def get_structref_name(n : c_ast.StructRef):
     """ A StructRef name can contain several dereferences e.g. var->foo->bar
@@ -289,6 +311,13 @@ def get_structref_name(n : c_ast.StructRef):
     else:
         return n.name.name + n.type + n.field.name
 
+def get_structref_firstref_field(n : c_ast.StructRef):
+    if type(n) == c_ast.StructRef:
+        if type(n.name) == c_ast.ID:
+            return n.field.name
+        else:
+            return get_structref_firstref_field(n.name)
+
 def is_var_increment(n : c_ast.Node, variable):
     return  type(n) == c_ast.UnaryOp and n.op == 'p++' and \
             n.expr.name == variable
@@ -297,7 +326,6 @@ def is_var_declaration(n : c_ast.Node):
     return  type(n) == c_ast.Decl
 
 def get_assigment_value(n : c_ast.Assignment):
-    # TODO: support different types 
     return str(n.rvalue.name)
 
 def count_variable_assigments(path, variable):
@@ -307,7 +335,7 @@ def count_variable_assigments(path, variable):
             i=i+1
     return i
 
-def count_continues(path):
+def count_continues(path : List[c_ast.Node]):
     i = 0
     for n in path:
         if type(n) == c_ast.Continue:
@@ -360,29 +388,18 @@ def remove_c99_comments(text):
 
     return "".join(noncomments)
 
-class MainWhileVisitor(c_ast.NodeVisitor):
-    def __init__(self):
-        self.result = None
-
-    def visit_While(self, node):
-        self.result = node
-
 def get_main_while(ast):
     """ Return the outer while of the AST """
+    class MainWhileVisitor(c_ast.NodeVisitor):
+        def __init__(self):
+            self.result = None
+
+        def visit_While(self, node):
+            self.result = node
+
     v = MainWhileVisitor()
     v.visit(ast)
     return v.result
-
-class FuncDefVisitor(c_ast.NodeVisitor):
-    def __init__(self, funcname):
-        self.funcname = funcname
-        self.result = None
-
-    def visit_FuncDef(self, node):
-        if node.decl.name == self.funcname:
-            self.result = node
-        elif hasattr(node, 'args'):
-            self.visit(node.args)
 
 def get_funcdef_node(ast, funcname) -> c_ast.FuncDef:
     """ Returns  the corresponding FuncDef node in the AST defined as 
@@ -393,22 +410,20 @@ def get_funcdef_node(ast, funcname) -> c_ast.FuncDef:
     ast : a pycparser AST 
     funcname : a function name to find
     """
+    class FuncDefVisitor(c_ast.NodeVisitor):
+        def __init__(self, funcname):
+            self.funcname = funcname
+            self.result = None
+
+        def visit_FuncDef(self, node):
+            if node.decl.name == self.funcname:
+                self.result = node
+            elif hasattr(node, 'args'):
+                self.visit(node.args)
+
     v = FuncDefVisitor(funcname)
     v.visit(ast)
     return v.result
-
-class EnumDeclarationVisitor(c_ast.NodeVisitor):
-    def __init__(self):
-        self.result = {}
-
-    def visit_Decl(self, node):
-        if type(node.type) == c_ast.Enum:
-            enum_name = node.type.name
-            enum_constants = []
-            for c in node.type.values.enumerators:
-                enum_constants.append(c.name)
-
-            self.result[enum_name] = enum_constants
 
 def get_enum_declarations(ast) -> Dict[str, List[str]]:
     """ Returns enum definitions in the AST as a dictionary: {enum_type_name: [const1, ...]}
@@ -417,17 +432,24 @@ def get_enum_declarations(ast) -> Dict[str, List[str]]:
     ----------
     ast : pycparser.c_ast.Node 
     """
+    class EnumDeclarationVisitor(c_ast.NodeVisitor):
+        def __init__(self):
+            self.result = {}
+
+        def visit_Decl(self, node):
+            if type(node.type) == c_ast.Enum:
+                enum_name = node.type.name
+                enum_constants = []
+                for c in node.type.values.enumerators:
+                    enum_constants.append(c.name)
+
+                self.result[enum_name] = enum_constants
+
     v = EnumDeclarationVisitor()
     v.visit(ast)
     return v.result
 
-def get_func_declarations(ast) -> Dict[str, List[c_ast.FuncDecl]]:
-    """ Returns enum definitions in the AST as a dictionary: {enum_type_name: [const1, ...]}
-
-    Parameters
-    ----------
-    ast : pycparser.c_ast.Node 
-    """
+def get_func_declarations(ast) -> Dict[str, c_ast.FuncDecl]:
     class FuncDeclarationVisitor(c_ast.NodeVisitor):
         def __init__(self):
             self.result = {}
@@ -440,121 +462,93 @@ def get_func_declarations(ast) -> Dict[str, List[c_ast.FuncDecl]]:
     v.visit(ast)
     return v.result
 
+def get_struct_vars_declarations(ast) -> Dict[str,str]:
+    class StructVariableDeclarationVisitor(c_ast.NodeVisitor):
+        def __init__(self):
+            self.result = {}
 
-class EnumVariableDeclarationVisitor(c_ast.NodeVisitor):
-    def __init__(self):
-        self.result = {}
+        def visit_Decl(self, node):
+            if type(node.type) == c_ast.PtrDecl and type(node.type.type.type) == c_ast.Struct:
+                self.result[node.name] = node.type.type.type.name
+            elif type(node.type) == c_ast.TypeDecl and type(node.type.type) == c_ast.Struct:
+                self.result[node.name] = node.type.type.name
 
-    def visit_Decl(self, node):
-        if type(node.type) == c_ast.TypeDecl and type(node.type.type) == c_ast.Enum:
-            self.result[node.name] = node.type.type.name
+    v = StructVariableDeclarationVisitor()
+    v.visit(ast)
+    return v.result
 
+def get_struct_declarations(ast) -> Dict[str, Dict[str,str]]:
+    class StructVariableDeclarationVisitor(c_ast.NodeVisitor):
+        def __init__(self):
+            self.result = {}
 
-def get_declared_enum_vars(ast):
-    """ Returns enum variable declarations as a dictionary {variable: enum_type_name}
+        def visit_Decl(self, node):
+            if type(node.type) == c_ast.Struct:
+                self.result[node.type.name] = get_struct_fields_decl(node)
+
+    v = StructVariableDeclarationVisitor()
+    v.visit(ast)
+    return v.result
+
+def get_declared_vars(ast):
+    """ Returns variable declarations as a dictionary {variable: type}
 
     Parameters
     ----------
     ast: a pycparser AST 
     """
-    v = EnumVariableDeclarationVisitor()
+    class VariableDeclarationVisitor(c_ast.NodeVisitor):
+        def __init__(self):
+            self.result = {}
+
+        def visit_Decl(self, node):
+            if type(node.type) == c_ast.TypeDecl or type(node.type) == c_ast.PtrDecl:
+                self.result[node.name] = get_decl_type(node)
+
+    v = VariableDeclarationVisitor()
     v.visit(ast)
     return v.result
-
-class RenameVariablesVisitor(c_ast.NodeVisitor):
-    def __init__(self, variables, iteration, path):
-        self.variables = variables
-        self.iteration = iteration
-        self.path = path
-
-    def visit_ID(self, node):
-        if node.name in self.variables:
-            node.name = rename_syncvar(node.name, self.iteration, self.path)
     
 def rename_iterated_variables(ast, variables, iteration, path):
+    class RenameVariablesVisitor(c_ast.NodeVisitor):
+        def __init__(self, variables, iteration, path):
+            self.variables = variables
+            self.iteration = iteration
+            self.path = path
+
+        def visit_ID(self, node):
+            if node.name in self.variables:
+                node.name = rename_syncvar(node.name, self.iteration, self.path)
+
     v = RenameVariablesVisitor(variables, iteration, path)
     v.visit(ast)
-
-class RenameIfBodyVisitor(c_ast.NodeVisitor):
-    def __init__(self, variables, iteration, path):
-        self.variables = variables
-        self.iteration = iteration
-        self.path = path
-
-    def visit_If(self, node):
-        rename_iterated_variables(node.iftrue, self.variables, self.iteration, self.path)
     
 def rename_if_body_variables(ast, variables, iteration, path):
+    class RenameIfBodyVisitor(c_ast.NodeVisitor):
+        def __init__(self, variables, iteration, path):
+            self.variables = variables
+            self.iteration = iteration
+            self.path = path
+
+        def visit_If(self, node):
+            rename_iterated_variables(node.iftrue, self.variables, self.iteration, self.path)
+
     v = RenameIfBodyVisitor(variables, iteration, path)
     v.visit(ast)
 
-class ContinuesCounterVisitor(c_ast.NodeVisitor):
-    def __init__(self):
-        self.count = 0
-
-    def visit_Continue(self, node):
-        self.count = self.count + 1
-
-class RenameIfCondVisitor(c_ast.NodeVisitor):
-    def __init__(self, variables, iteration, path):
-        self.variables = variables
-        self.iteration = iteration
-        self.path = path
-
-    def visit_If(self, node):
-        rename_iterated_variables(node.cond, self.variables, self.iteration, self.path)
     
 def rename_if_cond_variables(ast, variables, iteration, path):
+    class RenameIfCondVisitor(c_ast.NodeVisitor):
+        def __init__(self, variables, iteration, path):
+            self.variables = variables
+            self.iteration = iteration
+            self.path = path
+
+        def visit_If(self, node):
+            rename_iterated_variables(node.cond, self.variables, self.iteration, self.path)
+
     v = RenameIfCondVisitor(variables, iteration, path)
-    v.visit(ast)
-
-class DeclareIteratedVariablesVisitor(c_ast.NodeVisitor):
-    def __init__(self, variables, iterations, paths):
-        self.variables = variables
-        self.paths = paths
-        self.iterations = iterations
-        self.visited = []
-        self.current_parent = None
-
-    def visit_Decl(self, node):
-        if  type(node.type) == c_ast.TypeDecl:
-            if  type(node.type.type) == c_ast.Enum and \
-                node.name in self.variables and \
-                node not in self.visited:
-                    self.visited.append(node)
-                    for i in range(0,self.iterations):
-                        for p in range(0,self.paths):
-                            new_decl = copy.deepcopy(node)
-                            new_decl.name = rename_syncvar(new_decl.name, i, p)
-                            new_decl.type.declname = new_decl.name
-                        
-                            self.visited.append(new_decl)
-                            self.current_parent.block_items.insert(0,new_decl)
-
-        elif type(node.type) == c_ast.PtrDecl:
-            if  node.type.type.declname in self.variables and \
-                node not in self.visited:
-                self.visited.append(node)
-                for i in range(0,self.iterations):
-                    for p in range(0,self.paths):
-                        new_decl = copy.deepcopy(node)
-                        new_decl.name = rename_syncvar(new_decl.name, i, p)
-                        new_decl.type.type.declname = new_decl.name
-                        
-                        self.visited.append(new_decl)
-                        self.current_parent.block_items.insert(0,new_decl)
-
-    def generic_visit(self, node):
-        """ Called if no explicit visitor function exists for a
-            node. Implements preorder visiting of the node.
-        """
-        oldparent = self.current_parent
-        self.current_parent = node
-        for c in node:
-            self.visit(c)
-        self.current_parent = oldparent
-
-        
+    v.visit(ast)     
 
 def declare_iterated_variables(ast, variables, iterations, paths):
     """ Look for `var` in `variables` and copy its declarations adding the 
@@ -572,5 +566,51 @@ def declare_iterated_variables(ast, variables, iterations, paths):
     enum phase_1;
     enum phase_2;
     """
+    class DeclareIteratedVariablesVisitor(c_ast.NodeVisitor):
+        def __init__(self, variables, iterations, paths):
+            self.variables = variables
+            self.paths = paths
+            self.iterations = iterations
+            self.visited = []
+            self.current_parent = None
+
+        def visit_Decl(self, node):
+            if  type(node.type) == c_ast.TypeDecl:
+                if  type(node.type.type) == c_ast.Enum and \
+                    node.name in self.variables and \
+                    node not in self.visited:
+                        self.visited.append(node)
+                        for i in range(0,self.iterations):
+                            for p in range(0,self.paths):
+                                new_decl = copy.deepcopy(node)
+                                new_decl.name = rename_syncvar(new_decl.name, i, p)
+                                new_decl.type.declname = new_decl.name
+                            
+                                self.visited.append(new_decl)
+                                self.current_parent.block_items.insert(0,new_decl)
+
+            elif type(node.type) == c_ast.PtrDecl:
+                if  node.type.type.declname in self.variables and \
+                    node not in self.visited:
+                    self.visited.append(node)
+                    for i in range(0,self.iterations):
+                        for p in range(0,self.paths):
+                            new_decl = copy.deepcopy(node)
+                            new_decl.name = rename_syncvar(new_decl.name, i, p)
+                            new_decl.type.type.declname = new_decl.name
+                            
+                            self.visited.append(new_decl)
+                            self.current_parent.block_items.insert(0,new_decl)
+
+        def generic_visit(self, node):
+            """ Called if no explicit visitor function exists for a
+                node. Implements preorder visiting of the node.
+            """
+            oldparent = self.current_parent
+            self.current_parent = node
+            for c in node:
+                self.visit(c)
+            self.current_parent = oldparent
+
     v = DeclareIteratedVariablesVisitor(variables, iterations, paths)
     v.visit(ast)

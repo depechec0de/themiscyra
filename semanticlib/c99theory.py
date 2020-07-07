@@ -4,31 +4,41 @@ from typing import Type, List, Set, Dict, Tuple, Optional
 from pycparser import c_parser, c_ast, parse_file, c_generator
 from syntaxlib import ast
 
+class SemanticError(Exception):
+    pass
+
 class C99Theory():
 
     def __init__(self, fileast : c_ast.FileAST):
 
-        # z3 solver
+        ### z3 solver
         self.solver = Solver()
 
-        # Declarations
-        # variable name : str -> corresponding SMT variable : z3.Const
+        ### Context
+        self.var_assigments = dict()
+
+        ### Declarations ###
+        # variables
         self.dict_variable_smtvar = {}
-        # constant name : str -> corresponding SMT const : z3.Const
+        # enum constants
         self.dict_const_smtconst = {}
-        # c99 enum type name : str -> corresponding SMT sort : z3.EnumSort
+        # enum sorts
         self.dict_enumtype_smtsort = {}
         self.dict_const_smtsort = {}
+        # functions
         self.dict_funcname_smtfunc = {}
-
-        # Context
-        self.var_assigments = dict()
+        # struct sorts
+        self.dict_structtype_smtsort = {}
         
-        # We gather every enum definitions and variables and obtain their SMT 
-        # counterpart
-        self.dict_variable_enumtype = ast.get_declared_enum_vars(fileast)
+        # Aux structures
+        self.dict_variable_type = ast.get_declared_vars(fileast)
         self.dict_enumtype_constants = ast.get_enum_declarations(fileast)
         self.dict_funcname_astfunc = ast.get_func_declarations(fileast)
+        self.dict_structtype_fields = ast.get_struct_declarations(fileast)
+        self.dict_structvariable_structdecl = ast.get_struct_vars_declarations(fileast)
+
+        for structtype, decl in self.dict_structtype_fields.items(): 
+            self.dict_structtype_smtsort[structtype] = DeclareSort(structtype)
         
         for enum_name, enum_constants in self.dict_enumtype_constants.items():
             smt_enum_sort, smt_constants = self.declare_enum_sort(enum_name, enum_constants)
@@ -40,14 +50,50 @@ class C99Theory():
             # dictionary union
             self.dict_const_smtconst = dict(self.dict_const_smtconst, **smt_constants)
 
-        for var_name, smt_variable in self.dict_variable_enumtype.items():
-            self.dict_variable_smtvar[var_name] = \
-            z3.Const(var_name, 
-                    self.dict_enumtype_smtsort[self.dict_variable_enumtype[var_name]])    
-
+        for var_name, var_type in self.dict_variable_type.items():
+            self.dict_variable_smtvar[var_name] = self.declare_variable(var_name, var_type)    
+        
         for funcname, astfuncdecl in self.dict_funcname_astfunc.items():
             self.dict_funcname_smtfunc[funcname] = self.declare_func(funcname, astfuncdecl)
+        
+    def __repr__(self):
 
+        funcs = []
+        for fname, f in self.dict_funcname_smtfunc.items():
+            fdomain = []
+            for i in range(0,f.arity()):
+                fdomain.append( str(f.domain(i)))
+            fstr = f.name() + "(" + ", ".join(fdomain) + ") -> " + str(f.range())
+            funcs.append(fstr)
+
+        enums = []
+        for ename, e in self.dict_enumtype_smtsort.items():
+            econsts = []
+            for i in range(0,e.num_constructors()):
+                econsts.append( str(e.constructor(i)))
+            estr = str(e) + " = [" + ", ".join(econsts) + "]"
+            enums.append(estr)
+
+        vardecls = []
+        for vname, v in self.dict_variable_smtvar.items():
+            vardecls.append(vname)
+
+        structdecls = self.dict_structtype_fields
+           
+        structvardecls = []
+        for vname, v in self.dict_structvariable_structdecl.items():
+            structvardecls.append(vname)
+
+        structsorts = self.dict_structtype_smtsort
+
+        return  "enum sorts: {" + ", ".join(enums) + "}, \
+                structs sorts: " + str(structsorts) + ", \
+                enum vars: {" + ", ".join(vardecls) + "}, \
+                function defs: { " + ", ".join(funcs) + " }, \
+                structs decls: { " + str(structdecls) + " }, \
+                declared struct vars: {" + ", ".join(structvardecls) + "}, "
+                
+    
     def declare_enum_sort(self, name, values) -> (z3.DatatypeSortRef, Dict[str, z3.DatatypeRef]):
         S, enum_values = EnumSort(name, values)
 
@@ -64,15 +110,11 @@ class C99Theory():
         if fdecl.args is not None:
             for arg in fdecl.args.params:
                 arg_type = ast.get_decl_type(arg)
-                if arg_type in self.dict_enumtype_smtsort:
-                    domain.append(self.dict_enumtype_smtsort[arg_type])
-                else:
-                    domain.append(IntSort())
+                sort = self.get_sort(arg_type)
+                domain.append(sort)
         
         freturntype = ast.get_decl_type(fdecl)
-        codomain = IntSort()
-        if freturntype in self.dict_enumtype_smtsort:
-            codomain = self.dict_enumtype_smtsort[freturntype]
+        codomain = self.get_sort(freturntype)
 
         f = Function(name, *domain, codomain)
 
@@ -80,36 +122,86 @@ class C99Theory():
 
     def handle_if(self, node : c_ast.If):
         constraint = self.evaluate_ast(node.cond)
-        self.var_assigments[node] = constraint 
+        self.solver.add(constraint) 
 
     def handle_assigment(self, node : c_ast.Assignment):
         constraint = self.evaluate_ast(node)
         self.var_assigments[node.lvalue.name] = constraint 
 
-    def evaluate_sort(self, var_name):
-        if var_name in self.dict_variable_enumtype:
-            return self.dict_enumtype_smtsort[self.dict_variable_enumtype[var_name]]
-        if var_name in self.dict_const_smtsort:
-            return self.dict_const_smtsort[var_name]
-        else:
+    def get_sort(self, asttype):
+        if asttype in self.dict_enumtype_smtsort:
+            return self.dict_enumtype_smtsort[asttype]
+        elif asttype == '_Bool':
+            return BoolSort()
+        elif asttype == 'int':
             return IntSort()
+        elif asttype in self.dict_structtype_smtsort:
+            return self.dict_structtype_smtsort[asttype]
+        else: 
+            raise SemanticError('No Sort found for '+asttype)
+
+    def evaluate_structref(self, node):
+        
+        # We declare a `varname`, we look for its domain
+        varname = ast.get_structref_name(node)
+
+        # amount of derefs, the first one manually
+        derefs = varname.split('->')
+        basename = derefs[0]
+        field = derefs[1]
+
+        if basename not in self.dict_structvariable_structdecl:
+            raise SemanticError('An error ocurred trying to dereference StructRef')
+        
+        structdecl = self.dict_structvariable_structdecl[basename]
+        structref_type = self.dict_structtype_fields[structdecl][field]
+
+        del derefs[0:2]
+
+        if len(derefs)>0:
+            for f in derefs:
+                if structref_type not in self.dict_structtype_fields:
+                    raise SemanticError('An error ocurred trying to dereference StructRef')
+
+                structref_type = self.dict_structtype_fields[structref_type][f]
+
+        v = self.declare_variable(varname, structref_type)
+
+        return v
+
+    def declare_variable(self, idname, vtype):
+        if vtype == 'int':
+            return Int(idname)
+        elif vtype in self.dict_variable_smtvar:
+            return Const(idname, self.dict_variable_smtvar[vtype])
+        elif vtype in self.dict_structtype_smtsort:
+            return Const(idname, self.dict_structtype_smtsort[vtype])
+        elif vtype in self.dict_enumtype_smtsort:
+            return Const(idname, self.dict_enumtype_smtsort[vtype])
+        elif vtype == '_Bool':
+            return Bool(idname)
+        else:
+            raise SemanticError('invalid vtype '+vtype)
 
     def evaluate_variable(self, id_name):
         if id_name == 'false':
             return Bool(False)
         elif id_name == 'true':
             return Bool(True)
+        elif id_name == 'INT_NULL':
+            return Int('INT_NULL')
+        elif id_name == 'BOOL_NULL':
+            return Bool('BOOL_NULL')
         elif id_name in self.dict_variable_smtvar:
             return self.dict_variable_smtvar[id_name]
         elif id_name in self.dict_const_smtconst:
             return self.dict_const_smtconst[id_name]
         else:
-            return Int(id_name)
+            raise SemanticError('not declared variable '+id_name)
 
     def evaluate_ast(self, node: c_ast.Node):
         """Translates a c_ast.Node to a z3 predicate."""
         typ = type(node) 
-        
         if typ == c_ast.BinaryOp:
             leftnode = self.evaluate_ast(node.left)
             rightnode = self.evaluate_ast(node.right) 
@@ -138,25 +230,25 @@ class C99Theory():
         elif typ == c_ast.Assignment and node.op == '=':
             leftnode = self.evaluate_ast(node.lvalue)
             rightnode = self.evaluate_ast(node.rvalue) 
-
+            
             return leftnode == rightnode
         elif typ == c_ast.Constant:
             return int(node.value)
         elif typ == c_ast.FuncCall:
             args = []
             if node.args is not None:
-                for arg in node.args.exprs:
+                for arg in ast.get_funccall_args(node):
                     smtarg = self.evaluate_ast(arg)   
                     args.append(smtarg)
 
-            fname = node.name.name
+            fname = ast.get_funccall_name(node)
             f = self.dict_funcname_smtfunc[fname]
+
             return f(*args)
         elif typ == c_ast.ID:
             return self.evaluate_variable(node.name)
         elif typ == c_ast.StructRef:
-            # TODO: consider structs types
-            return Int(ast.get_structref_name(node))
+            return self.evaluate_structref(node)
         else:
             return Bool(True)
 

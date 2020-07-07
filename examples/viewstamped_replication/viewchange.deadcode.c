@@ -1,43 +1,45 @@
-struct Msg
+struct msg
 {
   int view;
-  int vround;
-  int opnumber;
-  int nround;
+  enum vround_typ vround;
   int replica;
-  void *log;
+  struct list *log;
 };
-typedef struct Msg msg;
-typedef struct List
+struct list
 {
-  msg *message;
-  struct List *next;
+  struct msg *message;
+  struct list *next;
   int size;
-} list;
+};
 enum vround_typ
 {
   STARTVIEWCHANGE,
   DOVIEWCHANGE,
   STARTVIEW
 };
-msg *recv();
-void send(int addr, msg *m);
-int count_messages(list *mbox, int view, enum vround_typ vround);
-int havoc(int view, enum vround_typ vround);
-int primary(int view, int n);
-int main(int p, int n, int f);
-int main(int p, int n, int f)
+enum null
 {
-  list *mbox_1_4;
-  list *mbox_1_3;
-  list *mbox_1_2;
-  list *mbox_1_1;
-  list *mbox_1_0;
-  list *mbox_0_4;
-  list *mbox_0_3;
-  list *mbox_0_2;
-  list *mbox_0_1;
-  list *mbox_0_0;
+  BOOL_NULL,
+  INT_NULL
+};
+_Bool send(int addr, struct msg *m);
+struct list *havoc(int view, enum vround_typ vround);
+int primary(int view, int n);
+struct msg *message(int phase, enum vround_typ round, int p, int timestamp);
+struct list *local_log();
+struct list *null_log();
+int main()
+{
+  struct list *mbox_1_4;
+  struct list *mbox_1_3;
+  struct list *mbox_1_2;
+  struct list *mbox_1_1;
+  struct list *mbox_1_0;
+  struct list *mbox_0_4;
+  struct list *mbox_0_3;
+  struct list *mbox_0_2;
+  struct list *mbox_0_1;
+  struct list *mbox_0_0;
   enum vround_typ vround_1_4;
   enum vround_typ vround_1_3;
   enum vround_typ vround_1_2;
@@ -48,15 +50,18 @@ int main(int p, int n, int f)
   enum vround_typ vround_0_2;
   enum vround_typ vround_0_1;
   enum vround_typ vround_0_0;
+  int p;
+  int f;
+  int n;
   int all;
   int view;
   enum vround_typ vround;
-  msg *m;
-  msg *recv_msg;
-  list *mbox;
+  struct msg *m;
+  struct msg *recv_msg;
+  struct list *mbox;
   vround = STARTVIEWCHANGE;
   view = 0;
-  send(all, message(view, STARTVIEWCHANGE, NULL, NULL, p));
+  send(all, message(view, STARTVIEWCHANGE, p, null_log()));
   while (1)
   {
     mbox = havoc(view, vround);
@@ -68,7 +73,7 @@ int main(int p, int n, int f)
       {
         computes_new_log();
         vround_1_0 = STARTVIEW;
-        send(all, message(view, STARTVIEW, NULL, NULL, p, local_log()));
+        send(all, message(view, STARTVIEW, p, local_log()));
         view++;
         continue;
       }
@@ -79,7 +84,7 @@ int main(int p, int n, int f)
     if (((vround == STARTVIEWCHANGE) && (p != primary(view, n))) && (mbox->size > f))
     {
       vround_0_1 = DOVIEWCHANGE;
-      send(primary(view, n), message(view, DOVIEWCHANGE, NULL, NULL, p, local_log()));
+      send(primary(view, n), message(view, DOVIEWCHANGE, p, local_log()));
       vround_0_1 = STARTVIEW;
       mbox_0_1 = havoc(view, vround);
       if (((vround_0_1 == STARTVIEW) && (p != primary(view, n))) && (mbox_0_1->size == 1))

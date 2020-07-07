@@ -14,4 +14,4 @@ labels :
 # python3 main.py examples/chandra_toueg/chandratoueg.unfolded.c examples/chandra_toueg/chandratoueg.yaml --deadcode > examples/chandra_toueg/chandratoueg.deadcode.c
 
 # Paths script
-# python3 main.py examples/chandra_toueg/chandratoueg.unfolded.c examples/chandra_toueg/chandratoueg.yaml --athos > examples/chandra_toueg/chandratoueg.unfolded.paths.c
+# python3 main.py examples/chandra_toueg/chandratoueg.deadcode.c examples/chandra_toueg/chandratoueg.yaml --athos > examples/chandra_toueg/chandratoueg.unfolded.paths.c
