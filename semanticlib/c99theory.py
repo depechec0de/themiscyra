@@ -185,9 +185,9 @@ class C99Theory():
 
     def evaluate_variable(self, id_name):
         if id_name == 'false':
-            return Bool(False)
+            return BoolVal(False)
         elif id_name == 'true':
-            return Bool(True)
+            return BoolVal(True)
         elif id_name == 'INT_NULL':
             return Int('INT_NULL')
         elif id_name == 'BOOL_NULL':
@@ -202,7 +202,15 @@ class C99Theory():
     def evaluate_ast(self, node: c_ast.Node):
         """Translates a c_ast.Node to a z3 predicate."""
         typ = type(node) 
-        if typ == c_ast.BinaryOp:
+
+        if typ == c_ast.UnaryOp:
+
+            if node.op == '!':
+                return Not(self.evaluate_ast(node.expr))
+            else:
+                raise SemanticError('Variable evaluation not possible: '+node)
+
+        elif typ == c_ast.BinaryOp:
             leftnode = self.evaluate_ast(node.left)
             rightnode = self.evaluate_ast(node.right) 
             
@@ -211,17 +219,17 @@ class C99Theory():
             elif node.op == '||':
                 return Or(leftnode, rightnode)
             elif node.op == '==':
-                return leftnode == rightnode 
+                return And(leftnode == rightnode)
             elif node.op == '<':
-                return leftnode < rightnode
+                return And(leftnode < rightnode)
             elif node.op == '<=':
-                return leftnode <= rightnode
+                return And(leftnode <= rightnode)
             elif node.op == '>':
-                return leftnode > rightnode
+                return And(leftnode > rightnode)
             elif node.op == '>=':
-                return leftnode >= rightnode
+                return And(leftnode >= rightnode)
             elif node.op == '!=':
-                return leftnode != rightnode
+                return And(leftnode != rightnode)
             elif node.op == '/':
                 return leftnode / rightnode
             elif node.op == '+':
@@ -233,7 +241,10 @@ class C99Theory():
             
             return leftnode == rightnode
         elif typ == c_ast.Constant:
-            return int(node.value)
+            if node.type == 'int':
+                return IntVal(int(node.value))
+            else:
+                raise SemanticError('Variable evaluation not possible: '+node)
         elif typ == c_ast.FuncCall:
             args = []
             if node.args is not None:
@@ -250,7 +261,7 @@ class C99Theory():
         elif typ == c_ast.StructRef:
             return self.evaluate_structref(node)
         else:
-            return Bool(True)
+            raise SemanticError('Variable evaluation not possible: '+node)
 
     def is_sat(self, astif : c_ast.If) -> Bool:
         

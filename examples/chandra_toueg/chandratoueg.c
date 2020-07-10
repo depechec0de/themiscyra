@@ -24,7 +24,7 @@ _Bool all_ack(struct list* mbox);
 _Bool send(struct msg *message, int pid);
 int leader(int phase, int net_size);
 int count(struct list* mbox, int phase, enum round_typ round, int from);
-struct list* havoc();
+struct list *havoc(int phase, enum round_typ round);
 _Bool timeout(enum round_typ round);
 struct msg* message(int phase, enum round_typ round, int estimate, int p, int timestamp, _Bool decided);
 
@@ -50,7 +50,7 @@ int main()
 
     while(1){
 
-        mbox = havoc();
+        mbox = havoc(phase, round);
 
         if(p != leader(phase,n) && round == FIRST_ROUND){
             send(message(phase, FIRST_ROUND, estimate, p, timestamp, BOOL_NULL), leader(phase,n)); 
@@ -98,22 +98,24 @@ int main()
             continue;
         }  
         
-        if(p == leader(phase,n) && round == THIRD_ROUND && count(mbox, phase, THIRD_ROUND, INT_NULL) > (n+1)/2 && count(mbox, INT_NULL, FOURTH_ROUND, INT_NULL) == 0){
+        if(p == leader(phase,n) && round == THIRD_ROUND && count(mbox, phase, THIRD_ROUND, INT_NULL) > (n+1)/2 && count(mbox, INT_NULL, FOURTH_ROUND, INT_NULL) == 0 && all_ack(mbox)){
             
-            if(all_ack(mbox)){ 
-                // the value is installed in a majority
-                round = FOURTH_ROUND;
-                send(message(phase, FOURTH_ROUND, estimate, p, INT_NULL, true), to_all);
-                decided = true;
-            }else{
-                round = FIRST_ROUND;
-                phase++;
-            }
-        
+            round = FOURTH_ROUND;
+            send(message(phase, FOURTH_ROUND, estimate, p, INT_NULL, true), to_all);
+            decided = true;
+            round = FIRST_ROUND;
+            phase++;
             continue;
-        } 
 
-        // timeouted without a majority of ACKs, we try again in a new phase
+        }
+        
+        if(p == leader(phase,n) && round == THIRD_ROUND && count(mbox, phase, THIRD_ROUND, INT_NULL) > (n+1)/2 && count(mbox, INT_NULL, FOURTH_ROUND, INT_NULL) == 0 && !all_ack(mbox)){
+            round = FIRST_ROUND;
+            phase++;
+            continue;
+        }
+
+        // timeout without a majority of ACKs, we try again in a new phase
         if(p == leader(phase,n) && round == THIRD_ROUND && timeout(round)){
 
             round = FIRST_ROUND;
@@ -122,18 +124,13 @@ int main()
             continue;
         }
 
-        if(p != leader(phase,n) && count(mbox, INT_NULL, FOURTH_ROUND, INT_NULL) == 1){
-            
-            m = mbox->message;
-
-            if(m->decided && m->phase >= phase){
-                round = FOURTH_ROUND;
-                estimate = m->estimate;
-                decided = true;
-                out(p, estimate);
-                phase++;
-            }
-
+        if(p != leader(phase,n) && count(mbox, INT_NULL, FOURTH_ROUND, INT_NULL) == 1 && mbox->message->decided && mbox->message->phase >= phase){
+    
+            round = FOURTH_ROUND;
+            estimate = m->estimate;
+            decided = true;
+            out(p, estimate);
+            phase++;
             continue;
         } 
 
@@ -143,18 +140,7 @@ int main()
             phase++;
 
             continue;
-        }
-
-        // A majority was achieved somewhere in the past and I am the leader of the phase 
-        // => broadcast the decision
-        if(p == leader(phase,n) && round == FOURTH_ROUND && decided){
-
-            send(message(phase, FOURTH_ROUND, estimate, p, INT_NULL, true), to_all);
-            phase++;
-
-            continue;
-        }
-        
+        }        
         
     }
 

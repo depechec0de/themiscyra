@@ -8,6 +8,17 @@ from semanticlib.c99theory import *
 
 parser = c_parser.CParser()
 
+def test_evaluate_ast():
+    src = "main(){if(false){}}"
+    srcast = parser.parse(src)
+
+    t = C99Theory(srcast)
+
+    boolstm = srcast.ext[0].body.block_items[0].cond
+
+    evaluation = t.evaluate_ast(boolstm)
+    print(evaluation)
+
 def test_struct_dereference():
     src = """
     struct A {
@@ -74,7 +85,7 @@ def test_struct_dereference_enum():
 
     assert evalstruct.sort() == t.dict_enumtype_smtsort['round_typ']
 
-
+test_evaluate_ast()
 test_struct_dereference()
 test_struct_dereference_complex()
 test_struct_dereference_enum()

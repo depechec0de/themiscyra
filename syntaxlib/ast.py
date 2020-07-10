@@ -37,19 +37,12 @@ def unfold(ast, k: int, syncvariables):
 
     upons = [n for n in while_statements if type(n) == c_ast.If]
 
-    # TODO: fix +1 or justify it
     declare_iterated_variables(ast, syncvariables, k, len(upons)+1)
 
     _unfold(while_statements, while_body, syncvariables, 0, 0, k-1)
 
 
 def _unfold(ast, while_body, syncvariables, iteration, parent_path, unfoldings):
-
-    # rename out of scope variables like mbox
-    if iteration>0:
-        for n in ast:
-            if type(n) == c_ast.Assignment and n.lvalue.name in syncvariables:
-                n.lvalue.name = rename_syncvar(n.lvalue.name, iteration-1, parent_path)
 
     upons = [n for n in ast if type(n) == c_ast.If]
 
@@ -59,9 +52,9 @@ def _unfold(ast, while_body, syncvariables, iteration, parent_path, unfoldings):
         for upon in upons:
             
             if iteration>0:
-                rename_if_cond_variables(upon, syncvariables, iteration-1, parent_path)
+                rename_iterated_variables(upon.cond, syncvariables, iteration-1, parent_path)
 
-            rename_if_body_variables(upon, syncvariables, iteration, path)
+            rename_iterated_variables(upon.iftrue, syncvariables, iteration, path)
  
             call_recursively(upon, insert_node_after_continue, [copy.deepcopy(while_body)])
 
@@ -70,9 +63,13 @@ def _unfold(ast, while_body, syncvariables, iteration, parent_path, unfoldings):
             path=path+1
     else:
         for upon in upons:
-            rename_if_cond_variables(upon, syncvariables, iteration-1, parent_path)
+            rename_iterated_variables(upon.cond, syncvariables, iteration-1, parent_path)
             # path is 0 because we don't branch anymore, there is only one path
-            rename_if_body_variables(upon, syncvariables, iteration, 0)
+            rename_iterated_variables(upon.iftrue, syncvariables, iteration, 0)
+
+    # rename out of scope variables e.g. havoc, mbox
+    if iteration>0:
+        rename_iterated_variables(ast, syncvariables, iteration-1, parent_path)
 
 def dead_code_elimination(codeast : c_ast.FileAST, phasevar):
 
@@ -521,34 +518,7 @@ def rename_iterated_variables(ast, variables, iteration, path):
                 node.name = rename_syncvar(node.name, self.iteration, self.path)
 
     v = RenameVariablesVisitor(variables, iteration, path)
-    v.visit(ast)
-    
-def rename_if_body_variables(ast, variables, iteration, path):
-    class RenameIfBodyVisitor(c_ast.NodeVisitor):
-        def __init__(self, variables, iteration, path):
-            self.variables = variables
-            self.iteration = iteration
-            self.path = path
-
-        def visit_If(self, node):
-            rename_iterated_variables(node.iftrue, self.variables, self.iteration, self.path)
-
-    v = RenameIfBodyVisitor(variables, iteration, path)
-    v.visit(ast)
-
-    
-def rename_if_cond_variables(ast, variables, iteration, path):
-    class RenameIfCondVisitor(c_ast.NodeVisitor):
-        def __init__(self, variables, iteration, path):
-            self.variables = variables
-            self.iteration = iteration
-            self.path = path
-
-        def visit_If(self, node):
-            rename_iterated_variables(node.cond, self.variables, self.iteration, self.path)
-
-    v = RenameIfCondVisitor(variables, iteration, path)
-    v.visit(ast)     
+    v.visit(ast)  
 
 def declare_iterated_variables(ast, variables, iterations, paths):
     """ Look for `var` in `variables` and copy its declarations adding the 
