@@ -77,7 +77,7 @@ def dead_code_elimination(codeast : c_ast.FileAST, phasevar):
     theory = C99Theory(codeast)
 
     # Syntactic tree prune, everything after a phase increment is removed
-    call_recursively(codeast, prune_after_phase_increment, [phasevar])
+    call_recursively(ast.get_main_while(codeast), prune_after_phase_increment, [phasevar])
 
     # Recursively explore the AST tree and cut the unfeasible branches
     to_delete = []
@@ -316,8 +316,9 @@ def get_structref_firstref_field(n : c_ast.StructRef):
             return get_structref_firstref_field(n.name)
 
 def is_var_increment(n : c_ast.Node, variable):
-    return  type(n) == c_ast.UnaryOp and n.op == 'p++' and \
-            n.expr.name == variable
+    is_increment = type(n) == c_ast.UnaryOp and n.op == 'p++' and n.expr.name == variable
+    is_jump = type(n) == c_ast.Assignment and n.lvalue.name == variable
+    return is_increment or is_jump
 
 def is_var_declaration(n : c_ast.Node):
     return  type(n) == c_ast.Decl

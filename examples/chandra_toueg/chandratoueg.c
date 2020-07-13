@@ -15,8 +15,9 @@ struct list
 };
 
 enum round_typ {FIRST_ROUND, SECOND_ROUND, THIRD_ROUND, FOURTH_ROUND};
-enum null {BOOL_NULL, INT_NULL};
 
+int null_int();
+_Bool null_bool();
 int out(int v1, int v2);
 int in();
 struct msg* max_timestamp(struct list* mbox);
@@ -52,41 +53,41 @@ int main()
 
         mbox = havoc(phase, round);
 
-        if(p != leader(phase,n) && round == FIRST_ROUND){
-            send(message(phase, FIRST_ROUND, estimate, p, timestamp, BOOL_NULL), leader(phase,n)); 
-            round = SECOND_ROUND;
-
-            continue;
-        }
-
-        if(p == leader(phase,n) && round == FIRST_ROUND && count(mbox, phase, FIRST_ROUND, INT_NULL) > (n+1)/2 && count(mbox, INT_NULL, FOURTH_ROUND, INT_NULL) == 0){
+        if(!decided && p == leader(phase,n) && round == FIRST_ROUND && count(mbox, phase, FIRST_ROUND, null_int()) > (n+1)/2 && count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0){
             m = max_timestamp(mbox);
             estimate = m->estimate;
 
             round = SECOND_ROUND;
-            send(message(phase, SECOND_ROUND, estimate, p, INT_NULL, BOOL_NULL), to_all); 
+            send(message(phase, SECOND_ROUND, estimate, p, null_int(), null_bool()), to_all); 
             round = THIRD_ROUND;
 
             continue;
         }
 
-        if(p == leader(phase,n) && round == FIRST_ROUND && timeout(round)){
+        if(!decided && p == leader(phase,n) && round == THIRD_ROUND && count(mbox, phase, THIRD_ROUND, null_int()) > (n+1)/2 && count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0 && all_ack(mbox)){
             
+            round = FOURTH_ROUND;
+            send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+            decided = true;
+            phase++;
+            continue;
+
+        }
+        
+        if(!decided && p == leader(phase,n) && round == THIRD_ROUND && count(mbox, phase, THIRD_ROUND, null_int()) > (n+1)/2 && count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0 && !all_ack(mbox)){
             round = FIRST_ROUND;
             phase++;
+            continue;
+        }
+
+        if(!decided && p != leader(phase,n) && round == FIRST_ROUND){
+            send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leader(phase,n)); 
+            round = SECOND_ROUND;
 
             continue;
-        } 
+        }
 
-        if(p != leader(phase,n) && round == SECOND_ROUND && timeout(round)){
-            
-            round = FIRST_ROUND;
-            phase++;
-
-            continue;
-        } 
-
-        if(p != leader(phase,n) && round == SECOND_ROUND && count(mbox, phase, SECOND_ROUND, leader(phase,n)) > 0 && count(mbox, INT_NULL, FOURTH_ROUND, INT_NULL) == 0){
+        if(!decided && p != leader(phase,n) && round == SECOND_ROUND && count(mbox, phase, SECOND_ROUND, leader(phase,n)) > 0 && count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0){
             
             round = THIRD_ROUND;
             m = mbox->message;
@@ -97,51 +98,33 @@ int main()
             
             continue;
         }  
-        
-        if(p == leader(phase,n) && round == THIRD_ROUND && count(mbox, phase, THIRD_ROUND, INT_NULL) > (n+1)/2 && count(mbox, INT_NULL, FOURTH_ROUND, INT_NULL) == 0 && all_ack(mbox)){
-            
-            round = FOURTH_ROUND;
-            send(message(phase, FOURTH_ROUND, estimate, p, INT_NULL, true), to_all);
-            decided = true;
-            round = FIRST_ROUND;
-            phase++;
-            continue;
 
-        }
-        
-        if(p == leader(phase,n) && round == THIRD_ROUND && count(mbox, phase, THIRD_ROUND, INT_NULL) > (n+1)/2 && count(mbox, INT_NULL, FOURTH_ROUND, INT_NULL) == 0 && !all_ack(mbox)){
-            round = FIRST_ROUND;
-            phase++;
-            continue;
-        }
-
-        // timeout without a majority of ACKs, we try again in a new phase
-        if(p == leader(phase,n) && round == THIRD_ROUND && timeout(round)){
-
-            round = FIRST_ROUND;
-            phase++;
-
-            continue;
-        }
-
-        if(p != leader(phase,n) && count(mbox, INT_NULL, FOURTH_ROUND, INT_NULL) == 1 && mbox->message->decided && mbox->message->phase >= phase){
+        if(!decided && p != leader(phase,n) && count(mbox, null_int(), FOURTH_ROUND, null_int()) == 1 && mbox->message->decided && mbox->message->phase >= phase){
     
-            round = FOURTH_ROUND;
             estimate = m->estimate;
             decided = true;
             out(p, estimate);
-            phase++;
+            phase = mbox->message->phase;
             continue;
-        } 
+        }      
 
-        if(p != leader(phase,n) && round == FOURTH_ROUND && decided == false && timeout(round)){
+        if(!decided && timeout(round)){
             
             round = FIRST_ROUND;
             phase++;
 
             continue;
-        }        
-        
+        } 
+
+        // A majority was achieved somewhere in the past and I am the leader of the phase 
+        // => broadcast the decision
+        if(decided && p == leader(phase,n)){
+
+            send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+            phase++;
+
+            continue;
+        }
     }
 
 }

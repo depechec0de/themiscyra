@@ -13,7 +13,6 @@ struct list
 };
 
 enum vround_typ {STARTVIEWCHANGE, DOVIEWCHANGE, STARTVIEW};
-enum null {BOOL_NULL, INT_NULL};
 
 _Bool send(int addr, struct msg * m);
 struct list* havoc(int view, enum vround_typ vround);

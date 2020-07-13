@@ -188,10 +188,6 @@ class C99Theory():
             return BoolVal(False)
         elif id_name == 'true':
             return BoolVal(True)
-        elif id_name == 'INT_NULL':
-            return Int('INT_NULL')
-        elif id_name == 'BOOL_NULL':
-            return Bool('BOOL_NULL')
         elif id_name in self.dict_variable_smtvar:
             return self.dict_variable_smtvar[id_name]
         elif id_name in self.dict_const_smtconst:
