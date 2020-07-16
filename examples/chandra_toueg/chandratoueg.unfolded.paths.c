@@ -1,17 +1,17 @@
 FIRST_ROUND
 ################Path######################
 {
-  int main(int p, int n, int f)
+  int main()
 {
   phase = 1;
   round = FIRST_ROUND;
   estimate = in();
-  state = 0;
   timestamp = 0;
-  send(message(phase, FIRST_ROUND, estimate, p, timestamp, NULL, NULL), leader(phase, n));
-  mbox = havoc();
-  if ((p != leader(phase, n)) && (round == FIRST_ROUND))
+  mbox = havoc(phase, round);
+  if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))
   {
+    m = max_timestamp(mbox_0_0);
+    estimate = m->estimate;
     round_0_0 = SECOND_ROUND;
   }
 
@@ -23,22 +23,19 @@ FIRST_ROUND
 ##########################################
 ################Path######################
 {
-int main(int p, int n, int f)
+int main()
 {
   phase = 1;
   round = FIRST_ROUND;
   estimate = in();
-  state = 0;
   timestamp = 0;
-  send(message(phase, FIRST_ROUND, estimate, p, timestamp, NULL, NULL), leader(phase, n));
-  mbox = havoc();
-  if (!((p != leader(phase, n)) && (round == FIRST_ROUND)))
+  mbox = havoc(phase, round);
+  if (!(((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0)))
   {
-    if ((((p == leader(phase, n)) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, NULL) > ((n + 1) / 2))) && (count(mbox, NULL, FOURTH_ROUND, NULL) == 0))
+    if (((!value_decided(p)) && (p != leader(phase, n))) && (round == FIRST_ROUND))
     {
-      m = max_timestamp(mbox_0_1);
-      estimate = m->estimate;
-      round_0_1 = SECOND_ROUND;
+      send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leader(phase, n));
+      round_0_3 = SECOND_ROUND;
     }
 
   }
@@ -51,87 +48,22 @@ int main(int p, int n, int f)
 ##########################################
 ################Path######################
 {
-int main(int p, int n, int f)
+int main()
 {
   phase = 1;
   round = FIRST_ROUND;
   estimate = in();
-  state = 0;
   timestamp = 0;
-  send(message(phase, FIRST_ROUND, estimate, p, timestamp, NULL, NULL), leader(phase, n));
-  mbox = havoc();
-  if (!((p != leader(phase, n)) && (round == FIRST_ROUND)))
+  mbox = havoc(phase, round);
+  if (!(((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0)))
   {
-    if (!((((p == leader(phase, n)) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, NULL) > ((n + 1) / 2))) && (count(mbox, NULL, FOURTH_ROUND, NULL) == 0)))
+    if (!(((!value_decided(p)) && (p != leader(phase, n))) && (round == FIRST_ROUND)))
     {
-      if (count(mbox, NULL, FOURTH_ROUND, NULL) > 0)
+      if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 1)) && mbox->message->decided) && (mbox->message->phase >= phase))
       {
-        round_0_5 = FOURTH_ROUND;
-      }
-
-    }
-
-  }
-
-}
-
-
-}
-
-##########################################
-SECOND_ROUND
-################Path######################
-{
-int main(int p, int n, int f)
-{
-  phase = 1;
-  round = FIRST_ROUND;
-  estimate = in();
-  state = 0;
-  timestamp = 0;
-  send(message(phase, FIRST_ROUND, estimate, p, timestamp, NULL, NULL), leader(phase, n));
-  mbox = havoc();
-  if ((p != leader(phase, n)) && (round == FIRST_ROUND))
-  {
-    round_0_0 = SECOND_ROUND;
-    mbox_0_0 = havoc();
-    if ((round_0_0 == SECOND_ROUND) && (failure_detector(leader(phase, n)) == 1))
-    {
-      round_1_2 = THIRD_ROUND;
-    }
-
-  }
-
-}
-
-
-}
-
-##########################################
-################Path######################
-{
-int main(int p, int n, int f)
-{
-  phase = 1;
-  round = FIRST_ROUND;
-  estimate = in();
-  state = 0;
-  timestamp = 0;
-  send(message(phase, FIRST_ROUND, estimate, p, timestamp, NULL, NULL), leader(phase, n));
-  mbox = havoc();
-  if ((p != leader(phase, n)) && (round == FIRST_ROUND))
-  {
-    round_0_0 = SECOND_ROUND;
-    mbox_0_0 = havoc();
-    if (!((round_0_0 == SECOND_ROUND) && (failure_detector(leader(phase, n)) == 1)))
-    {
-      if (((round_0_0 == SECOND_ROUND) && (count(mbox_0_0, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0_0, NULL, FOURTH_ROUND, NULL) == 0))
-      {
-        m = mbox_1_3->message;
         estimate = m->estimate;
-        timestamp = phase;
-        ack = 1;
-        round_1_3 = THIRD_ROUND;
+        decide(estimate);
+        phase = mbox_0_5->message->phase;
       }
 
     }
@@ -146,68 +78,27 @@ int main(int p, int n, int f)
 ##########################################
 ################Path######################
 {
-int main(int p, int n, int f)
+int main()
 {
   phase = 1;
   round = FIRST_ROUND;
   estimate = in();
-  state = 0;
   timestamp = 0;
-  send(message(phase, FIRST_ROUND, estimate, p, timestamp, NULL, NULL), leader(phase, n));
-  mbox = havoc();
-  if (!((p != leader(phase, n)) && (round == FIRST_ROUND)))
+  mbox = havoc(phase, round);
+  if (!(((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0)))
   {
-    if ((((p == leader(phase, n)) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, NULL) > ((n + 1) / 2))) && (count(mbox, NULL, FOURTH_ROUND, NULL) == 0))
+    if (!(((!value_decided(p)) && (p != leader(phase, n))) && (round == FIRST_ROUND)))
     {
-      m = max_timestamp(mbox_0_1);
-      estimate = m->estimate;
-      round_0_1 = SECOND_ROUND;
-      send(message(phase, SECOND_ROUND, estimate, p, NULL, NULL, NULL), to_all);
-      mbox_0_1 = havoc();
-      if ((round_0_1 == SECOND_ROUND) && (failure_detector(leader(phase, n)) == 1))
+      if (!(((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 1)) && mbox->message->decided) && (mbox->message->phase >= phase)))
       {
-        round_1_2 = THIRD_ROUND;
-      }
-
-    }
-
-  }
-
-}
-
-
-}
-
-##########################################
-################Path######################
-{
-int main(int p, int n, int f)
-{
-  phase = 1;
-  round = FIRST_ROUND;
-  estimate = in();
-  state = 0;
-  timestamp = 0;
-  send(message(phase, FIRST_ROUND, estimate, p, timestamp, NULL, NULL), leader(phase, n));
-  mbox = havoc();
-  if (!((p != leader(phase, n)) && (round == FIRST_ROUND)))
-  {
-    if ((((p == leader(phase, n)) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, NULL) > ((n + 1) / 2))) && (count(mbox, NULL, FOURTH_ROUND, NULL) == 0))
-    {
-      m = max_timestamp(mbox_0_1);
-      estimate = m->estimate;
-      round_0_1 = SECOND_ROUND;
-      send(message(phase, SECOND_ROUND, estimate, p, NULL, NULL, NULL), to_all);
-      mbox_0_1 = havoc();
-      if (!((round_0_1 == SECOND_ROUND) && (failure_detector(leader(phase, n)) == 1)))
-      {
-        if (((round_0_1 == SECOND_ROUND) && (count(mbox_0_1, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0_1, NULL, FOURTH_ROUND, NULL) == 0))
+        if (!((!value_decided(p)) && timeout(round)))
         {
-          m = mbox_1_3->message;
-          estimate = m->estimate;
-          timestamp = phase;
-          ack = 1;
-          round_1_3 = THIRD_ROUND;
+          if (value_decided(p) && (p == leader(phase, n)))
+          {
+            send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+            phase++;
+          }
+
         }
 
       }
@@ -224,26 +115,277 @@ int main(int p, int n, int f)
 ##########################################
 ################Path######################
 {
-int main(int p, int n, int f)
+int main()
 {
   phase = 1;
   round = FIRST_ROUND;
   estimate = in();
-  state = 0;
   timestamp = 0;
-  send(message(phase, FIRST_ROUND, estimate, p, timestamp, NULL, NULL), leader(phase, n));
-  mbox = havoc();
-  if ((p != leader(phase, n)) && (round == FIRST_ROUND))
+  mbox = havoc(phase, round);
+  if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))
   {
+    m = max_timestamp(mbox_0_0);
+    estimate = m->estimate;
     round_0_0 = SECOND_ROUND;
-    mbox_0_0 = havoc();
-    if (!((round_0_0 == SECOND_ROUND) && (failure_detector(leader(phase, n)) == 1)))
+    send(message(phase, SECOND_ROUND, estimate, p, null_int(), null_bool()), to_all);
+    round_0_0 = THIRD_ROUND;
+    mbox_0_0 = havoc(phase, round_0_0);
+    if (!((((((!value_decided(p)) && (p == leader(phase, n))) && (round_0_0 == THIRD_ROUND)) && (count(mbox_0_0, phase, THIRD_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox_0_0, null_int(), FOURTH_ROUND, null_int()) == 0)) && all_ack(mbox_0_0)))
     {
-      if (!(((round_0_0 == SECOND_ROUND) && (count(mbox_0_0, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0_0, NULL, FOURTH_ROUND, NULL) == 0)))
+      if ((((((!value_decided(p)) && (p == leader(phase, n))) && (round_0_0 == THIRD_ROUND)) && (count(mbox_0_0, phase, THIRD_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox_0_0, null_int(), FOURTH_ROUND, null_int()) == 0)) && (!all_ack(mbox_0_0)))
       {
-        if (count(mbox_0_0, NULL, FOURTH_ROUND, NULL) > 0)
+        round_1_2 = FIRST_ROUND;
+        phase++;
+      }
+
+    }
+
+  }
+
+}
+
+
+}
+
+##########################################
+################Path######################
+{
+int main()
+{
+  phase = 1;
+  round = FIRST_ROUND;
+  estimate = in();
+  timestamp = 0;
+  mbox = havoc(phase, round);
+  if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))
+  {
+    m = max_timestamp(mbox_0_0);
+    estimate = m->estimate;
+    round_0_0 = SECOND_ROUND;
+    send(message(phase, SECOND_ROUND, estimate, p, null_int(), null_bool()), to_all);
+    round_0_0 = THIRD_ROUND;
+    mbox_0_0 = havoc(phase, round_0_0);
+    if (!((((((!value_decided(p)) && (p == leader(phase, n))) && (round_0_0 == THIRD_ROUND)) && (count(mbox_0_0, phase, THIRD_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox_0_0, null_int(), FOURTH_ROUND, null_int()) == 0)) && all_ack(mbox_0_0)))
+    {
+      if (!((((((!value_decided(p)) && (p == leader(phase, n))) && (round_0_0 == THIRD_ROUND)) && (count(mbox_0_0, phase, THIRD_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox_0_0, null_int(), FOURTH_ROUND, null_int()) == 0)) && (!all_ack(mbox_0_0))))
+      {
+        if ((!value_decided(p)) && timeout(round_0_0))
         {
-          round_1_5 = FOURTH_ROUND;
+          round_1_6 = FIRST_ROUND;
+          phase++;
+        }
+
+      }
+
+    }
+
+  }
+
+}
+
+
+}
+
+##########################################
+################Path######################
+{
+int main()
+{
+  phase = 1;
+  round = FIRST_ROUND;
+  estimate = in();
+  timestamp = 0;
+  mbox = havoc(phase, round);
+  if (!(((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0)))
+  {
+    if (((!value_decided(p)) && (p != leader(phase, n))) && (round == FIRST_ROUND))
+    {
+      send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leader(phase, n));
+      round_0_3 = SECOND_ROUND;
+      mbox_0_3 = havoc(phase, round_0_3);
+      if (((((!value_decided(p)) && (p != leader(phase, n))) && (round_0_3 == SECOND_ROUND)) && (count(mbox_0_3, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0_3, null_int(), FOURTH_ROUND, null_int()) == 0))
+      {
+        round_1_4 = THIRD_ROUND;
+        m = mbox_1_4->message;
+        estimate = m->estimate;
+        timestamp = phase;
+        send(message(phase, THIRD_ROUND, estimate, p, timestamp, true), leader(phase, n));
+        round_1_4 = FOURTH_ROUND;
+        mbox_1_4 = havoc(phase, round_1_4);
+        if (!(((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox_1_4, null_int(), FOURTH_ROUND, null_int()) == 1)) && mbox_1_4->message->decided) && (mbox_1_4->message->phase >= phase)))
+        {
+          if ((!value_decided(p)) && timeout(round_1_4))
+          {
+            round_2_0 = FIRST_ROUND;
+            phase++;
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+}
+
+
+}
+
+##########################################
+################Path######################
+{
+int main()
+{
+  phase = 1;
+  round = FIRST_ROUND;
+  estimate = in();
+  timestamp = 0;
+  mbox = havoc(phase, round);
+  if (!(((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0)))
+  {
+    if (((!value_decided(p)) && (p != leader(phase, n))) && (round == FIRST_ROUND))
+    {
+      send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leader(phase, n));
+      round_0_3 = SECOND_ROUND;
+      mbox_0_3 = havoc(phase, round_0_3);
+      if (!(((((!value_decided(p)) && (p != leader(phase, n))) && (round_0_3 == SECOND_ROUND)) && (count(mbox_0_3, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0_3, null_int(), FOURTH_ROUND, null_int()) == 0)))
+      {
+        if (!(((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox_0_3, null_int(), FOURTH_ROUND, null_int()) == 1)) && mbox_0_3->message->decided) && (mbox_0_3->message->phase >= phase)))
+        {
+          if ((!value_decided(p)) && timeout(round_0_3))
+          {
+            round_1_6 = FIRST_ROUND;
+            phase++;
+          }
+
+        }
+
+      }
+
+    }
+
+  }
+
+}
+
+
+}
+
+##########################################
+################Path######################
+{
+int main()
+{
+  phase = 1;
+  round = FIRST_ROUND;
+  estimate = in();
+  timestamp = 0;
+  mbox = havoc(phase, round);
+  if (!(((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0)))
+  {
+    if (!(((!value_decided(p)) && (p != leader(phase, n))) && (round == FIRST_ROUND)))
+    {
+      if (!(((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 1)) && mbox->message->decided) && (mbox->message->phase >= phase)))
+      {
+        if ((!value_decided(p)) && timeout(round))
+        {
+          round_0_6 = FIRST_ROUND;
+          phase++;
+        }
+
+      }
+
+    }
+
+  }
+
+}
+
+
+}
+
+##########################################
+SECOND_ROUND
+################Path######################
+{
+int main()
+{
+  phase = 1;
+  round = FIRST_ROUND;
+  estimate = in();
+  timestamp = 0;
+  mbox = havoc(phase, round);
+  if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))
+  {
+    m = max_timestamp(mbox_0_0);
+    estimate = m->estimate;
+    round_0_0 = SECOND_ROUND;
+    send(message(phase, SECOND_ROUND, estimate, p, null_int(), null_bool()), to_all);
+    round_0_0 = THIRD_ROUND;
+  }
+
+}
+
+
+}
+
+##########################################
+################Path######################
+{
+int main()
+{
+  phase = 1;
+  round = FIRST_ROUND;
+  estimate = in();
+  timestamp = 0;
+  mbox = havoc(phase, round);
+  if (!(((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0)))
+  {
+    if (((!value_decided(p)) && (p != leader(phase, n))) && (round == FIRST_ROUND))
+    {
+      send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leader(phase, n));
+      round_0_3 = SECOND_ROUND;
+      mbox_0_3 = havoc(phase, round_0_3);
+      if (((((!value_decided(p)) && (p != leader(phase, n))) && (round_0_3 == SECOND_ROUND)) && (count(mbox_0_3, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0_3, null_int(), FOURTH_ROUND, null_int()) == 0))
+      {
+        round_1_4 = THIRD_ROUND;
+      }
+
+    }
+
+  }
+
+}
+
+
+}
+
+##########################################
+################Path######################
+{
+int main()
+{
+  phase = 1;
+  round = FIRST_ROUND;
+  estimate = in();
+  timestamp = 0;
+  mbox = havoc(phase, round);
+  if (!(((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0)))
+  {
+    if (((!value_decided(p)) && (p != leader(phase, n))) && (round == FIRST_ROUND))
+    {
+      send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leader(phase, n));
+      round_0_3 = SECOND_ROUND;
+      mbox_0_3 = havoc(phase, round_0_3);
+      if (!(((((!value_decided(p)) && (p != leader(phase, n))) && (round_0_3 == SECOND_ROUND)) && (count(mbox_0_3, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0_3, null_int(), FOURTH_ROUND, null_int()) == 0)))
+      {
+        if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox_0_3, null_int(), FOURTH_ROUND, null_int()) == 1)) && mbox_0_3->message->decided) && (mbox_0_3->message->phase >= phase))
+        {
+          estimate = m->estimate;
+          decide(estimate);
+          phase = mbox_1_5->message->phase;
         }
 
       }
@@ -261,209 +403,58 @@ int main(int p, int n, int f)
 THIRD_ROUND
 ################Path######################
 {
-int main(int p, int n, int f)
+int main()
 {
   phase = 1;
   round = FIRST_ROUND;
   estimate = in();
-  state = 0;
   timestamp = 0;
-  send(message(phase, FIRST_ROUND, estimate, p, timestamp, NULL, NULL), leader(phase, n));
-  mbox = havoc();
-  if ((p != leader(phase, n)) && (round == FIRST_ROUND))
+  mbox = havoc(phase, round);
+  if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))
   {
+    m = max_timestamp(mbox_0_0);
+    estimate = m->estimate;
     round_0_0 = SECOND_ROUND;
-    mbox_0_0 = havoc();
-    if (!((round_0_0 == SECOND_ROUND) && (failure_detector(leader(phase, n)) == 1)))
+    send(message(phase, SECOND_ROUND, estimate, p, null_int(), null_bool()), to_all);
+    round_0_0 = THIRD_ROUND;
+    mbox_0_0 = havoc(phase, round_0_0);
+    if ((((((!value_decided(p)) && (p == leader(phase, n))) && (round_0_0 == THIRD_ROUND)) && (count(mbox_0_0, phase, THIRD_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox_0_0, null_int(), FOURTH_ROUND, null_int()) == 0)) && all_ack(mbox_0_0))
     {
-      if (((round_0_0 == SECOND_ROUND) && (count(mbox_0_0, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0_0, NULL, FOURTH_ROUND, NULL) == 0))
+      round_1_1 = FOURTH_ROUND;
+    }
+
+  }
+
+}
+
+
+}
+
+##########################################
+################Path######################
+{
+int main()
+{
+  phase = 1;
+  round = FIRST_ROUND;
+  estimate = in();
+  timestamp = 0;
+  mbox = havoc(phase, round);
+  if (!(((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0)))
+  {
+    if (((!value_decided(p)) && (p != leader(phase, n))) && (round == FIRST_ROUND))
+    {
+      send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leader(phase, n));
+      round_0_3 = SECOND_ROUND;
+      mbox_0_3 = havoc(phase, round_0_3);
+      if (((((!value_decided(p)) && (p != leader(phase, n))) && (round_0_3 == SECOND_ROUND)) && (count(mbox_0_3, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0_3, null_int(), FOURTH_ROUND, null_int()) == 0))
       {
-        m = mbox_1_3->message;
+        round_1_4 = THIRD_ROUND;
+        m = mbox_1_4->message;
         estimate = m->estimate;
         timestamp = phase;
-        ack = 1;
-        round_1_3 = THIRD_ROUND;
-        send(message(phase, THIRD_ROUND, estimate, p, timestamp, ACK, NULL), leader(phase, n));
-        if (p != leader(phase, n))
-        {
-          round_1_3 = FOURTH_ROUND;
-        }
-
-      }
-
-    }
-
-  }
-
-}
-
-
-}
-
-##########################################
-################Path######################
-{
-int main(int p, int n, int f)
-{
-  phase = 1;
-  round = FIRST_ROUND;
-  estimate = in();
-  state = 0;
-  timestamp = 0;
-  send(message(phase, FIRST_ROUND, estimate, p, timestamp, NULL, NULL), leader(phase, n));
-  mbox = havoc();
-  if (!((p != leader(phase, n)) && (round == FIRST_ROUND)))
-  {
-    if ((((p == leader(phase, n)) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, NULL) > ((n + 1) / 2))) && (count(mbox, NULL, FOURTH_ROUND, NULL) == 0))
-    {
-      m = max_timestamp(mbox_0_1);
-      estimate = m->estimate;
-      round_0_1 = SECOND_ROUND;
-      send(message(phase, SECOND_ROUND, estimate, p, NULL, NULL, NULL), to_all);
-      mbox_0_1 = havoc();
-      if (!((round_0_1 == SECOND_ROUND) && (failure_detector(leader(phase, n)) == 1)))
-      {
-        if (((round_0_1 == SECOND_ROUND) && (count(mbox_0_1, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0_1, NULL, FOURTH_ROUND, NULL) == 0))
-        {
-          m = mbox_1_3->message;
-          estimate = m->estimate;
-          timestamp = phase;
-          ack = 1;
-          round_1_3 = THIRD_ROUND;
-          send(message(phase, THIRD_ROUND, estimate, p, timestamp, ACK, NULL), leader(phase, n));
-          mbox_1_3 = havoc();
-          if ((((p == leader(phase, n)) && (round_1_3 == THIRD_ROUND)) && (count(mbox_1_3, phase, THIRD_ROUND, NULL) > ((n + 1) / 2))) && (count(mbox_1_3, NULL, FOURTH_ROUND, NULL) == 0))
-          {
-            if (all_ack(mbox_2_0) == 1)
-            {
-              round_2_0 = FOURTH_ROUND;
-            }
-
-          }
-
-        }
-
-      }
-
-    }
-
-  }
-
-}
-
-
-}
-
-##########################################
-################Path######################
-{
-int main(int p, int n, int f)
-{
-  phase = 1;
-  round = FIRST_ROUND;
-  estimate = in();
-  state = 0;
-  timestamp = 0;
-  send(message(phase, FIRST_ROUND, estimate, p, timestamp, NULL, NULL), leader(phase, n));
-  mbox = havoc();
-  if ((p != leader(phase, n)) && (round == FIRST_ROUND))
-  {
-    round_0_0 = SECOND_ROUND;
-    mbox_0_0 = havoc();
-    if ((round_0_0 == SECOND_ROUND) && (failure_detector(leader(phase, n)) == 1))
-    {
-      round_1_2 = THIRD_ROUND;
-      send(message(phase, THIRD_ROUND, estimate, p, timestamp, NACK, NULL), leader(phase, n));
-      phase++;
-    }
-
-  }
-
-}
-
-
-}
-
-##########################################
-################Path######################
-{
-int main(int p, int n, int f)
-{
-  phase = 1;
-  round = FIRST_ROUND;
-  estimate = in();
-  state = 0;
-  timestamp = 0;
-  send(message(phase, FIRST_ROUND, estimate, p, timestamp, NULL, NULL), leader(phase, n));
-  mbox = havoc();
-  if (!((p != leader(phase, n)) && (round == FIRST_ROUND)))
-  {
-    if ((((p == leader(phase, n)) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, NULL) > ((n + 1) / 2))) && (count(mbox, NULL, FOURTH_ROUND, NULL) == 0))
-    {
-      m = max_timestamp(mbox_0_1);
-      estimate = m->estimate;
-      round_0_1 = SECOND_ROUND;
-      send(message(phase, SECOND_ROUND, estimate, p, NULL, NULL, NULL), to_all);
-      mbox_0_1 = havoc();
-      if ((round_0_1 == SECOND_ROUND) && (failure_detector(leader(phase, n)) == 1))
-      {
-        round_1_2 = THIRD_ROUND;
-        send(message(phase, THIRD_ROUND, estimate, p, timestamp, NACK, NULL), leader(phase, n));
-        phase++;
-      }
-
-    }
-
-  }
-
-}
-
-
-}
-
-##########################################
-################Path######################
-{
-int main(int p, int n, int f)
-{
-  phase = 1;
-  round = FIRST_ROUND;
-  estimate = in();
-  state = 0;
-  timestamp = 0;
-  send(message(phase, FIRST_ROUND, estimate, p, timestamp, NULL, NULL), leader(phase, n));
-  mbox = havoc();
-  if (!((p != leader(phase, n)) && (round == FIRST_ROUND)))
-  {
-    if ((((p == leader(phase, n)) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, NULL) > ((n + 1) / 2))) && (count(mbox, NULL, FOURTH_ROUND, NULL) == 0))
-    {
-      m = max_timestamp(mbox_0_1);
-      estimate = m->estimate;
-      round_0_1 = SECOND_ROUND;
-      send(message(phase, SECOND_ROUND, estimate, p, NULL, NULL, NULL), to_all);
-      mbox_0_1 = havoc();
-      if (!((round_0_1 == SECOND_ROUND) && (failure_detector(leader(phase, n)) == 1)))
-      {
-        if (((round_0_1 == SECOND_ROUND) && (count(mbox_0_1, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0_1, NULL, FOURTH_ROUND, NULL) == 0))
-        {
-          m = mbox_1_3->message;
-          estimate = m->estimate;
-          timestamp = phase;
-          ack = 1;
-          round_1_3 = THIRD_ROUND;
-          send(message(phase, THIRD_ROUND, estimate, p, timestamp, ACK, NULL), leader(phase, n));
-          mbox_1_3 = havoc();
-          if ((((p == leader(phase, n)) && (round_1_3 == THIRD_ROUND)) && (count(mbox_1_3, phase, THIRD_ROUND, NULL) > ((n + 1) / 2))) && (count(mbox_1_3, NULL, FOURTH_ROUND, NULL) == 0))
-          {
-            if (!(all_ack(mbox_2_0) == 1))
-            {
-              phase++;
-            }
-
-          }
-
-        }
-
+        send(message(phase, THIRD_ROUND, estimate, p, timestamp, true), leader(phase, n));
+        round_1_4 = FOURTH_ROUND;
       }
 
     }
@@ -479,38 +470,27 @@ int main(int p, int n, int f)
 FOURTH_ROUND
 ################Path######################
 {
-int main(int p, int n, int f)
+int main()
 {
   phase = 1;
   round = FIRST_ROUND;
   estimate = in();
-  state = 0;
   timestamp = 0;
-  send(message(phase, FIRST_ROUND, estimate, p, timestamp, NULL, NULL), leader(phase, n));
-  mbox = havoc();
-  if ((p != leader(phase, n)) && (round == FIRST_ROUND))
+  mbox = havoc(phase, round);
+  if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))
   {
+    m = max_timestamp(mbox_0_0);
+    estimate = m->estimate;
     round_0_0 = SECOND_ROUND;
-    mbox_0_0 = havoc();
-    if (!((round_0_0 == SECOND_ROUND) && (failure_detector(leader(phase, n)) == 1)))
+    send(message(phase, SECOND_ROUND, estimate, p, null_int(), null_bool()), to_all);
+    round_0_0 = THIRD_ROUND;
+    mbox_0_0 = havoc(phase, round_0_0);
+    if ((((((!value_decided(p)) && (p == leader(phase, n))) && (round_0_0 == THIRD_ROUND)) && (count(mbox_0_0, phase, THIRD_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox_0_0, null_int(), FOURTH_ROUND, null_int()) == 0)) && all_ack(mbox_0_0))
     {
-      if (!(((round_0_0 == SECOND_ROUND) && (count(mbox_0_0, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0_0, NULL, FOURTH_ROUND, NULL) == 0)))
-      {
-        if (count(mbox_0_0, NULL, FOURTH_ROUND, NULL) > 0)
-        {
-          round_1_5 = FOURTH_ROUND;
-          m = mbox_1_5->message;
-          if (m->decided == 1)
-          {
-            estimate = m->estimate;
-            out(p, estimate);
-            phase++;
-          }
-
-        }
-
-      }
-
+      round_1_1 = FOURTH_ROUND;
+      send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+      decide(estimate);
+      phase++;
     }
 
   }
@@ -523,162 +503,34 @@ int main(int p, int n, int f)
 ##########################################
 ################Path######################
 {
-int main(int p, int n, int f)
+int main()
 {
   phase = 1;
   round = FIRST_ROUND;
   estimate = in();
-  state = 0;
   timestamp = 0;
-  send(message(phase, FIRST_ROUND, estimate, p, timestamp, NULL, NULL), leader(phase, n));
-  mbox = havoc();
-  if ((p != leader(phase, n)) && (round == FIRST_ROUND))
+  mbox = havoc(phase, round);
+  if (!(((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0)))
   {
-    round_0_0 = SECOND_ROUND;
-    mbox_0_0 = havoc();
-    if (!((round_0_0 == SECOND_ROUND) && (failure_detector(leader(phase, n)) == 1)))
+    if (((!value_decided(p)) && (p != leader(phase, n))) && (round == FIRST_ROUND))
     {
-      if (!(((round_0_0 == SECOND_ROUND) && (count(mbox_0_0, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0_0, NULL, FOURTH_ROUND, NULL) == 0)))
+      send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leader(phase, n));
+      round_0_3 = SECOND_ROUND;
+      mbox_0_3 = havoc(phase, round_0_3);
+      if (((((!value_decided(p)) && (p != leader(phase, n))) && (round_0_3 == SECOND_ROUND)) && (count(mbox_0_3, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0_3, null_int(), FOURTH_ROUND, null_int()) == 0))
       {
-        if (count(mbox_0_0, NULL, FOURTH_ROUND, NULL) > 0)
-        {
-          round_1_5 = FOURTH_ROUND;
-          m = mbox_1_5->message;
-          if (!(m->decided == 1))
-          {
-            phase++;
-          }
-
-        }
-
-      }
-
-    }
-
-  }
-
-}
-
-
-}
-
-##########################################
-################Path######################
-{
-int main(int p, int n, int f)
-{
-  phase = 1;
-  round = FIRST_ROUND;
-  estimate = in();
-  state = 0;
-  timestamp = 0;
-  send(message(phase, FIRST_ROUND, estimate, p, timestamp, NULL, NULL), leader(phase, n));
-  mbox = havoc();
-  if (!((p != leader(phase, n)) && (round == FIRST_ROUND)))
-  {
-    if ((((p == leader(phase, n)) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, NULL) > ((n + 1) / 2))) && (count(mbox, NULL, FOURTH_ROUND, NULL) == 0))
-    {
-      m = max_timestamp(mbox_0_1);
-      estimate = m->estimate;
-      round_0_1 = SECOND_ROUND;
-      send(message(phase, SECOND_ROUND, estimate, p, NULL, NULL, NULL), to_all);
-      mbox_0_1 = havoc();
-      if (!((round_0_1 == SECOND_ROUND) && (failure_detector(leader(phase, n)) == 1)))
-      {
-        if (((round_0_1 == SECOND_ROUND) && (count(mbox_0_1, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0_1, NULL, FOURTH_ROUND, NULL) == 0))
-        {
-          m = mbox_1_3->message;
-          estimate = m->estimate;
-          timestamp = phase;
-          ack = 1;
-          round_1_3 = THIRD_ROUND;
-          send(message(phase, THIRD_ROUND, estimate, p, timestamp, ACK, NULL), leader(phase, n));
-          mbox_1_3 = havoc();
-          if ((((p == leader(phase, n)) && (round_1_3 == THIRD_ROUND)) && (count(mbox_1_3, phase, THIRD_ROUND, NULL) > ((n + 1) / 2))) && (count(mbox_1_3, NULL, FOURTH_ROUND, NULL) == 0))
-          {
-            if (all_ack(mbox_2_0) == 1)
-            {
-              round_2_0 = FOURTH_ROUND;
-              send(message(phase, FOURTH_ROUND, estimate, p, NULL, NULL, true), to_all);
-              phase++;
-            }
-
-          }
-
-        }
-
-      }
-
-    }
-
-  }
-
-}
-
-
-}
-
-##########################################
-################Path######################
-{
-int main(int p, int n, int f)
-{
-  phase = 1;
-  round = FIRST_ROUND;
-  estimate = in();
-  state = 0;
-  timestamp = 0;
-  send(message(phase, FIRST_ROUND, estimate, p, timestamp, NULL, NULL), leader(phase, n));
-  mbox = havoc();
-  if (!((p != leader(phase, n)) && (round == FIRST_ROUND)))
-  {
-    if (!((((p == leader(phase, n)) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, NULL) > ((n + 1) / 2))) && (count(mbox, NULL, FOURTH_ROUND, NULL) == 0)))
-    {
-      if (count(mbox, NULL, FOURTH_ROUND, NULL) > 0)
-      {
-        round_0_5 = FOURTH_ROUND;
-        m = mbox_0_5->message;
-        if (m->decided == 1)
+        round_1_4 = THIRD_ROUND;
+        m = mbox_1_4->message;
+        estimate = m->estimate;
+        timestamp = phase;
+        send(message(phase, THIRD_ROUND, estimate, p, timestamp, true), leader(phase, n));
+        round_1_4 = FOURTH_ROUND;
+        mbox_1_4 = havoc(phase, round_1_4);
+        if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox_1_4, null_int(), FOURTH_ROUND, null_int()) == 1)) && mbox_1_4->message->decided) && (mbox_1_4->message->phase >= phase))
         {
           estimate = m->estimate;
-          out(p, estimate);
-          phase++;
-        }
-
-      }
-
-    }
-
-  }
-
-}
-
-
-}
-
-##########################################
-################Path######################
-{
-int main(int p, int n, int f)
-{
-  phase = 1;
-  round = FIRST_ROUND;
-  estimate = in();
-  state = 0;
-  timestamp = 0;
-  send(message(phase, FIRST_ROUND, estimate, p, timestamp, NULL, NULL), leader(phase, n));
-  mbox = havoc();
-  if (!((p != leader(phase, n)) && (round == FIRST_ROUND)))
-  {
-    if (!((((p == leader(phase, n)) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, NULL) > ((n + 1) / 2))) && (count(mbox, NULL, FOURTH_ROUND, NULL) == 0)))
-    {
-      if (count(mbox, NULL, FOURTH_ROUND, NULL) > 0)
-      {
-        round_0_5 = FOURTH_ROUND;
-        m = mbox_0_5->message;
-        if (!(m->decided == 1))
-        {
-          phase++;
+          decide(estimate);
+          phase = mbox_2_0->message->phase;
         }
 
       }
