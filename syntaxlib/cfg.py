@@ -133,7 +133,7 @@ def ast_to_cfg(digraph, ast: c_ast.Node) -> (c_ast.Node, c_ast.Node):
     #           /                      \
     # ifstart(c)                        endif*
     #           \                      /
-    #            if(!c)(cfg(body.false))
+    #            ----------------------
     #
     # returns (if(c), endif)
 
@@ -146,17 +146,8 @@ def ast_to_cfg(digraph, ast: c_ast.Node) -> (c_ast.Node, c_ast.Node):
 
         true_branch_first = c_ast.If(ast.cond, None, None, coord=ast.coord)
         true_branch_body_first, true_branch_body_last = ast_to_cfg(digraph, ast.iftrue)
-        false_branch_body_start = None
-        false_branch_body_last = None
         
-
-        digraph.add_node(first, true_start=true_branch_body_first, 
-                                true_end=true_branch_body_last,
-                                false_start=false_branch_body_start,
-                                false_end=false_branch_body_last,
-                                body_end=last)
-
-        
+        digraph.add_node(first)
         digraph.add_node(true_branch_first)
 
         digraph.add_node(true_branch_body_first)
@@ -166,23 +157,20 @@ def ast_to_cfg(digraph, ast: c_ast.Node) -> (c_ast.Node, c_ast.Node):
         digraph.add_edge(true_branch_first, true_branch_body_first)    
         digraph.add_edge(true_branch_body_last, last)   
 
-        false_branch_first = c_ast.If(  c_ast.UnaryOp("!",ast.cond), None, 
-                                        None, coord=ast.coord)
-        digraph.add_node(false_branch_first)
-        digraph.add_edge(first, false_branch_first)
-
         if ast.iffalse is not None:
+            false_branch_first = c_ast.If(c_ast.UnaryOp("!",ast.cond), None, None, coord=ast.coord)
+            digraph.add_node(false_branch_first)
+            digraph.add_edge(first, false_branch_first)
 
-            false_branch_body_start, false_branch_body_last = \
-            ast_to_cfg(digraph, ast.iffalse)
+            false_branch_body_start, false_branch_body_last = ast_to_cfg(digraph, ast.iffalse)
             
             digraph.add_node(false_branch_body_start)
             digraph.add_node(false_branch_body_last)
             
             digraph.add_edge(false_branch_first, false_branch_body_start)
             digraph.add_edge(false_branch_body_last, last)
-        else:
-            digraph.add_edge(false_branch_first, last)
+
+        digraph.add_edge(first, last)
 
         return (first, last)
 
@@ -204,7 +192,7 @@ def ast_to_cfg(digraph, ast: c_ast.Node) -> (c_ast.Node, c_ast.Node):
         first = c_ast.While(ast.cond, None, coord=ast.coord)
         last = ControlFlowGraph.WhileEnd(coord=str(ast.coord)+":END")
 
-        digraph.add_node(first, body_start=body_first, body_end=body_last)
+        digraph.add_node(first)
 
         digraph.add_edge(first, body_first)
         digraph.add_edge(body_last, last)
@@ -253,7 +241,7 @@ def ast_to_cfg(digraph, ast: c_ast.Node) -> (c_ast.Node, c_ast.Node):
         first = c_ast.FuncDef(ast.decl, ast.param_decls, None, coord=ast.coord)
         last = ControlFlowGraph.FuncDefEnd(coord=str(ast.coord)+":END")
 
-        digraph.add_node(first, body_start=first_body, body_end=last_body)
+        digraph.add_node(first)
 
         digraph.add_edge(first, first_body)
         digraph.add_edge(last_body, last)

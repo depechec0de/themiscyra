@@ -59,14 +59,10 @@ if __name__ == "__main__":
         
         compho = athos.async_to_sync(codeast, config)      
         
-        for label in compho:
-            print(label)
-            for ast_code in compho[label]:
-                print("################Path######################")
-                ast.call_recursively(ast_code, ast.remove_declarations, [])
-                code = generator.visit(ast_code)
-                print(code)
-                print("##########################################")
+        for label, sync_ast in compho.items():
+            print("##################"+label+"######################")
+            code = generator.visit(sync_ast)
+            print(code)
 
     elif args.deadcode:
 

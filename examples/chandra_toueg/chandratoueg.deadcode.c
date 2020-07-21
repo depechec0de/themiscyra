@@ -36,6 +36,7 @@ _Bool value_decided(int p);
 _Bool decide(int estimate);
 int main()
 {
+  struct list *mbox_2_9;
   struct list *mbox_2_8;
   struct list *mbox_2_7;
   struct list *mbox_2_6;
@@ -45,6 +46,7 @@ int main()
   struct list *mbox_2_2;
   struct list *mbox_2_1;
   struct list *mbox_2_0;
+  struct list *mbox_1_9;
   struct list *mbox_1_8;
   struct list *mbox_1_7;
   struct list *mbox_1_6;
@@ -54,6 +56,7 @@ int main()
   struct list *mbox_1_2;
   struct list *mbox_1_1;
   struct list *mbox_1_0;
+  struct list *mbox_0_9;
   struct list *mbox_0_8;
   struct list *mbox_0_7;
   struct list *mbox_0_6;
@@ -63,6 +66,7 @@ int main()
   struct list *mbox_0_2;
   struct list *mbox_0_1;
   struct list *mbox_0_0;
+  enum round_typ round_2_9;
   enum round_typ round_2_8;
   enum round_typ round_2_7;
   enum round_typ round_2_6;
@@ -72,6 +76,7 @@ int main()
   enum round_typ round_2_2;
   enum round_typ round_2_1;
   enum round_typ round_2_0;
+  enum round_typ round_1_9;
   enum round_typ round_1_8;
   enum round_typ round_1_7;
   enum round_typ round_1_6;
@@ -81,6 +86,7 @@ int main()
   enum round_typ round_1_2;
   enum round_typ round_1_1;
   enum round_typ round_1_0;
+  enum round_typ round_0_9;
   enum round_typ round_0_8;
   enum round_typ round_0_7;
   enum round_typ round_0_6;
@@ -125,14 +131,12 @@ int main()
 
       if ((((((!value_decided(p)) && (p == leader(phase, n))) && (round_0_0 == THIRD_ROUND)) && (count(mbox_0_0, phase, THIRD_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox_0_0, null_int(), FOURTH_ROUND, null_int()) == 0)) && (!all_ack(mbox_0_0)))
       {
-        round_1_2 = FIRST_ROUND;
         phase++;
         continue;
       }
 
       if ((!value_decided(p)) && timeout(round_0_0))
       {
-        round_1_6 = FIRST_ROUND;
         phase++;
         continue;
       }
@@ -147,24 +151,32 @@ int main()
       mbox_0_3 = havoc(phase, round_0_3);
       if (((((!value_decided(p)) && (p != leader(phase, n))) && (round_0_3 == SECOND_ROUND)) && (count(mbox_0_3, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0_3, null_int(), FOURTH_ROUND, null_int()) == 0))
       {
-        round_1_4 = THIRD_ROUND;
         m = mbox_1_4->message;
         estimate = m->estimate;
         timestamp = phase;
+        round_1_4 = THIRD_ROUND;
         send(message(phase, THIRD_ROUND, estimate, p, timestamp, true), leader(phase, n));
         round_1_4 = FOURTH_ROUND;
         mbox_1_4 = havoc(phase, round_1_4);
-        if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox_1_4, null_int(), FOURTH_ROUND, null_int()) == 1)) && mbox_1_4->message->decided) && (mbox_1_4->message->phase >= phase))
+        if (((((!value_decided(p)) && (p != leader(phase, n))) && (round_1_4 == FOURTH_ROUND)) && (count(mbox_1_4, phase, FOURTH_ROUND, leader(phase, n)) == 1)) && mbox_1_4->message->decided)
         {
           estimate = m->estimate;
           decide(estimate);
+          phase++;
+          continue;
+        }
+
+        if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox_1_4, null_int(), FOURTH_ROUND, leader(phase, n)) == 1)) && mbox_1_4->message->decided) && (mbox_1_4->message->phase > phase))
+        {
+          estimate = m->estimate;
+          decide(estimate);
+          round_2_0 = FOURTH_ROUND;
           phase = mbox_2_0->message->phase;
           continue;
         }
 
         if ((!value_decided(p)) && timeout(round_1_4))
         {
-          round_2_0 = FIRST_ROUND;
           phase++;
           continue;
         }
@@ -172,17 +184,17 @@ int main()
         continue;
       }
 
-      if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox_0_3, null_int(), FOURTH_ROUND, null_int()) == 1)) && mbox_0_3->message->decided) && (mbox_0_3->message->phase >= phase))
+      if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox_0_3, null_int(), FOURTH_ROUND, leader(phase, n)) == 1)) && mbox_0_3->message->decided) && (mbox_0_3->message->phase > phase))
       {
         estimate = m->estimate;
         decide(estimate);
-        phase = mbox_1_5->message->phase;
+        round_1_6 = FOURTH_ROUND;
+        phase = mbox_1_6->message->phase;
         continue;
       }
 
       if ((!value_decided(p)) && timeout(round_0_3))
       {
-        round_1_6 = FIRST_ROUND;
         phase++;
         continue;
       }
@@ -190,24 +202,17 @@ int main()
       continue;
     }
 
-    if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 1)) && mbox->message->decided) && (mbox->message->phase >= phase))
+    if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox, null_int(), FOURTH_ROUND, leader(phase, n)) == 1)) && mbox->message->decided) && (mbox->message->phase > phase))
     {
       estimate = m->estimate;
       decide(estimate);
-      phase = mbox_0_5->message->phase;
+      round_0_6 = FOURTH_ROUND;
+      phase = mbox_0_6->message->phase;
       continue;
     }
 
     if ((!value_decided(p)) && timeout(round))
     {
-      round_0_6 = FIRST_ROUND;
-      phase++;
-      continue;
-    }
-
-    if (value_decided(p) && (p == leader(phase, n)))
-    {
-      send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
       phase++;
       continue;
     }

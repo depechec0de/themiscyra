@@ -153,7 +153,20 @@ def delete_nodes(node, to_delete):
         for i in delete:
             node.block_items.remove(i)    
     else:
-        call_recursively(node, delete_nodes, [to_delete])    
+        call_recursively(node, delete_nodes, [to_delete])
+
+def keep_nodes(node, to_keep):
+    if type(node) == c_ast.Compound:
+        delete = []
+        for i in node.block_items:
+            if str(i.coord) not in to_keep:
+                delete.append(i)
+            else:
+                call_recursively(node, keep_nodes, [to_keep])
+        for i in delete:
+            node.block_items.remove(i)    
+    else:
+        call_recursively(node, keep_nodes, [to_keep])
 
 def insert_node_after_continue(codeast, node):
     if type(codeast) == c_ast.Compound:
@@ -202,14 +215,18 @@ def remove_declarations(codeast : c_ast.Node):
 
 def remove_whiles(codeast : c_ast.Node):
     if type(codeast) == c_ast.Compound:
-        new_block_items = copy.copy(codeast.block_items)
+        new_block_items = copy.deepcopy(codeast.block_items)
         for i in range(0,len(codeast.block_items)):
             if type(codeast.block_items[i]) == c_ast.While:
-                new_block_items[i] = c_ast.Compound(codeast.block_items[i].stmt)
+                # insert list in position i
+                while_content = copy.deepcopy(codeast.block_items[i].stmt.block_items)
+                del new_block_items[i]
+                new_block_items[i:i] = while_content
             else:
                 call_recursively(i, remove_whiles, [])
 
-            codeast.block_items = new_block_items
+        codeast.block_items = new_block_items
+        
     else:
         call_recursively(codeast, remove_whiles, [])
 

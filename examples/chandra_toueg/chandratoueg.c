@@ -76,8 +76,8 @@ int main()
         }
         
         if(!value_decided(p) && p == leader(phase,n) && round == THIRD_ROUND && count(mbox, phase, THIRD_ROUND, null_int()) > (n+1)/2 && count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0 && !all_ack(mbox)){
-            round = FIRST_ROUND;
             phase++;
+            round = FIRST_ROUND;
             continue;
         }
 
@@ -90,35 +90,47 @@ int main()
 
         if(!value_decided(p) && p != leader(phase,n) && round == SECOND_ROUND && count(mbox, phase, SECOND_ROUND, leader(phase,n)) > 0 && count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0){
             
-            round = THIRD_ROUND;
             m = mbox->message;
             estimate = m->estimate;
             timestamp = phase;
+            round = THIRD_ROUND;
             send(message(phase, THIRD_ROUND, estimate, p, timestamp, true), leader(phase,n)); 
             round = FOURTH_ROUND;
             
             continue;
         }  
 
-        if(!value_decided(p) && p != leader(phase,n) && count(mbox, null_int(), FOURTH_ROUND, null_int()) == 1 && mbox->message->decided && mbox->message->phase >= phase){
+        if(!value_decided(p) && p != leader(phase,n) && round == FOURTH_ROUND && count(mbox, phase, FOURTH_ROUND, leader(phase,n)) == 1 && mbox->message->decided){
     
             estimate = m->estimate;
             decide(estimate);
-            phase = mbox->message->phase;
+            phase++;
             continue;
-        }      
+        }
+
+        // Jump to a decision
+        if(!value_decided(p) && p != leader(phase,n) && count(mbox, null_int(), FOURTH_ROUND, leader(phase,n)) == 1 && mbox->message->decided && mbox->message->phase > phase){
+            
+            estimate = m->estimate;
+            decide(estimate);
+
+            round = FOURTH_ROUND;
+            phase = mbox->message->phase;
+            
+            continue;
+        }
 
         if(!value_decided(p) && timeout(round)){
             
-            round = FIRST_ROUND;
             phase++;
+            round = FIRST_ROUND;
 
             continue;
         } 
 
         // A majority was achieved somewhere in the past and I am the leader of the phase 
         // => broadcast the decision
-        if(value_decided(p) && p == leader(phase,n)){
+        if(value_decided(p) && round == FOURTH_ROUND && p == leader(phase,n)){
 
             send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
             phase++;
