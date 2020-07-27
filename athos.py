@@ -55,11 +55,11 @@ def async_to_sync(async_ast : c_ast.Node, config):
             complete_paths_by_round[label].extend(cp)
 
     # the code of a round is the (graph) union of all the complete paths found to belong to that round
-    # the easy approach is to remove the nodes not included in those paths from the original code
+    # the easiest approach is to remove the nodes not included in those paths from the original code using the coord property
     sync_code = {}
 
     for label, paths in complete_paths_by_round.items():
-         
+
         round_code_cfg = cfg.ControlFlowGraph()
         nodes_to_keep = set()
         
@@ -73,8 +73,16 @@ def async_to_sync(async_ast : c_ast.Node, config):
 
         sync_code[label] = round_sync_code
 
+    # translate to CompHO
+    compho = {}
 
-    return sync_code
+    for label, ast_code in sync_code.items():
+        compho[label] = {}
+        compho[label]['send'] = ast.get_compho_send(copy.deepcopy(ast_code))
+        compho[label]['update'] = ast.get_compho_update(copy.deepcopy(ast_code))
+
+
+    return compho
 
 def get_cfg_paths_between_nodes(codecfg, node_start, node_end):
     # all paths between start and end

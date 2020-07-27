@@ -70,7 +70,9 @@ int main()
             round = FOURTH_ROUND;
             send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
             decide(estimate);
+
             phase++;
+            round = FIRST_ROUND;
             continue;
 
         }
@@ -103,19 +105,25 @@ int main()
         if(!value_decided(p) && p != leader(phase,n) && round == FOURTH_ROUND && count(mbox, phase, FOURTH_ROUND, leader(phase,n)) == 1 && mbox->message->decided){
     
             estimate = m->estimate;
+            // from now on value_decided(p) -> true
             decide(estimate);
+
             phase++;
+            round = FIRST_ROUND;
             continue;
         }
 
         // Jump to a decision
         if(!value_decided(p) && p != leader(phase,n) && count(mbox, null_int(), FOURTH_ROUND, leader(phase,n)) == 1 && mbox->message->decided && mbox->message->phase > phase){
-            
-            estimate = m->estimate;
-            decide(estimate);
 
             round = FOURTH_ROUND;
-            phase = mbox->message->phase;
+            
+            estimate = m->estimate;
+            // from now on value_decided(p) -> true
+            decide(estimate);
+
+            phase = mbox->message->phase + 1;
+            round = FIRST_ROUND;
             
             continue;
         }
@@ -130,10 +138,12 @@ int main()
 
         // A majority was achieved somewhere in the past and I am the leader of the phase 
         // => broadcast the decision
-        if(value_decided(p) && round == FOURTH_ROUND && p == leader(phase,n)){
-
+        if(value_decided(p) && p == leader(phase,n)){
+            
+            round = FOURTH_ROUND;
             send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
             phase++;
+            round = FIRST_ROUND;
 
             continue;
         }

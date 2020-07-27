@@ -12,5 +12,5 @@ labels :
 # Dead code script
 # python3 main.py examples/viewstamped_replication/viewchange.unfolded.c examples/viewstamped_replication/viewchange.yaml --deadcode > examples/viewstamped_replication/viewchange.deadcode.c
 
-# Paths script
-# python3 main.py examples/viewstamped_replication/viewchange.deadcode.c examples/viewstamped_replication/viewchange.yaml --athos > examples/viewstamped_replication/viewchange.paths.c
+# Sync code script
+# python3 main.py examples/viewstamped_replication/viewchange.deadcode.c examples/viewstamped_replication/viewchange.yaml --athos > examples/viewstamped_replication/viewchange.sync.c

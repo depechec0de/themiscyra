@@ -13,5 +13,5 @@ labels :
 # Dead code script
 # python3 main.py examples/chandra_toueg/chandratoueg.unfolded.c examples/chandra_toueg/chandratoueg.yaml --deadcode > examples/chandra_toueg/chandratoueg.deadcode.c
 
-# Paths script
+# Sync code script
 # python3 main.py examples/chandra_toueg/chandratoueg.deadcode.c examples/chandra_toueg/chandratoueg.yaml --athos > examples/chandra_toueg/chandratoueg.sync.c

@@ -230,6 +230,106 @@ def remove_whiles(codeast : c_ast.Node):
     else:
         call_recursively(codeast, remove_whiles, [])
 
+def keep_send_code(codeast : c_ast.Node, name):
+    items = None
+    if type(codeast) == c_ast.FileAST:
+        items = codeast.ext
+
+    elif type(codeast) == c_ast.Compound:
+        items = codeast.block_items
+
+    if items is not None: 
+        to_delete = []
+        for statement in items:
+
+            if type(statement) == c_ast.If:
+                call_recursively(statement, keep_send_code, [name])
+            
+            elif not is_funccall_with_name(statement, name):
+                to_delete.append(statement) 
+
+        for node in to_delete:
+            items.remove(node)
+
+    else:
+        call_recursively(codeast, keep_send_code, [name])
+
+def is_funccall_with_name(node : c_ast.Node, name):
+    return type(node) == c_ast.FuncCall and node.name.name == name
+
+def count_no_if_statements(node : c_ast.Node) -> int:
+    class NonIfCounterVisitor(c_ast.NodeVisitor):
+        def __init__(self):
+            self.result = 0
+
+        def visit_Compound(self, node):
+            count_no_if_stm = len([n for n in node.block_items if type(n)!=c_ast.If])
+            self.result = self.result + count_no_if_stm
+
+            c_ast.NodeVisitor.generic_visit(self, node)
+
+    v = NonIfCounterVisitor()
+    v.visit(node)
+    return v.result
+
+def remove_empty_ifs(codeast : c_ast.Node):
+    items = None
+    if type(codeast) == c_ast.FileAST:
+        items = codeast.ext
+
+    elif type(codeast) == c_ast.Compound:
+        items = codeast.block_items
+
+    if items is not None: 
+        to_delete = []
+        for statement in items:
+
+            if type(statement) == c_ast.If:                              
+                if ast.count_no_if_statements(statement) == 0:
+                    to_delete.append(statement) 
+            else:
+                call_recursively(statement, remove_empty_ifs, [])
+
+        for node in to_delete:
+            items.remove(node)
+
+    else:
+        call_recursively(codeast, remove_empty_ifs, [])
+
+def get_compho_send(codeast : c_ast.Node) -> c_ast.Node:
+    call_recursively(codeast, keep_send_code, ['send'])
+    call_recursively(codeast, remove_empty_ifs, [])
+
+    return codeast
+
+def remove_send_mbox_code(codeast : c_ast.Node):
+    items = None
+    if type(codeast) == c_ast.FileAST:
+        items = codeast.ext
+
+    elif type(codeast) == c_ast.Compound:
+        items = codeast.block_items
+
+    if items is not None: 
+        to_delete = []
+        for statement in items:
+            # TODO: is_var_assignment(statement, 'mbox') or not
+            if is_funccall_with_name(statement, 'send'):
+                to_delete.append(statement)
+            else:
+                call_recursively(statement, remove_send_mbox_code, [])
+
+        for node in to_delete:
+            items.remove(node)
+
+    else:
+        call_recursively(codeast, keep_send_code, [])
+
+def get_compho_update(codeast : c_ast.Node) -> c_ast.Node:
+    call_recursively(codeast, remove_send_mbox_code, [])
+
+    return codeast
+
 def variable_assigments_by_value(cfg, variable) -> Dict[str, List[c_ast.Assignment]]:
     """Returns a dictionary that maps rvalues to all nodes in the `cfg` where 
     `variable` is assigned.
@@ -283,6 +383,12 @@ def is_syncvar_assigned_to_value(n : c_ast.Node, variable, value):
         # we discard the unfolding index
         basename = re.sub(SYNCVAR_UNFOLD_REGEX, '', n.lvalue.name)
         return  n.op == '=' and basename == variable and n.rvalue.name == value
+    else:
+        return False
+
+def is_var_assignment(n : c_ast.Node, varname):
+    if type(n) == c_ast.Assignment:
+        return  n.op == '=' and n.lvalue.name == varname
     else:
         return False
 

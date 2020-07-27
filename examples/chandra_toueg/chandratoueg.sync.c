@@ -1,4 +1,16 @@
 ##################FIRST_ROUND######################
+##################send######################
+int main()
+{
+  if (((!value_decided(p)) && (p != leader(phase, n))) && (round == FIRST_ROUND))
+  {
+    send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leader(phase, n));
+  }
+
+}
+
+
+##################update######################
 int main()
 {
   round = FIRST_ROUND;
@@ -14,14 +26,11 @@ int main()
 
   if (((!value_decided(p)) && (p != leader(phase, n))) && (round == FIRST_ROUND))
   {
-    send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leader(phase, n));
     round_0_3 = SECOND_ROUND;
   }
 
   if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox, null_int(), FOURTH_ROUND, leader(phase, n)) == 1)) && mbox->message->decided) && (mbox->message->phase > phase))
   {
-    estimate = m->estimate;
-    decide(estimate);
     round_0_6 = FOURTH_ROUND;
   }
 
@@ -30,16 +39,32 @@ int main()
     phase++;
   }
 
+  if (value_decided(p) && (p == leader(phase, n)))
+  {
+    round_0_8 = FOURTH_ROUND;
+  }
+
 }
 
 
 ##################SECOND_ROUND######################
+##################send######################
+int main()
+{
+  if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))
+  {
+    send(message(phase, SECOND_ROUND, estimate, p, null_int(), null_bool()), to_all);
+  }
+
+}
+
+
+##################update######################
 int main()
 {
   if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))
   {
     round_0_0 = SECOND_ROUND;
-    send(message(phase, SECOND_ROUND, estimate, p, null_int(), null_bool()), to_all);
     round_0_0 = THIRD_ROUND;
   }
 
@@ -57,8 +82,6 @@ int main()
 
     if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox_0_3, null_int(), FOURTH_ROUND, leader(phase, n)) == 1)) && mbox_0_3->message->decided) && (mbox_0_3->message->phase > phase))
     {
-      estimate = m->estimate;
-      decide(estimate);
       round_1_6 = FOURTH_ROUND;
     }
 
@@ -73,6 +96,22 @@ int main()
 
 
 ##################THIRD_ROUND######################
+##################send######################
+int main()
+{
+  if (((!value_decided(p)) && (p != leader(phase, n))) && (round == FIRST_ROUND))
+  {
+    if (((((!value_decided(p)) && (p != leader(phase, n))) && (round_0_3 == SECOND_ROUND)) && (count(mbox_0_3, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0_3, null_int(), FOURTH_ROUND, null_int()) == 0))
+    {
+      send(message(phase, THIRD_ROUND, estimate, p, timestamp, true), leader(phase, n));
+    }
+
+  }
+
+}
+
+
+##################update######################
 int main()
 {
   if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))
@@ -101,7 +140,6 @@ int main()
     if (((((!value_decided(p)) && (p != leader(phase, n))) && (round_0_3 == SECOND_ROUND)) && (count(mbox_0_3, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0_3, null_int(), FOURTH_ROUND, null_int()) == 0))
     {
       round_1_4 = THIRD_ROUND;
-      send(message(phase, THIRD_ROUND, estimate, p, timestamp, true), leader(phase, n));
       round_1_4 = FOURTH_ROUND;
     }
 
@@ -111,6 +149,27 @@ int main()
 
 
 ##################FOURTH_ROUND######################
+##################send######################
+int main()
+{
+  if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))
+  {
+    if ((((((!value_decided(p)) && (p == leader(phase, n))) && (round_0_0 == THIRD_ROUND)) && (count(mbox_0_0, phase, THIRD_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox_0_0, null_int(), FOURTH_ROUND, null_int()) == 0)) && all_ack(mbox_0_0))
+    {
+      send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+    }
+
+  }
+
+  if (value_decided(p) && (p == leader(phase, n)))
+  {
+    send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+  }
+
+}
+
+
+##################update######################
 int main()
 {
   if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))
@@ -118,7 +177,6 @@ int main()
     if ((((((!value_decided(p)) && (p == leader(phase, n))) && (round_0_0 == THIRD_ROUND)) && (count(mbox_0_0, phase, THIRD_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox_0_0, null_int(), FOURTH_ROUND, null_int()) == 0)) && all_ack(mbox_0_0))
     {
       round_1_1 = FOURTH_ROUND;
-      send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
       decide(estimate);
       phase++;
     }
@@ -141,7 +199,9 @@ int main()
       if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox_1_4, null_int(), FOURTH_ROUND, leader(phase, n)) == 1)) && mbox_1_4->message->decided) && (mbox_1_4->message->phase > phase))
       {
         round_2_0 = FOURTH_ROUND;
-        phase = mbox_2_0->message->phase;
+        estimate = m->estimate;
+        decide(estimate);
+        phase = mbox_2_0->message->phase + 1;
       }
 
       if ((!value_decided(p)) && timeout(round_1_4))
@@ -154,7 +214,9 @@ int main()
     if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox_0_3, null_int(), FOURTH_ROUND, leader(phase, n)) == 1)) && mbox_0_3->message->decided) && (mbox_0_3->message->phase > phase))
     {
       round_1_6 = FOURTH_ROUND;
-      phase = mbox_1_6->message->phase;
+      estimate = m->estimate;
+      decide(estimate);
+      phase = mbox_1_6->message->phase + 1;
     }
 
   }
@@ -162,7 +224,15 @@ int main()
   if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox, null_int(), FOURTH_ROUND, leader(phase, n)) == 1)) && mbox->message->decided) && (mbox->message->phase > phase))
   {
     round_0_6 = FOURTH_ROUND;
-    phase = mbox_0_6->message->phase;
+    estimate = m->estimate;
+    decide(estimate);
+    phase = mbox_0_6->message->phase + 1;
+  }
+
+  if (value_decided(p) && (p == leader(phase, n)))
+  {
+    round_0_8 = FOURTH_ROUND;
+    phase++;
   }
 
 }
