@@ -55,10 +55,10 @@ int main()
         mbox = havoc(phase, round);
 
         if(!value_decided(p) && p == leader(phase,n) && round == FIRST_ROUND && count(mbox, phase, FIRST_ROUND, null_int()) > (n+1)/2 && count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0){
+            round = SECOND_ROUND;
             m = max_timestamp(mbox);
             estimate = m->estimate;
-
-            round = SECOND_ROUND;
+            
             send(message(phase, SECOND_ROUND, estimate, p, null_int(), null_bool()), to_all); 
             round = THIRD_ROUND;
 
@@ -91,12 +91,12 @@ int main()
         }
 
         if(!value_decided(p) && p != leader(phase,n) && round == SECOND_ROUND && count(mbox, phase, SECOND_ROUND, leader(phase,n)) > 0 && count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0){
-            
+            round = THIRD_ROUND;
             m = mbox->message;
             estimate = m->estimate;
             timestamp = phase;
-            round = THIRD_ROUND;
             send(message(phase, THIRD_ROUND, estimate, p, timestamp, true), leader(phase,n)); 
+            
             round = FOURTH_ROUND;
             
             continue;
