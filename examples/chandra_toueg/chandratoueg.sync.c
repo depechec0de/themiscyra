@@ -1,5 +1,5 @@
-##################FIRST_ROUND######################
-##################send######################
+################## FIRST_ROUND ######################
+############ send ############
 int main()
 {
   if (((!value_decided(p)) && (p != leader(phase, n))) && (round == FIRST_ROUND))
@@ -10,7 +10,7 @@ int main()
 }
 
 
-##################update######################
+############ update ############
 int main()
 {
   round = FIRST_ROUND;
@@ -47,8 +47,8 @@ int main()
 }
 
 
-##################SECOND_ROUND######################
-##################send######################
+################## SECOND_ROUND ######################
+############ send ############
 int main()
 {
   if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))
@@ -59,7 +59,7 @@ int main()
 }
 
 
-##################update######################
+############ update ############
 int main()
 {
   if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))
@@ -95,8 +95,8 @@ int main()
 }
 
 
-##################THIRD_ROUND######################
-##################send######################
+################## THIRD_ROUND ######################
+############ send ############
 int main()
 {
   if (((!value_decided(p)) && (p != leader(phase, n))) && (round == FIRST_ROUND))
@@ -111,7 +111,7 @@ int main()
 }
 
 
-##################update######################
+############ update ############
 int main()
 {
   if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))
@@ -148,8 +148,8 @@ int main()
 }
 
 
-##################FOURTH_ROUND######################
-##################send######################
+################## FOURTH_ROUND ######################
+############ send ############
 int main()
 {
   if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))
@@ -169,7 +169,7 @@ int main()
 }
 
 
-##################update######################
+############ update ############
 int main()
 {
   if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))

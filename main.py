@@ -60,9 +60,9 @@ if __name__ == "__main__":
         compho = athos.async_to_sync(codeast, config)      
         
         for label, compho in compho.items():
-            print("##################"+label+"######################")
+            print("################## "+label+" ######################")
             for step, step_code_ast in compho.items():
-                print("##################"+step+"######################") 
+                print("############ "+step+" ############") 
                 code = generator.visit(step_code_ast)
                 print(code)
 

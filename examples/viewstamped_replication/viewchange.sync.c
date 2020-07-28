@@ -1,12 +1,12 @@
-##################STARTVIEWCHANGE######################
-##################send######################
+################## STARTVIEWCHANGE ######################
+############ send ############
 int main()
 {
   send(all, message(view, STARTVIEWCHANGE, p, null_log()));
 }
 
 
-##################update######################
+############ update ############
 int main()
 {
   vround = STARTVIEWCHANGE;
@@ -25,8 +25,8 @@ int main()
 }
 
 
-##################DOVIEWCHANGE######################
-##################send######################
+################## DOVIEWCHANGE ######################
+############ send ############
 int main()
 {
   if (((vround == STARTVIEWCHANGE) && (p != primary(view, n))) && (mbox->size > f))
@@ -37,7 +37,7 @@ int main()
 }
 
 
-##################update######################
+############ update ############
 int main()
 {
   if (((vround == STARTVIEWCHANGE) && (p == primary(view, n))) && (mbox->size > f))
@@ -61,8 +61,8 @@ int main()
 }
 
 
-##################STARTVIEW######################
-##################send######################
+################## STARTVIEW ######################
+############ send ############
 int main()
 {
   if (((vround == STARTVIEWCHANGE) && (p == primary(view, n))) && (mbox->size > f))
@@ -77,7 +77,7 @@ int main()
 }
 
 
-##################update######################
+############ update ############
 int main()
 {
   if (((vround == STARTVIEWCHANGE) && (p == primary(view, n))) && (mbox->size > f))
