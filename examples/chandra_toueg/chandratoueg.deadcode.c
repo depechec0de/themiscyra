@@ -119,7 +119,7 @@ int main()
       estimate = m->estimate;
       send(message(phase, SECOND_ROUND, estimate, p, null_int(), null_bool()), to_all);
       round_0_0 = THIRD_ROUND;
-      mbox = havoc(phase, round);
+      mbox_0_0 = havoc(phase, round_0_0);
       if ((((((!value_decided(p)) && (p == leader(phase, n))) && (round_0_0 == THIRD_ROUND)) && (count(mbox_0_0, phase, THIRD_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox_0_0, null_int(), FOURTH_ROUND, null_int()) == 0)) && all_ack(mbox_0_0))
       {
         round_1_1 = FOURTH_ROUND;
@@ -148,7 +148,7 @@ int main()
     {
       send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leader(phase, n));
       round_0_3 = SECOND_ROUND;
-      mbox = havoc(phase, round);
+      mbox_0_3 = havoc(phase, round_0_3);
       if (((((!value_decided(p)) && (p != leader(phase, n))) && (round_0_3 == SECOND_ROUND)) && (count(mbox_0_3, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0_3, null_int(), FOURTH_ROUND, null_int()) == 0))
       {
         round_1_4 = THIRD_ROUND;
@@ -157,7 +157,7 @@ int main()
         timestamp = phase;
         send(message(phase, THIRD_ROUND, estimate, p, timestamp, true), leader(phase, n));
         round_1_4 = FOURTH_ROUND;
-        mbox = havoc(phase, round);
+        mbox_1_4 = havoc(phase, round_1_4);
         if (((((!value_decided(p)) && (p != leader(phase, n))) && (round_1_4 == FOURTH_ROUND)) && (count(mbox_1_4, phase, FOURTH_ROUND, leader(phase, n)) == 1)) && mbox_1_4->message->decided)
         {
           estimate = m->estimate;
