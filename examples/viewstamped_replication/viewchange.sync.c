@@ -29,6 +29,11 @@ int main()
 ############ send ############
 int main()
 {
+  if (((vround == STARTVIEWCHANGE) && (p != primary(view, n))) && (mbox->size > f))
+  {
+    send(primary(view, n), message(view, DOVIEWCHANGE, p, local_log()));
+  }
+
 }
 
 
@@ -60,6 +65,15 @@ int main()
 ############ send ############
 int main()
 {
+  if (((vround == STARTVIEWCHANGE) && (p == primary(view, n))) && (mbox->size > f))
+  {
+    if (((vround_0 == DOVIEWCHANGE) && (p == primary(view, n))) && (mbox_0->size > f))
+    {
+      send(all, message(view, STARTVIEW, p, local_log()));
+    }
+
+  }
+
 }
 
 

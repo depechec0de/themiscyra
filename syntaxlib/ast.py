@@ -193,7 +193,6 @@ def get_unreachable_branches(codeast : c_ast.FileAST, theory : C99Theory, to_del
         if theory.is_sat(codeast):
             new_context = copy.deepcopy(theory)
             new_context.handle_if(codeast)
-            #print(id(new_context), new_context.solver.sexpr())
             # break current recursion and start a new one with the augmented context
             call_recursively(codeast.iftrue, get_unreachable_branches, [new_context, to_delete])
             return False
