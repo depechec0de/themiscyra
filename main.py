@@ -48,9 +48,8 @@ if __name__ == "__main__":
     codeast = parser.parse(input_str_pycparser)
 
     if args.unfold:
-        syncvariables = [config['round'], config['mbox']]
         
-        ast.unfold(codeast, args.unfold, syncvariables)
+        ast.unfold(codeast, args.unfold, config)
 
         code = generator.visit(codeast)
         print(code)
@@ -67,6 +66,9 @@ if __name__ == "__main__":
                 print(code)
 
     elif args.deadcode:
+
+        # Syntactic tree prune, everything after a phase increment is removed
+        ast.call_recursively(ast.get_main_while(codeast), ast.prune_after_phase_increment, [config['phase']])
 
         ast.dead_code_elimination(codeast, config['phase'])
 

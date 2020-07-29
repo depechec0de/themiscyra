@@ -17,7 +17,8 @@ def test_evaluate_ast():
     boolstm = srcast.ext[0].body.block_items[0].cond
 
     evaluation = t.evaluate_ast(boolstm)
-    print(evaluation)
+    
+    assert evaluation == False
 
 def test_struct_dereference():
     src = """

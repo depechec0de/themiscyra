@@ -91,8 +91,8 @@ class C99Theory():
                 enum vars: {" + ", ".join(vardecls) + "}, \
                 function defs: { " + ", ".join(funcs) + " }, \
                 structs decls: { " + str(structdecls) + " }, \
-                declared struct vars: {" + ", ".join(structvardecls) + "}, "
-                
+                declared struct vars: {" + ", ".join(structvardecls) + "}, \
+                var assigments: { " + str(self.var_assigments) + " }"
     
     def declare_enum_sort(self, name, values) -> (z3.DatatypeSortRef, Dict[str, z3.DatatypeRef]):
         S, enum_values = EnumSort(name, values)

@@ -7,12 +7,42 @@ from pycparser import c_parser, c_ast, parse_file, c_generator
 from semanticlib.c99theory import *
 
 # Sync variables are anotated with the unfolding number where they belong
-SYNCVAR_UNFOLD_REGEX = '_(\d)_(\d)'
-SYNCVAR_UNFOLD = '_ITER_PATH'
+SYNCVAR_UNFOLD_REGEX = '_(\d)'
+SYNCVAR_UNFOLD = '_ITER'
 
-def rename_syncvar(name, iteration, path):
+def recursive_node(node : c_ast.Node):
+    recursive_types = {c_ast.FileAST, c_ast.Compound, c_ast.If, c_ast.While, c_ast.Compound, c_ast.FuncDef}
+
+    return type(node) in recursive_types
+
+def call_recursively(node : c_ast.Node, function, args):
+    
+    typ = type(node) 
+
+    continue_recursion = function(node, *args)
+
+    if continue_recursion is None or continue_recursion:
+        if typ == c_ast.FileAST:
+            for statement in node.ext:
+                call_recursively(statement, function, args)
+                
+        elif typ == c_ast.If:
+            call_recursively(node.iftrue, function, args)
+            if node.iffalse:
+                call_recursively(node.iffalse, function, args)
+
+        elif typ == c_ast.While:
+            call_recursively(node.stmt, function, args)
+
+        elif typ == c_ast.Compound:
+            for statement in node.block_items:
+                call_recursively(statement, function, args)
+
+        elif typ == c_ast.FuncDef:
+            call_recursively(node.body, function, args)
+
+def rename_syncvar(name, iteration):
     newname = name + SYNCVAR_UNFOLD
-    newname = newname.replace('PATH', str(path))
     newname = newname.replace('ITER', str(iteration))
 
     return newname
@@ -22,6 +52,54 @@ def unfold(ast, k: int, syncvariables):
     result is the code unfolded "k" times, where unfolding means replacing 
     every occurrence of a "continue" statement with the content of the "while"
     body.
+
+    Example
+    -------
+    while(1){
+        mbox = havoc(phase, round);
+        if(round==1){
+            round=3;
+            continue;
+        }
+        if(round==2){
+            round=4;
+            continue;
+        }
+    }
+
+    unfold(ast, 1, {'round':'round', 'mbox':'mbox'}) returns:
+
+    while(1){
+        mbox = havoc(phase, round);
+        if(round==1){
+            round_0=3;
+
+            mbox_0 = havoc(phase, round_0);
+            if(round_0==1){
+                round_1=3;
+                continue;
+            }
+            if(round_0==2){
+                round_1=4;
+                continue;
+            }
+            continue;
+        }
+        if(round==2){
+            round_0=4;
+
+            mbox_0 = havoc(phase, round_0);
+            if(round_0==1){
+                round_1=3;
+                continue;
+            }
+            if(round_0==2){
+                round_1=4;
+                continue;
+            }
+            continue;
+        }
+    }
 
     Parameters
     ----------
@@ -37,75 +115,58 @@ def unfold(ast, k: int, syncvariables):
 
     upons = [n for n in while_statements if type(n) == c_ast.If]
 
-    declare_iterated_variables(ast, syncvariables, k, len(upons)+1)
+    vars_to_declare = [syncvariables['round'], syncvariables['mbox']]
 
-    _unfold(while_statements, while_body, syncvariables, 0, 0, k-1)
+    declare_iterated_variables(ast, vars_to_declare, k)
+
+    for upon in upons:
+        _unfold(upon.iftrue, while_body, syncvariables, iteration=0, unfoldings=k-1)
 
 
-def _unfold(ast, while_body, syncvariables, iteration, parent_path, unfoldings):
+def _unfold(compound, while_body, syncvariables, iteration, unfoldings):
 
-    upons = [n for n in ast if type(n) == c_ast.If]
+    new_body_iteration = copy.deepcopy(while_body)
 
-    if unfoldings-iteration > 0:
-        path = 0
+    # rename compound syncvars with corresponding iteration
+    upon_code = [n for n in compound if type(n) != c_ast.If]
+    for stm in upon_code:
+        if iteration > 0:
+            rename_iterated_variables(stm, [syncvariables['mbox']], iteration-1)
+        rename_iterated_variables(stm, [syncvariables['round']], iteration)
 
-        for upon in upons:
-            
-            if iteration>0:
-                rename_iterated_variables(upon.cond, syncvariables, iteration-1, parent_path)
+    # rename new unfolding syncvars outside the upons
+    new_iter_code = [n for n in new_body_iteration if type(n) != c_ast.If]
+    for stm in new_iter_code:
+        rename_iterated_variables(stm, [syncvariables['mbox'], syncvariables['round']], iteration)
 
-            rename_iterated_variables(upon.iftrue, syncvariables, iteration, path)
- 
-            call_recursively(upon, insert_node_after_continue, [copy.deepcopy(while_body)])
+    # rename new unfolding upons conditions matching compound variables
+    new_upons = [n for n in new_body_iteration if type(n) == c_ast.If]
+    for new_upon in new_upons:
+        rename_iterated_variables(new_upon.cond, [syncvariables['mbox'], syncvariables['round']], iteration)
 
-            _unfold(upon.iftrue, while_body, syncvariables, iteration+1, path, unfoldings)
+    call_recursively(compound, insert_node_after_continue, [new_body_iteration])
 
-            path=path+1
-    else:
-        for upon in upons:
-            rename_iterated_variables(upon.cond, syncvariables, iteration-1, parent_path)
-            # path is 0 because we don't branch anymore, there is only one path
-            rename_iterated_variables(upon.iftrue, syncvariables, iteration, 0)
+    new_upons = [n for n in compound if type(n) == c_ast.If]
 
-    # rename out of scope variables e.g. havoc, mbox
-    if iteration>0:
-        rename_iterated_variables(ast, syncvariables, iteration-1, parent_path)
+    for upon in new_upons:
+        if unfoldings > iteration:
+            _unfold(upon.iftrue, while_body, syncvariables, iteration=iteration+1, unfoldings=unfoldings)
+        else:
+            upon_code = [n for n in upon.iftrue if type(n) != c_ast.If]
+            for stm in upon_code:
+                rename_iterated_variables(stm, [syncvariables['round']], iteration+1)
+                rename_iterated_variables(stm, [syncvariables['mbox']], iteration)
+
 
 def dead_code_elimination(codeast : c_ast.FileAST, phasevar):
 
     # Construct a theory using definitions and declarations
     theory = C99Theory(codeast)
 
-    # Syntactic tree prune, everything after a phase increment is removed
-    call_recursively(ast.get_main_while(codeast), prune_after_phase_increment, [phasevar])
-
     # Recursively explore the AST tree and cut the unfeasible branches
     to_delete = []
     call_recursively(codeast, get_unreachable_branches, [theory, to_delete])
     call_recursively(codeast, delete_nodes, [to_delete])
-
-def call_recursively(node : c_ast.Node, function, args):
-    
-    typ = type(node) 
-    
-    if typ == c_ast.FileAST:
-        for statement in node.ext:
-            function(statement, *args)
-            
-    elif typ == c_ast.If:
-        function(node.iftrue, *args)
-        if node.iffalse:
-            function(node.iffalse, *args)
-
-    elif typ == c_ast.While:
-        function(node.stmt, *args)
-
-    elif typ == c_ast.Compound:
-        for statement in node.block_items:
-            function(statement, *args)
-
-    elif typ == c_ast.FuncDef:
-        function(node.body, *args)
 
 def prune_after_phase_increment(codeast : c_ast.FileAST, phasevar):
     if type(codeast) == c_ast.Compound:
@@ -114,8 +175,6 @@ def prune_after_phase_increment(codeast : c_ast.FileAST, phasevar):
         for statement in codeast.block_items:
             if start_deleting:
                 to_delete.append(statement)
-            else:
-                call_recursively(statement, prune_after_phase_increment, [phasevar])
                 
             if is_var_increment(statement, phasevar):
                 start_deleting = True
@@ -125,10 +184,8 @@ def prune_after_phase_increment(codeast : c_ast.FileAST, phasevar):
         # recover continue after phase++
         if start_deleting:
             codeast.block_items.append(c_ast.Continue())
-    else:
-        call_recursively(codeast, prune_after_phase_increment, [phasevar])
 
-def get_unreachable_branches(codeast : c_ast.FileAST, theory : C99Theory, to_delete):   
+def get_unreachable_branches(codeast : c_ast.FileAST, theory : C99Theory, to_delete): 
     
     if type(codeast) == c_ast.Assignment: 
         theory.handle_assigment(codeast)
@@ -136,11 +193,12 @@ def get_unreachable_branches(codeast : c_ast.FileAST, theory : C99Theory, to_del
         if theory.is_sat(codeast):
             new_context = copy.deepcopy(theory)
             new_context.handle_if(codeast)
-            call_recursively(codeast, get_unreachable_branches, [new_context, to_delete])
+            #print(id(new_context), new_context.solver.sexpr())
+            # break current recursion and start a new one with the augmented context
+            call_recursively(codeast.iftrue, get_unreachable_branches, [new_context, to_delete])
+            return False
         else:
             to_delete.append(codeast)
-    else:
-        call_recursively(codeast, get_unreachable_branches, [theory, to_delete])
 
 def delete_nodes(node, to_delete):
     if type(node) == c_ast.Compound:
@@ -148,12 +206,8 @@ def delete_nodes(node, to_delete):
         for i in node.block_items:
             if i in to_delete:
                 delete.append(i)
-            else:
-                call_recursively(node, delete_nodes, [to_delete])
         for i in delete:
             node.block_items.remove(i)    
-    else:
-        call_recursively(node, delete_nodes, [to_delete])
 
 def keep_nodes(node, to_keep):
     if type(node) == c_ast.Compound:
@@ -161,12 +215,8 @@ def keep_nodes(node, to_keep):
         for i in node.block_items:
             if str(i.coord) not in to_keep:
                 delete.append(i)
-            else:
-                call_recursively(node, keep_nodes, [to_keep])
         for i in delete:
             node.block_items.remove(i)    
-    else:
-        call_recursively(node, keep_nodes, [to_keep])
 
 def insert_node_after_continue(codeast, node):
     if type(codeast) == c_ast.Compound:
@@ -182,12 +232,9 @@ def insert_node_after_continue(codeast, node):
                     for e in body:
                         codeast.block_items.append(e)
                     codeast.block_items.append(i)
-        else:
-            for i in codeast.block_items:
-                call_recursively(i, insert_node_after_continue, [node])
 
-    else:
-        call_recursively(codeast, insert_node_after_continue, [node])
+            return False
+            
 
 def remove_declarations(codeast : c_ast.Node):
     if type(codeast) == c_ast.FileAST:
@@ -195,8 +242,7 @@ def remove_declarations(codeast : c_ast.Node):
         for statement in codeast.ext:
             if is_var_declaration(statement):
                 to_delete.append(statement)
-            else:
-                call_recursively(statement, remove_declarations, [])
+
         for node in to_delete:
             codeast.block_items.remove(node)
 
@@ -205,13 +251,9 @@ def remove_declarations(codeast : c_ast.Node):
         for statement in codeast.block_items:
             if is_var_declaration(statement):
                 to_delete.append(statement)
-            else:
-                call_recursively(statement, remove_declarations, [])
+
         for node in to_delete:
             codeast.block_items.remove(node)
-
-    else:
-        call_recursively(codeast, remove_declarations, [])
 
 def remove_whiles(codeast : c_ast.Node):
     if type(codeast) == c_ast.Compound:
@@ -222,15 +264,11 @@ def remove_whiles(codeast : c_ast.Node):
                 while_content = copy.deepcopy(codeast.block_items[i].stmt.block_items)
                 del new_block_items[i]
                 new_block_items[i:i] = while_content
-            else:
-                call_recursively(i, remove_whiles, [])
 
         codeast.block_items = new_block_items
         
-    else:
-        call_recursively(codeast, remove_whiles, [])
 
-def keep_send_code(codeast : c_ast.Node, name):
+def keep_func_call_with_context(codeast : c_ast.Node, name):
     items = None
     if type(codeast) == c_ast.FileAST:
         items = codeast.ext
@@ -241,18 +279,11 @@ def keep_send_code(codeast : c_ast.Node, name):
     if items is not None: 
         to_delete = []
         for statement in items:
-
-            if type(statement) == c_ast.If:
-                call_recursively(statement, keep_send_code, [name])
-            
-            elif not is_funccall_with_name(statement, name):
+            if not ast.recursive_node(statement) and not is_funccall_with_name(statement, name):
                 to_delete.append(statement) 
 
         for node in to_delete:
             items.remove(node)
-
-    else:
-        call_recursively(codeast, keep_send_code, [name])
 
 def is_funccall_with_name(node : c_ast.Node, name):
     return type(node) == c_ast.FuncCall and node.name.name == name
@@ -287,20 +318,13 @@ def remove_empty_ifs(codeast : c_ast.Node):
             if type(statement) == c_ast.If:                              
                 if ast.count_no_if_statements(statement) == 0:
                     to_delete.append(statement) 
-            else:
-                call_recursively(statement, remove_empty_ifs, [])
 
         for node in to_delete:
             items.remove(node)
 
-    else:
-        call_recursively(codeast, remove_empty_ifs, [])
-
-def get_compho_send(codeast : c_ast.Node) -> c_ast.Node:
-    call_recursively(codeast, keep_send_code, ['send'])
+def get_compho_send(codeast : c_ast.Node):
+    call_recursively(codeast, keep_func_call_with_context, ['send'])
     call_recursively(codeast, remove_empty_ifs, [])
-
-    return codeast
 
 def remove_send_mbox_code(codeast : c_ast.Node):
     items = None
@@ -316,19 +340,12 @@ def remove_send_mbox_code(codeast : c_ast.Node):
             # TODO: is_var_assignment(statement, 'mbox') or not
             if is_funccall_with_name(statement, 'send'):
                 to_delete.append(statement)
-            else:
-                call_recursively(statement, remove_send_mbox_code, [])
 
         for node in to_delete:
             items.remove(node)
 
-    else:
-        call_recursively(codeast, keep_send_code, [])
-
-def get_compho_update(codeast : c_ast.Node) -> c_ast.Node:
+def get_compho_update(codeast : c_ast.Node):
     call_recursively(codeast, remove_send_mbox_code, [])
-
-    return codeast
 
 def variable_assigments_by_value(cfg, variable) -> Dict[str, List[c_ast.Assignment]]:
     """Returns a dictionary that maps rvalues to all nodes in the `cfg` where 
@@ -630,21 +647,20 @@ def get_declared_vars(ast):
     v.visit(ast)
     return v.result
     
-def rename_iterated_variables(ast, variables, iteration, path):
+def rename_iterated_variables(ast, variables, iteration):
     class RenameVariablesVisitor(c_ast.NodeVisitor):
-        def __init__(self, variables, iteration, path):
+        def __init__(self, variables, iteration):
             self.variables = variables
             self.iteration = iteration
-            self.path = path
 
         def visit_ID(self, node):
             if node.name in self.variables:
-                node.name = rename_syncvar(node.name, self.iteration, self.path)
+                node.name = rename_syncvar(node.name, self.iteration)
 
-    v = RenameVariablesVisitor(variables, iteration, path)
+    v = RenameVariablesVisitor(variables, iteration)
     v.visit(ast)  
 
-def declare_iterated_variables(ast, variables, iterations, paths):
+def declare_iterated_variables(ast, variables, iterations):
     """ Look for `var` in `variables` and copy its declarations adding the 
     iteration number.
 
@@ -661,9 +677,8 @@ def declare_iterated_variables(ast, variables, iterations, paths):
     enum phase_2;
     """
     class DeclareIteratedVariablesVisitor(c_ast.NodeVisitor):
-        def __init__(self, variables, iterations, paths):
+        def __init__(self, variables, iterations):
             self.variables = variables
-            self.paths = paths
             self.iterations = iterations
             self.visited = []
             self.current_parent = None
@@ -674,27 +689,25 @@ def declare_iterated_variables(ast, variables, iterations, paths):
                     node.name in self.variables and \
                     node not in self.visited:
                         self.visited.append(node)
-                        for i in range(0,self.iterations):
-                            for p in range(0,self.paths):
-                                new_decl = copy.deepcopy(node)
-                                new_decl.name = rename_syncvar(new_decl.name, i, p)
-                                new_decl.type.declname = new_decl.name
-                            
-                                self.visited.append(new_decl)
-                                self.current_parent.block_items.insert(0,new_decl)
+                        for i in range(0,self.iterations+1):
+                            new_decl = copy.deepcopy(node)
+                            new_decl.name = rename_syncvar(new_decl.name, i)
+                            new_decl.type.declname = new_decl.name
+                        
+                            self.visited.append(new_decl)
+                            self.current_parent.block_items.insert(0,new_decl)
 
             elif type(node.type) == c_ast.PtrDecl:
                 if  node.type.type.declname in self.variables and \
                     node not in self.visited:
                     self.visited.append(node)
-                    for i in range(0,self.iterations):
-                        for p in range(0,self.paths):
-                            new_decl = copy.deepcopy(node)
-                            new_decl.name = rename_syncvar(new_decl.name, i, p)
-                            new_decl.type.type.declname = new_decl.name
-                            
-                            self.visited.append(new_decl)
-                            self.current_parent.block_items.insert(0,new_decl)
+                    for i in range(0,self.iterations+1):
+                        new_decl = copy.deepcopy(node)
+                        new_decl.name = rename_syncvar(new_decl.name, i)
+                        new_decl.type.type.declname = new_decl.name
+                        
+                        self.visited.append(new_decl)
+                        self.current_parent.block_items.insert(0,new_decl)
 
         def generic_visit(self, node):
             """ Called if no explicit visitor function exists for a
@@ -706,5 +719,5 @@ def declare_iterated_variables(ast, variables, iterations, paths):
                 self.visit(c)
             self.current_parent = oldparent
 
-    v = DeclareIteratedVariablesVisitor(variables, iterations, paths)
+    v = DeclareIteratedVariablesVisitor(variables, iterations)
     v.visit(ast)

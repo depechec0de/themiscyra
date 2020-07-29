@@ -78,8 +78,12 @@ def async_to_sync(async_ast : c_ast.Node, config):
 
     for label, ast_code in sync_code.items():
         compho[label] = {}
-        compho[label]['send'] = ast.get_compho_send(copy.deepcopy(ast_code))
-        compho[label]['update'] = ast.get_compho_update(copy.deepcopy(ast_code))
+        ast_send = copy.deepcopy(ast_code)
+        ast.get_compho_send(ast_send)
+        ast_update = copy.deepcopy(ast_code)
+        ast.get_compho_update(ast_update)
+        compho[label]['send'] = ast_send
+        compho[label]['update'] = ast_update
 
 
     return compho
