@@ -130,6 +130,18 @@ def test_dce_path():
                             }
                             if(b == 2){
                                 func();
+                                int c;
+                                c = 3;
+                                if(c == 0){
+                                    neverexecutes();
+                                }
+                                c = 4;
+                                if(c == 3){
+                                    neverexecutes();
+                                }
+                                if(c == 4){
+                                    func();
+                                }
                             }
                         }
                         if(a == 2){
@@ -148,9 +160,52 @@ def test_dce_path():
                             b = 2;
                             if(b == 2){
                                 func();
+                                int c;
+                                c = 3;
+                                c = 4;
+                                if(c == 4){
+                                    func();
+                                }
                             }
                         }
                         exit(0);
+                    }
+                    """
+    
+    src_to_assert_ast = parser.parse(src_to_assert)
+    src_to_test_ast = parser.parse(src_to_test)
+
+    ast.dead_code_elimination(src_to_test_ast, None)
+    
+    assert_ast_equality(src_to_test_ast, src_to_assert_ast)
+
+def test_dce_nested_info():
+    src_to_test =   """
+                    int main(){
+                        int a;
+                        a = 1;
+                        if(a == 1){
+                            a = 2;
+                            if(a == 2){
+                                a = 3;
+                            }
+                            if(a == 1){
+                                a = 2;
+                            }
+                        }
+                    }
+                    """
+
+    src_to_assert = """
+                    int main(){
+                        int a;
+                        a = 1;
+                        if(a == 1){
+                            a = 2;
+                            if(a == 2){
+                                a = 3;
+                            }
+                        }
                     }
                     """
     
@@ -450,19 +505,21 @@ def test_compho_send():
 
     assert_ast_equality(src_to_test_ast, src_to_assert_ast)
 
-print("test_rename_variables")
-test_rename_variables()
-print("test_get_decl_type")
-test_get_decl_type()
-print("test_dce_simple")
-test_dce_simple()
-print("test_dce_path")
-test_dce_path()
-print("test_dce_func")
-test_dce_func()
-print("test_unfolding_simple")
-test_unfolding_simple()
-print("test_unfolding")
-test_unfolding()
-print("test_compho_send")
-test_compho_send()
+# print("test_rename_variables")
+# test_rename_variables()
+# print("test_get_decl_type")
+# test_get_decl_type()
+# print("test_dce_simple")
+# test_dce_simple()
+# print("test_dce_path")
+# test_dce_path()
+print("test_dce_nested_info")
+test_dce_nested_info()
+# print("test_dce_func")
+# test_dce_func()
+# print("test_unfolding_simple")
+# test_unfolding_simple()
+# print("test_unfolding")
+# test_unfolding()
+# print("test_compho_send")
+# test_compho_send()

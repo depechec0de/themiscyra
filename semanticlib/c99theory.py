@@ -87,12 +87,12 @@ class C99Theory():
         structsorts = self.dict_structtype_smtsort
 
         return  "enum sorts: {" + ", ".join(enums) + "}, \
-                structs sorts: " + str(structsorts) + ", \
-                enum vars: {" + ", ".join(vardecls) + "}, \
-                function defs: { " + ", ".join(funcs) + " }, \
-                structs decls: { " + str(structdecls) + " }, \
-                declared struct vars: {" + ", ".join(structvardecls) + "}, \
-                var assigments: { " + str(self.var_assigments) + " }"
+structs sorts: " + str(structsorts) + ", \
+enum vars: {" + ", ".join(vardecls) + "}, \
+function defs: { " + ", ".join(funcs) + " }, \
+structs decls: { " + str(structdecls) + " }, \
+declared struct vars: {" + ", ".join(structvardecls) + "}, \
+var assigments: { " + str(self.var_assigments) + " }"
     
     def declare_enum_sort(self, name, values) -> (z3.DatatypeSortRef, Dict[str, z3.DatatypeRef]):
         S, enum_values = EnumSort(name, values)

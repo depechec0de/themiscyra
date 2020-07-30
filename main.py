@@ -68,7 +68,7 @@ if __name__ == "__main__":
     elif args.deadcode:
 
         # Syntactic tree prune, everything after a phase increment is removed
-        ast.call_recursively(ast.get_main_while(codeast), ast.prune_after_phase_increment, [config['phase']])
+        ast.map_dfs(ast.get_main_while(codeast), ast.prune_after_phase_increment, [config['phase']])
 
         ast.dead_code_elimination(codeast, config['phase'])
 

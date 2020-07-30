@@ -15,7 +15,8 @@ def recursive_node(node : c_ast.Node):
 
     return type(node) in recursive_types
 
-def call_recursively(node : c_ast.Node, function, args):
+def map_dfs(node : c_ast.Node, function, args):
+    """ Perform a DFS walk in the AST and applies `function` to every node """
     
     typ = type(node) 
 
@@ -24,22 +25,22 @@ def call_recursively(node : c_ast.Node, function, args):
     if continue_recursion is None or continue_recursion:
         if typ == c_ast.FileAST:
             for statement in node.ext:
-                call_recursively(statement, function, args)
+                map_dfs(statement, function, args)
                 
         elif typ == c_ast.If:
-            call_recursively(node.iftrue, function, args)
+            map_dfs(node.iftrue, function, args)
             if node.iffalse:
-                call_recursively(node.iffalse, function, args)
+                map_dfs(node.iffalse, function, args)
 
         elif typ == c_ast.While:
-            call_recursively(node.stmt, function, args)
+            map_dfs(node.stmt, function, args)
 
         elif typ == c_ast.Compound:
             for statement in node.block_items:
-                call_recursively(statement, function, args)
+                map_dfs(statement, function, args)
 
         elif typ == c_ast.FuncDef:
-            call_recursively(node.body, function, args)
+            map_dfs(node.body, function, args)
 
 def rename_syncvar(name, iteration):
     newname = name + SYNCVAR_UNFOLD
@@ -48,13 +49,15 @@ def rename_syncvar(name, iteration):
     return newname
 
 def unfold(ast, k: int, syncvariables):
-    """This function assumes a C code with a unique "while" statement. The 
-    result is the code unfolded "k" times, where unfolding means replacing 
-    every occurrence of a "continue" statement with the content of the "while"
+    """This function assumes a C code with a unique `while` statement. The 
+    result is the code unfolded `k` times, where unfolding means replacing 
+    every occurrence of a `continue` statement with the content of the `while`
     body.
 
     Example
     -------
+    int round;
+    void* mbox;
     while(1){
         mbox = havoc(phase, round);
         if(round==1){
@@ -69,6 +72,11 @@ def unfold(ast, k: int, syncvariables):
 
     unfold(ast, 1, {'round':'round', 'mbox':'mbox'}) returns:
 
+    int round;
+    int round_0;
+    int round_1;
+    void* mbox;
+    void* mbox_0;
     while(1){
         mbox = havoc(phase, round);
         if(round==1){
@@ -144,7 +152,7 @@ def _unfold(compound, while_body, syncvariables, iteration, unfoldings):
     for new_upon in new_upons:
         rename_iterated_variables(new_upon.cond, [syncvariables['mbox'], syncvariables['round']], iteration)
 
-    call_recursively(compound, insert_node_after_continue, [new_body_iteration])
+    map_dfs(compound, insert_node_after_continue, [new_body_iteration])
 
     new_upons = [n for n in compound if type(n) == c_ast.If]
 
@@ -165,10 +173,10 @@ def dead_code_elimination(codeast : c_ast.FileAST, phasevar):
 
     # Recursively explore the AST tree and cut the unfeasible branches
     to_delete = []
-    call_recursively(codeast, get_unreachable_branches, [theory, to_delete])
-    call_recursively(codeast, delete_nodes, [to_delete])
+    map_dfs(codeast, delete_unsat_branches, [theory])
+    #map_dfs(codeast, delete_nodes, [to_delete])
 
-def prune_after_phase_increment(codeast : c_ast.FileAST, phasevar):
+def prune_after_phase_increment(codeast : c_ast.Node, phasevar):
     if type(codeast) == c_ast.Compound:
         to_delete = []
         start_deleting = False
@@ -185,19 +193,31 @@ def prune_after_phase_increment(codeast : c_ast.FileAST, phasevar):
         if start_deleting:
             codeast.block_items.append(c_ast.Continue())
 
-def get_unreachable_branches(codeast : c_ast.FileAST, theory : C99Theory, to_delete): 
+def delete_unsat_branches(node : c_ast.Node, theory : C99Theory): 
     
-    if type(codeast) == c_ast.Assignment: 
-        theory.handle_assigment(codeast)
-    elif type(codeast) == c_ast.If:
-        if theory.is_sat(codeast):
-            new_context = copy.deepcopy(theory)
-            new_context.handle_if(codeast)
-            # break current recursion and start a new one with the augmented context
-            call_recursively(codeast.iftrue, get_unreachable_branches, [new_context, to_delete])
-            return False
-        else:
-            to_delete.append(codeast)
+    if type(node) == c_ast.Compound:
+        to_delete = []
+
+        for i in node.block_items:      
+            if type(i) == c_ast.If:
+                print(theory.solver.sexpr(), theory.var_assigments, i.cond, theory.is_sat(i))
+                if theory.is_sat(i):
+                    new_context = copy.deepcopy(theory)
+                    new_context.handle_if(i)
+                    # start a new dfs with the augmented context
+                    map_dfs(i.iftrue, delete_unsat_branches, [new_context])
+                else:
+                    # delete this branch
+                    to_delete.append(i)
+            elif type(i) == c_ast.Assignment: 
+                theory.handle_assigment(i)   
+
+        for i in to_delete:
+            node.block_items.remove(i)
+
+        # break dfs on this branch
+        return False
+                 
 
 def delete_nodes(node, to_delete):
     if type(node) == c_ast.Compound:
@@ -322,8 +342,8 @@ def remove_empty_ifs(codeast : c_ast.Node):
             items.remove(node)
 
 def get_compho_send(codeast : c_ast.Node):
-    call_recursively(codeast, keep_func_call_with_context, ['send'])
-    call_recursively(codeast, remove_empty_ifs, [])
+    map_dfs(codeast, keep_func_call_with_context, ['send'])
+    map_dfs(codeast, remove_empty_ifs, [])
 
 def remove_send_mbox_code(codeast : c_ast.Node):
     items = None
@@ -344,7 +364,7 @@ def remove_send_mbox_code(codeast : c_ast.Node):
             items.remove(node)
 
 def get_compho_update(codeast : c_ast.Node):
-    call_recursively(codeast, remove_send_mbox_code, [])
+    map_dfs(codeast, remove_send_mbox_code, [])
 
 def variable_assigments_by_value(cfg, variable) -> Dict[str, List[c_ast.Assignment]]:
     """Returns a dictionary that maps rvalues to all nodes in the `cfg` where 
