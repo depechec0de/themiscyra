@@ -126,7 +126,6 @@ var assigments: { " + str(self.var_assigments) + " }"
 
     def handle_assigment(self, n : c_ast.Assignment):
         constraint = self.evaluate_ast(n)
-        #if cast_lib.is_var(n.lvalue) and cast_lib.is_const(n.rvalue):
         self.var_assigments[n.lvalue.name] = constraint 
 
     def get_sort(self, asttype):

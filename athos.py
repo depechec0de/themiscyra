@@ -31,7 +31,7 @@ def async_to_sync(async_ast : c_ast.Node, config):
     
     # we discard what we won't use
     main_ast = cast_lib.find_funcdef_node(async_ast,'main')
-    cast_lib.map_dfs(main_ast, cast_lib.remove_whiles, [])
+    cast_lib.map_dfs(main_ast, cast_lib.replace_while_with_body, [])
     cast_lib.map_dfs(main_ast, cast_lib.remove_declarations, [])
 
     codecfg = cfg.ControlFlowGraph(main_ast)
@@ -78,9 +78,9 @@ def async_to_sync(async_ast : c_ast.Node, config):
     for label, ast_code in sync_code.items():
         compho[label] = {}
         ast_send = copy.deepcopy(ast_code)
-        cast_lib.get_compho_send(ast_send)
+        get_compho_send(ast_send)
         ast_update = copy.deepcopy(ast_code)
-        cast_lib.get_compho_update(ast_update)
+        get_compho_update(ast_update)
         compho[label]['send'] = ast_send
         compho[label]['update'] = ast_update
 
@@ -191,3 +191,10 @@ def valid_intermediate_path(path, syncv):
 
 def valid_end_path(path, syncv):
     return cast_lib.count_variable_assigments(path, syncv) == 1 and cast_lib.count_continues(path) == 0
+
+def get_compho_send(codeast : c_ast.Node):
+    cast_lib.map_dfs(codeast, cast_lib.keep_func_call_with_context, ['send'])
+    cast_lib.map_dfs(codeast, cast_lib.remove_empty_ifs, [])
+
+def get_compho_update(codeast : c_ast.Node):
+    cast_lib.map_dfs(codeast, cast_lib.remove_send_mbox_code, [])

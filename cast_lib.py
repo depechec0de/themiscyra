@@ -226,7 +226,7 @@ def remove_declarations(codeast : c_ast.Node):
         for node in to_delete:
             codeast.block_items.remove(node)
 
-def remove_whiles(codeast : c_ast.Node):
+def replace_while_with_body(codeast : c_ast.Node):
     if type(codeast) == c_ast.Compound:
         new_block_items = copy.deepcopy(codeast.block_items)
         for i in range(0,len(codeast.block_items)):
@@ -293,10 +293,6 @@ def remove_empty_ifs(codeast : c_ast.Node):
         for node in to_delete:
             items.remove(node)
 
-def get_compho_send(codeast : c_ast.Node):
-    map_dfs(codeast, keep_func_call_with_context, ['send'])
-    map_dfs(codeast, remove_empty_ifs, [])
-
 def remove_send_mbox_code(codeast : c_ast.Node):
     items = None
     if type(codeast) == c_ast.FileAST:
@@ -314,9 +310,6 @@ def remove_send_mbox_code(codeast : c_ast.Node):
 
         for node in to_delete:
             items.remove(node)
-
-def get_compho_update(codeast : c_ast.Node):
-    map_dfs(codeast, remove_send_mbox_code, [])
 
 def variable_assigments_by_value(cfg, variable) -> Dict[str, List[c_ast.Assignment]]:
     """Returns a dictionary that maps rvalues to all nodes in the `cfg` where 

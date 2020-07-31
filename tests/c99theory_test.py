@@ -137,11 +137,7 @@ def test_dce_path():
                                 if(c == 0){
                                     neverexecutes();
                                 }
-                                c = 4;
                                 if(c == 3){
-                                    neverexecutes();
-                                }
-                                if(c == 4){
                                     func();
                                 }
                             }
@@ -164,8 +160,7 @@ def test_dce_path():
                                 func();
                                 int c;
                                 c = 3;
-                                c = 4;
-                                if(c == 4){
+                                if(c == 3){
                                     func();
                                 }
                             }
