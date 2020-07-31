@@ -1,8 +1,8 @@
 from z3 import *
 from typing import Type, List, Set, Dict, Tuple, Optional
-
 from pycparser import c_parser, c_ast, parse_file, c_generator
-from syntaxlib import ast
+
+import cast_lib
 
 class SemanticError(Exception):
     pass
@@ -31,11 +31,11 @@ class C99Theory():
         self.dict_structtype_smtsort = {}
         
         # Aux structures
-        self.dict_variable_type = ast.get_declared_vars(fileast)
-        self.dict_enumtype_constants = ast.get_enum_declarations(fileast)
-        self.dict_funcname_astfunc = ast.get_func_declarations(fileast)
-        self.dict_structtype_fields = ast.get_struct_declarations(fileast)
-        self.dict_structvariable_structdecl = ast.get_struct_vars_declarations(fileast)
+        self.dict_variable_type = cast_lib.get_declared_vars(fileast)
+        self.dict_enumtype_constants = cast_lib.get_enum_declarations(fileast)
+        self.dict_funcname_astfunc = cast_lib.get_func_declarations(fileast)
+        self.dict_structtype_fields = cast_lib.get_struct_declarations(fileast)
+        self.dict_structvariable_structdecl = cast_lib.get_struct_vars_declarations(fileast)
 
         for structtype, decl in self.dict_structtype_fields.items(): 
             self.dict_structtype_smtsort[structtype] = DeclareSort(structtype)
@@ -109,11 +109,11 @@ var assigments: { " + str(self.var_assigments) + " }"
         domain = []
         if fdecl.args is not None:
             for arg in fdecl.args.params:
-                arg_type = ast.get_decl_type(arg)
+                arg_type = cast_lib.get_decl_type(arg)
                 sort = self.get_sort(arg_type)
                 domain.append(sort)
         
-        freturntype = ast.get_decl_type(fdecl)
+        freturntype = cast_lib.get_decl_type(fdecl)
         codomain = self.get_sort(freturntype)
 
         f = Function(name, *domain, codomain)
@@ -126,7 +126,7 @@ var assigments: { " + str(self.var_assigments) + " }"
 
     def handle_assigment(self, n : c_ast.Assignment):
         constraint = self.evaluate_ast(n)
-        #if ast.is_var(n.lvalue) and ast.is_const(n.rvalue):
+        #if cast_lib.is_var(n.lvalue) and cast_lib.is_const(n.rvalue):
         self.var_assigments[n.lvalue.name] = constraint 
 
     def get_sort(self, asttype):
@@ -144,7 +144,7 @@ var assigments: { " + str(self.var_assigments) + " }"
     def evaluate_structref(self, node):
         
         # We declare a `varname`, we look for its domain
-        varname = ast.get_structref_name(node)
+        varname = cast_lib.get_structref_name(node)
 
         # amount of derefs, the first one manually
         derefs = varname.split('->')
@@ -245,11 +245,11 @@ var assigments: { " + str(self.var_assigments) + " }"
         elif typ == c_ast.FuncCall:
             args = []
             if node.args is not None:
-                for arg in ast.get_funccall_args(node):
+                for arg in cast_lib.get_funccall_args(node):
                     smtarg = self.evaluate_ast(arg)   
                     args.append(smtarg)
 
-            fname = ast.get_funccall_name(node)
+            fname = cast_lib.get_funccall_name(node)
             f = self.dict_funcname_smtfunc[fname]
 
             return f(*args)
@@ -271,3 +271,42 @@ var assigments: { " + str(self.var_assigments) + " }"
             assertions.append(self.var_assigments[var])
 
         return self.solver.check(assertions) == z3.sat
+
+def dead_code_elimination(codeast : c_ast.FileAST, phasevar):
+
+    # Syntactic tree prune, everything after a phase increment is removed
+    main_while = cast_lib.find_while_node(codeast)
+    cast_lib.map_dfs(main_while, cast_lib.prune_after_phase_increment, [phasevar])
+
+    # Construct a theory using definitions and declarations
+    theory = C99Theory(codeast)
+
+    # Recursively explore the AST tree and cut the unfeasible branches
+    cast_lib.map_dfs(codeast, prune_unsat_branches, [theory])
+
+
+def prune_unsat_branches(node : c_ast.Node, theory : C99Theory): 
+    
+    if type(node) == c_ast.Compound:
+        to_delete = []
+        
+        for i in node.block_items:   
+            if type(i) == c_ast.If:
+                if theory.is_sat(i):
+                    new_context = copy.deepcopy(theory)
+                    new_context.handle_if(i)
+                    # start a new dfs with the augmented context
+                    cast_lib.map_dfs(i.iftrue, prune_unsat_branches, [new_context])
+                else:
+                    # delete this branch
+                    to_delete.append(i)
+            elif type(i) == c_ast.Assignment: 
+                theory.handle_assigment(i)
+            elif type(i) == c_ast.While:
+                cast_lib.map_dfs(i.stmt, prune_unsat_branches, [theory])
+
+        for i in to_delete:
+            node.block_items.remove(i)
+
+        # break dfs on this branch
+        return False 

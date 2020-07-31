@@ -1,10 +1,9 @@
 import copy
-
-from pycparser import c_parser, c_ast, parse_file, c_generator
-
+from pycparser import c_ast
 import networkx as nx
 
-from syntaxlib import ast, cfg
+import cast_lib
+import cfg
 
 def async_to_sync(async_ast : c_ast.Node, config):
     """ Given a c99 code in a AST form, returns the corresponding code of its
@@ -31,9 +30,9 @@ def async_to_sync(async_ast : c_ast.Node, config):
     labels = config['labels']
     
     # we discard what we won't use
-    main_ast = ast.get_funcdef_node(async_ast,'main')
-    ast.map_dfs(main_ast, ast.remove_whiles, [])
-    ast.map_dfs(main_ast, ast.remove_declarations, [])
+    main_ast = cast_lib.find_funcdef_node(async_ast,'main')
+    cast_lib.map_dfs(main_ast, cast_lib.remove_whiles, [])
+    cast_lib.map_dfs(main_ast, cast_lib.remove_declarations, [])
 
     codecfg = cfg.ControlFlowGraph(main_ast)
     
@@ -69,7 +68,7 @@ def async_to_sync(async_ast : c_ast.Node, config):
 
         round_sync_code = copy.deepcopy(main_ast)
         
-        ast.map_dfs(round_sync_code, ast.keep_nodes, [nodes_to_keep])
+        cast_lib.map_dfs(round_sync_code, cast_lib.keep_nodes, [nodes_to_keep])
 
         sync_code[label] = round_sync_code
 
@@ -79,9 +78,9 @@ def async_to_sync(async_ast : c_ast.Node, config):
     for label, ast_code in sync_code.items():
         compho[label] = {}
         ast_send = copy.deepcopy(ast_code)
-        ast.get_compho_send(ast_send)
+        cast_lib.get_compho_send(ast_send)
         ast_update = copy.deepcopy(ast_code)
-        ast.get_compho_update(ast_update)
+        cast_lib.get_compho_update(ast_update)
         compho[label]['send'] = ast_send
         compho[label]['update'] = ast_update
 
@@ -122,7 +121,7 @@ def paths_between_round_assignments(codecfg, labels, round_variable, phase_varia
     labels_intervals = generate_labels_intervals(labels)
 
     # round variables assigments in the CFG
-    map_label_to_cfgnodes = ast.variable_assigments_by_value(codecfg, round_variable)
+    map_label_to_cfgnodes = cast_lib.variable_assigments_by_value(codecfg, round_variable)
     
     for label_start, label_end in labels_intervals:
         for first_label_assigment in map_label_to_cfgnodes[label_start]:
@@ -133,7 +132,7 @@ def paths_between_round_assignments(codecfg, labels, round_variable, phase_varia
                         paths_by_label[label_start].append(p)
     
     # all paths from round assigments to phase increments (ending paths)
-    phase_increment_nodes = ast.variable_increments(codecfg, phase_variable)
+    phase_increment_nodes = cast_lib.variable_increments(codecfg, phase_variable)
     
     for label in labels:
         for last_label_assigment in map_label_to_cfgnodes[label]:
@@ -152,7 +151,7 @@ def complete_paths(suffix_path, prefix_paths):
     
     for prefix_path in prefix_paths:
         # we don't prefix with ended paths, i.e. with continues
-        count_continues = ast.count_continues(prefix_path)
+        count_continues = cast_lib.count_continues(prefix_path)
     
         if count_continues == 0:
             cfg_end = suffix_path.copy()
@@ -188,7 +187,7 @@ def valid_intermediate_path(path, syncv):
     """ Returns true if `path` starts and ends in a `c_ast.Assigment` and there
     are no continues in the middle.
     """
-    return ast.count_variable_assigments(path, syncv) == 2 and ast.count_continues(path) == 0
+    return cast_lib.count_variable_assigments(path, syncv) == 2 and cast_lib.count_continues(path) == 0
 
 def valid_end_path(path, syncv):
-    return ast.count_variable_assigments(path, syncv) == 1 and ast.count_continues(path) == 0
+    return cast_lib.count_variable_assigments(path, syncv) == 1 and cast_lib.count_continues(path) == 0

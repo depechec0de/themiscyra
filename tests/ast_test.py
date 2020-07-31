@@ -1,32 +1,9 @@
 import sys
-import re
 
 sys.path.insert(0, '..')
 
-from pycparser import c_parser, c_ast, parse_file, c_generator
-from syntaxlib import ast
-
-parser = c_parser.CParser()
-
-def assert_ast_equality(ast_to_test, ast_expected):
-    g = c_generator.CGenerator()
-    src_ast_expected = g.visit(ast_expected)
-    src_ast_to_test = g.visit(ast_to_test)
-
-    src_ast_expected_clean = re.sub(r"[\n\t\s]*", "", src_ast_expected)
-    src_ast_to_test_clean = re.sub(r"[\n\t\s]*", "", src_ast_to_test)
-
-    try:
-        assert src_ast_expected_clean == src_ast_to_test_clean
-    except AssertionError:
-        print()
-        print("AssertionError")
-        print()
-        print("Expected")
-        print(src_ast_expected)
-        print("Obtained")
-        print(src_ast_to_test)
-        print()
+from cast_lib import *
+from test_utils import *
 
 def test_rename_variables():
     src_to_test =   """
@@ -52,7 +29,7 @@ def test_rename_variables():
     src_to_assert_ast = parser.parse(src_to_assert)
     src_to_test_ast = parser.parse(src_to_test)
 
-    ast.rename_iterated_variables(src_to_test_ast, ['var'], 0)
+    rename_iterated_variables(src_to_test_ast, ['var'], 0)
 
     assert_ast_equality(src_to_test_ast, src_to_assert_ast)
 
@@ -69,191 +46,17 @@ def test_get_decl_type():
     sometypedecl = decls[4]
     structvardecl = decls[5]
 
-    assert 'int' == ast.get_decl_type(intdecl)
-    assert '_Bool' == ast.get_decl_type(booldecl)
-    assert 'c' == ast.get_decl_type(structdecl)
-    assert 'c' == ast.get_decl_type(ptrstructvardecl)
-    assert 'sometype' == ast.get_decl_type(sometypedecl)
-    assert 'c' == ast.get_decl_type(structvardecl)
+    assert 'int' == get_decl_type(intdecl)
+    assert '_Bool' == get_decl_type(booldecl)
+    assert 'c' == get_decl_type(structdecl)
+    assert 'c' == get_decl_type(ptrstructvardecl)
+    assert 'sometype' == get_decl_type(sometypedecl)
+    assert 'c' == get_decl_type(structvardecl)
 
-    structfields = ast.get_struct_fields_decl(structdecl)
+    structfields = get_struct_fields_decl(structdecl)
 
     assert 'int' == structfields['f1']
     assert 'c' == structfields['f2']
-
-def test_dce_simple():
-    src_to_test =   """
-                    int main(){
-                        if(1==0){
-                            neverexecutes();
-                        }
-                        if(false){
-                            neverexecutes();
-                        }
-                        if(0>1){
-                            neverexecutes();
-                        }
-                        int a;
-                        a = 1;
-                        if(a == 0){
-                            neverexecutes();
-                        }
-                        exit(0);
-                    }
-                    """
-
-    src_to_assert = """
-                    int main(){
-                        int a;
-                        a = 1;
-                        exit(0);
-                    }
-                    """
-
-    src_to_assert_ast = parser.parse(src_to_assert)
-    src_to_test_ast = parser.parse(src_to_test)
-
-    ast.dead_code_elimination(src_to_test_ast, None)
-
-    assert_ast_equality(src_to_test_ast, src_to_assert_ast)
-
-def test_dce_path():
-    src_to_test =   """
-                    int main(){
-                        int a;
-                        a = 1;
-                        if(a == 1){
-                            int b;
-                            b = 2;
-                            if(b == 1){
-                                neverexecutes();
-                            }
-                            if(b == 2){
-                                func();
-                                int c;
-                                c = 3;
-                                if(c == 0){
-                                    neverexecutes();
-                                }
-                                c = 4;
-                                if(c == 3){
-                                    neverexecutes();
-                                }
-                                if(c == 4){
-                                    func();
-                                }
-                            }
-                        }
-                        if(a == 2){
-                            neverexecutes();
-                        }
-                        exit(0);
-                    }
-                    """
-
-    src_to_assert = """
-                    int main(){
-                        int a;
-                        a = 1;
-                        if(a == 1){
-                            int b;
-                            b = 2;
-                            if(b == 2){
-                                func();
-                                int c;
-                                c = 3;
-                                c = 4;
-                                if(c == 4){
-                                    func();
-                                }
-                            }
-                        }
-                        exit(0);
-                    }
-                    """
-    
-    src_to_assert_ast = parser.parse(src_to_assert)
-    src_to_test_ast = parser.parse(src_to_test)
-
-    ast.dead_code_elimination(src_to_test_ast, None)
-    
-    assert_ast_equality(src_to_test_ast, src_to_assert_ast)
-
-def test_dce_nested_info():
-    src_to_test =   """
-                    int main(){
-                        int a;
-                        int a_0;
-                        a = 1;
-                        if(a == 1){
-                            a_0 = 2;
-                            if(a_0 == 2){
-                                a = 3;
-                            }
-                            if(a_0 == 1){
-                                a = 2;
-                            }
-                        }
-                    }
-                    """
-
-    src_to_assert = """
-                    int main(){
-                        int a;
-                        int a_0;
-                        a = 1;
-                        if(a == 1){
-                            a_0 = 2;
-                            if(a_0 == 2){
-                                a = 3;
-                            }
-                        }
-                    }
-                    """
-    
-    src_to_assert_ast = parser.parse(src_to_assert)
-    src_to_test_ast = parser.parse(src_to_test)
-
-    ast.dead_code_elimination(src_to_test_ast, None)
-    
-    assert_ast_equality(src_to_test_ast, src_to_assert_ast)
-
-def test_dce_func():
-    src_to_test =   """
-                    int main(){
-                        int p;
-                        p = 2;
-                        _Bool func(int p);
-                        if(!func(p)){
-                            if(func(p)){
-                                neverexecutes();
-                            }
-                            if(!func(p) && p == 2){
-                                test();
-                            }
-                        }
-                    }
-                    """
-
-    src_to_assert = """
-                    int main(){
-                        int p;
-                        p = 2;
-                        _Bool func(int p);
-                        if(!func(p)){
-                            if(!func(p) && p == 2){
-                                test();
-                            }
-                        }
-                    }
-                    """
-
-    src_to_assert_ast = parser.parse(src_to_assert)
-    src_to_test_ast = parser.parse(src_to_test)
-
-    ast.dead_code_elimination(src_to_test_ast, None)
-
-    assert_ast_equality(src_to_test_ast, src_to_assert_ast)
 
 def test_unfolding_simple():
     src_to_test =   """
@@ -312,7 +115,7 @@ int main()
     src_to_assert_ast = parser.parse(src_to_assert)
     src_to_test_ast = parser.parse(src_to_test)
 
-    ast.unfold(src_to_test_ast, 1, {'round':'round', 'mbox':'mbox'})
+    unfold(src_to_test_ast, 1, {'round':'round', 'mbox':'mbox'})
     
     assert_ast_equality(src_to_test_ast, src_to_assert_ast)
 
@@ -467,7 +270,7 @@ int main()
     src_to_assert_ast = parser.parse(src_to_assert)
     src_to_test_ast = parser.parse(src_to_test)
 
-    ast.unfold(src_to_test_ast, 2, {'round':'round', 'mbox':'mbox'})
+    unfold(src_to_test_ast, 2, {'round':'round', 'mbox':'mbox'})
     
     assert_ast_equality(src_to_test_ast, src_to_assert_ast)
 
@@ -503,7 +306,7 @@ def test_compho_send():
     src_to_assert_ast = parser.parse(src_to_assert)
     src_to_test_ast = parser.parse(src_to_test)
 
-    ast.get_compho_send(src_to_test_ast)
+    get_compho_send(src_to_test_ast)
 
     assert_ast_equality(src_to_test_ast, src_to_assert_ast)
 
@@ -511,14 +314,6 @@ print("test_rename_variables")
 test_rename_variables()
 print("test_get_decl_type")
 test_get_decl_type()
-print("test_dce_simple")
-test_dce_simple()
-print("test_dce_path")
-test_dce_path()
-print("test_dce_nested_info")
-test_dce_nested_info()
-print("test_dce_func")
-test_dce_func()
 print("test_unfolding_simple")
 test_unfolding_simple()
 print("test_unfolding")

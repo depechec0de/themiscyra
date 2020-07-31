@@ -4,19 +4,19 @@ import os.path
 import importlib
 import yaml
 
-from z3 import *
 from pycparser import c_parser, c_ast, parse_file, c_generator
 from typing import List, Set, Dict, Tuple, Optional
 
-from syntaxlib import ast
+import cast_lib
 import athos
+import c99theory
 
 def prepare_for_pycparser(filename):
 
     with open(filename) as f:
         original_file_str = f.read()
 
-    result_str = ast.remove_c99_comments(original_file_str)
+    result_str = cast_lib.remove_c99_comments(original_file_str)
     
     return result_str
 
@@ -49,7 +49,7 @@ if __name__ == "__main__":
 
     if args.unfold:
         
-        ast.unfold(codeast, args.unfold, config)
+        cast_lib.unfold(codeast, args.unfold, config)
 
         code = generator.visit(codeast)
         print(code)
@@ -67,10 +67,7 @@ if __name__ == "__main__":
 
     elif args.deadcode:
 
-        # Syntactic tree prune, everything after a phase increment is removed
-        ast.map_dfs(ast.get_main_while(codeast), ast.prune_after_phase_increment, [config['phase']])
-
-        ast.dead_code_elimination(codeast, config['phase'])
+        c99theory.dead_code_elimination(codeast, config['phase'])
 
         code = generator.visit(codeast)
         print(code)

@@ -4,8 +4,6 @@ import re
 from typing import Type, List, Set, Dict, Tuple, Optional
 from pycparser import c_parser, c_ast, parse_file, c_generator
 
-from semanticlib.c99theory import *
-
 # Sync variables are anotated with the unfolding number where they belong
 SYNCVAR_UNFOLD_REGEX = '_(\d)'
 SYNCVAR_UNFOLD = '_ITER'
@@ -116,7 +114,7 @@ def unfold(ast, k: int, syncvariables):
     syncvariables : synchronization variables defined in the config
     """
 
-    main_while = get_main_while(ast)
+    main_while = find_while_node(ast)
     while_statements = main_while.stmt.block_items
 
     while_body = copy.deepcopy(main_while.stmt.block_items)
@@ -156,6 +154,7 @@ def _unfold(compound, while_body, syncvariables, iteration, unfoldings):
 
     new_upons = [n for n in compound if type(n) == c_ast.If]
 
+    # recursive calls or base cases
     for upon in new_upons:
         if unfoldings > iteration:
             _unfold(upon.iftrue, while_body, syncvariables, iteration=iteration+1, unfoldings=unfoldings)
@@ -164,16 +163,6 @@ def _unfold(compound, while_body, syncvariables, iteration, unfoldings):
             for stm in upon_code:
                 rename_iterated_variables(stm, [syncvariables['round']], iteration+1)
                 rename_iterated_variables(stm, [syncvariables['mbox']], iteration)
-
-
-def dead_code_elimination(codeast : c_ast.FileAST, phasevar):
-
-    # Construct a theory using definitions and declarations
-    theory = C99Theory(codeast)
-
-    # Recursively explore the AST tree and cut the unfeasible branches
-    map_dfs(codeast, delete_unsat_branches, [theory])
-    #map_dfs(codeast, delete_nodes, [to_delete])
 
 def prune_after_phase_increment(codeast : c_ast.Node, phasevar):
     if type(codeast) == c_ast.Compound:
@@ -191,42 +180,6 @@ def prune_after_phase_increment(codeast : c_ast.Node, phasevar):
         # recover continue after phase++
         if start_deleting:
             codeast.block_items.append(c_ast.Continue())
-
-def delete_unsat_branches(node : c_ast.Node, theory : C99Theory): 
-    
-    if type(node) == c_ast.Compound:
-        to_delete = []
-        
-        for i in node.block_items:   
-            if type(i) == c_ast.If:
-                if theory.is_sat(i):
-                    new_context = copy.deepcopy(theory)
-                    new_context.handle_if(i)
-                    # start a new dfs with the augmented context
-                    map_dfs(i.iftrue, delete_unsat_branches, [new_context])
-                else:
-                    # delete this branch
-                    to_delete.append(i)
-            elif type(i) == c_ast.Assignment: 
-                theory.handle_assigment(i)
-            elif type(i) == c_ast.While:
-                map_dfs(i.stmt, delete_unsat_branches, [theory])
-
-        for i in to_delete:
-            node.block_items.remove(i)
-
-        # break dfs on this branch
-        return False
-                 
-
-def delete_nodes(node, to_delete):
-    if type(node) == c_ast.Compound:
-        delete = []
-        for i in node.block_items:
-            if i in to_delete:
-                delete.append(i)
-        for i in delete:
-            node.block_items.remove(i)    
 
 def keep_nodes(node, to_keep):
     if type(node) == c_ast.Compound:
@@ -253,8 +206,7 @@ def insert_node_after_continue(codeast, node):
                     codeast.block_items.append(i)
 
             return False
-            
-
+        
 def remove_declarations(codeast : c_ast.Node):
     if type(codeast) == c_ast.FileAST:
         to_delete = []
@@ -298,7 +250,7 @@ def keep_func_call_with_context(codeast : c_ast.Node, name):
     if items is not None: 
         to_delete = []
         for statement in items:
-            if not ast.recursive_node(statement) and not is_funccall_with_name(statement, name):
+            if not recursive_node(statement) and not is_funccall_with_name(statement, name):
                 to_delete.append(statement) 
 
         for node in to_delete:
@@ -335,7 +287,7 @@ def remove_empty_ifs(codeast : c_ast.Node):
         for statement in items:
 
             if type(statement) == c_ast.If:                              
-                if ast.count_no_if_statements(statement) == 0:
+                if count_no_if_statements(statement) == 0:
                     to_delete.append(statement) 
 
         for node in to_delete:
@@ -545,7 +497,7 @@ def remove_c99_comments(text):
 
     return "".join(noncomments)
 
-def get_main_while(ast):
+def find_while_node(ast):
     """ Return the outer while of the AST """
     class MainWhileVisitor(c_ast.NodeVisitor):
         def __init__(self):
@@ -558,7 +510,7 @@ def get_main_while(ast):
     v.visit(ast)
     return v.result
 
-def get_funcdef_node(ast, funcname) -> c_ast.FuncDef:
+def find_funcdef_node(ast, funcname) -> c_ast.FuncDef:
     """ Returns  the corresponding FuncDef node in the AST defined as 
     `funcname`.
 
