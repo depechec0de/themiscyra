@@ -5,6 +5,12 @@ import networkx as nx
 import cast_lib
 import cfg
 
+def node_coord_not_in_set(n, to_keep):
+    return str(n.coord) not in to_keep
+
+def remove_declarations(n : c_ast.Node):
+    return cast_lib.is_var_declaration(n)
+
 def async_to_sync(async_ast : c_ast.Node, config):
     """ Given a c99 code in a AST form, returns the corresponding code of its
     synchronous equivalent program.
@@ -32,7 +38,7 @@ def async_to_sync(async_ast : c_ast.Node, config):
     # we discard what we won't use
     main_ast = cast_lib.find_funcdef_node(async_ast,'main')
     cast_lib.map_dfs(main_ast, cast_lib.replace_while_with_body, [])
-    cast_lib.map_dfs(main_ast, cast_lib.remove_declarations, [])
+    cast_lib.filter_nodes(main_ast, remove_declarations)
 
     codecfg = cfg.ControlFlowGraph(main_ast)
     
@@ -43,21 +49,21 @@ def async_to_sync(async_ast : c_ast.Node, config):
     start_node = list(nx.topological_sort(codecfg))[0]
     complete_paths_by_round = {}
 
-    for label, suffix_paths in paths_between_rounds.items():
-        complete_paths_by_round[label] = []
+    for round_label, suffix_paths in paths_between_rounds.items():
+        complete_paths_by_round[round_label] = []
 
         for suffix_path in suffix_paths:
             suffix_first_node = list(nx.topological_sort(suffix_path))[0]
             prefix_paths = get_cfg_paths_between_nodes(codecfg, start_node, suffix_first_node)
 
             cp = complete_paths(suffix_path, prefix_paths)
-            complete_paths_by_round[label].extend(cp)
+            complete_paths_by_round[round_label].extend(cp)
 
     # the code of a round is the (graph) union of all the complete paths found to belong to that round
     # the easiest approach is to remove the nodes not included in those paths from the original code using the coord property
     sync_code = {}
 
-    for label, paths in complete_paths_by_round.items():
+    for round_label, paths in complete_paths_by_round.items():
 
         round_code_cfg = cfg.ControlFlowGraph()
         nodes_to_keep = set()
@@ -67,22 +73,20 @@ def async_to_sync(async_ast : c_ast.Node, config):
                 nodes_to_keep.add(str(n.coord))
 
         round_sync_code = copy.deepcopy(main_ast)
-        
-        cast_lib.map_dfs(round_sync_code, cast_lib.keep_nodes, [nodes_to_keep])
-
-        sync_code[label] = round_sync_code
+        cast_lib.filter_nodes(round_sync_code, node_coord_not_in_set, nodes_to_keep)
+        sync_code[round_label] = round_sync_code
 
     # translate to CompHO
     compho = {}
 
-    for label, ast_code in sync_code.items():
-        compho[label] = {}
+    for round_label, ast_code in sync_code.items():
+        compho[round_label] = {}
         ast_send = copy.deepcopy(ast_code)
         get_compho_send(ast_send)
         ast_update = copy.deepcopy(ast_code)
-        get_compho_update(ast_update)
-        compho[label]['send'] = ast_send
-        compho[label]['update'] = ast_update
+        get_compho_update(ast_update, round_variable, round_label)
+        compho[round_label]['send'] = ast_send
+        compho[round_label]['update'] = ast_update
 
 
     return compho
@@ -192,9 +196,31 @@ def valid_intermediate_path(path, syncv):
 def valid_end_path(path, syncv):
     return cast_lib.count_variable_assigments(path, syncv) == 1 and cast_lib.count_continues(path) == 0
 
-def get_compho_send(codeast : c_ast.Node):
-    cast_lib.map_dfs(codeast, cast_lib.keep_func_call_with_context, ['send'])
-    cast_lib.map_dfs(codeast, cast_lib.remove_empty_ifs, [])
+def is_empty_if(n : c_ast.Node):
+    return type(n) == c_ast.If and cast_lib.count_inner_ifs(n) == 0
 
-def get_compho_update(codeast : c_ast.Node):
-    cast_lib.map_dfs(codeast, cast_lib.remove_send_mbox_code, [])
+def is_not_send_call(n : c_ast.Node):
+    return not cast_lib.is_recursive_node_type(n) and not cast_lib.is_funccall_with_name(n, 'send')
+
+def get_compho_send(round_ast : c_ast.Node):
+    # we only keep send() calls with its context
+    cast_lib.filter_nodes(round_ast, is_not_send_call)
+    # erase empty ifs if any
+    cast_lib.filter_nodes(round_ast, is_empty_if)
+
+def is_send_call(n : c_ast.Node):
+    return cast_lib.is_funccall_with_name(n, 'send')
+
+def is_round_assigment(n : c_ast.Node, round_syncvar, round_label):
+    return cast_lib.is_syncvar_assigned_to_value(n, round_syncvar, round_label)
+
+def is_mbox_assigment(n : c_ast.Node):
+    return cast_lib.is_syncvar_assignment(n, 'mbox')
+
+def get_compho_update(round_ast : c_ast.Node, round_syncvar, round_label):
+    # remove all send() calls
+    cast_lib.filter_nodes(round_ast, is_send_call)
+    # remove round syncvar assigment to the same sync round because is redundant
+    cast_lib.filter_nodes(round_ast, is_round_assigment, round_syncvar, round_label)
+    # remove mbox = havoc()
+    cast_lib.filter_nodes(round_ast, is_mbox_assigment)

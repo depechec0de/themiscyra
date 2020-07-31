@@ -8,14 +8,13 @@ from pycparser import c_parser, c_ast, parse_file, c_generator
 SYNCVAR_UNFOLD_REGEX = '_(\d)'
 SYNCVAR_UNFOLD = '_ITER'
 
-def recursive_node(node : c_ast.Node):
+def is_recursive_node_type(node : c_ast.Node):
     recursive_types = {c_ast.FileAST, c_ast.Compound, c_ast.If, c_ast.While, c_ast.Compound, c_ast.FuncDef}
 
     return type(node) in recursive_types
 
 def map_dfs(node : c_ast.Node, function, args):
     """ Perform a DFS walk in the AST and applies `function` to every node """
-    
     typ = type(node) 
 
     continue_recursion = function(node, *args)
@@ -40,6 +39,27 @@ def map_dfs(node : c_ast.Node, function, args):
         elif typ == c_ast.FuncDef:
             map_dfs(node.body, function, args)
 
+def compound_filter_nodes(n : c_ast.Node, filter_condition, *args):
+    items = None
+    if type(n) == c_ast.FileAST:
+        items = n.ext
+
+    elif type(n) == c_ast.Compound:
+        items = n.block_items
+
+    if items is not None: 
+        to_delete = []
+        for statement in items:
+            if filter_condition(statement, *args):
+                to_delete.append(statement)
+
+        for node in to_delete:
+            items.remove(node)
+
+def filter_nodes(n : c_ast.Node, filter_condition, *filter_args):
+    """ Filter nodes of the AST matching `filter_condition` """
+    map_dfs(n, compound_filter_nodes, [filter_condition, *filter_args])
+
 def rename_syncvar(name, iteration):
     newname = name + SYNCVAR_UNFOLD
     newname = newname.replace('ITER', str(iteration))
@@ -49,68 +69,13 @@ def rename_syncvar(name, iteration):
 def unfold(ast, k: int, syncvariables):
     """This function assumes a C code with a unique `while` statement. The 
     result is the code unfolded `k` times, where unfolding means replacing 
-    every occurrence of a `continue` statement with the content of the `while`
+    every occurrence of a `continue` statement with the original `while`
     body.
-
-    Example
-    -------
-    int round;
-    void* mbox;
-    while(1){
-        mbox = havoc(phase, round);
-        if(round==1){
-            round=3;
-            continue;
-        }
-        if(round==2){
-            round=4;
-            continue;
-        }
-    }
-
-    unfold(ast, 1, {'round':'round', 'mbox':'mbox'}) returns:
-
-    int round;
-    int round_0;
-    int round_1;
-    void* mbox;
-    void* mbox_0;
-    while(1){
-        mbox = havoc(phase, round);
-        if(round==1){
-            round_0=3;
-
-            mbox_0 = havoc(phase, round_0);
-            if(round_0==1){
-                round_1=3;
-                continue;
-            }
-            if(round_0==2){
-                round_1=4;
-                continue;
-            }
-            continue;
-        }
-        if(round==2){
-            round_0=4;
-
-            mbox_0 = havoc(phase, round_0);
-            if(round_0==1){
-                round_1=3;
-                continue;
-            }
-            if(round_0==2){
-                round_1=4;
-                continue;
-            }
-            continue;
-        }
-    }
 
     Parameters
     ----------
     ast : pycparser.c_ast.Node
-    k : number of unfoldings of the main loop
+    k : number of unfoldings to perform
     syncvariables : synchronization variables defined in the config
     """
 
@@ -179,16 +144,7 @@ def prune_after_phase_increment(codeast : c_ast.Node, phasevar):
             codeast.block_items.remove(node)
         # recover continue after phase++
         if start_deleting:
-            codeast.block_items.append(c_ast.Continue())
-
-def keep_nodes(node, to_keep):
-    if type(node) == c_ast.Compound:
-        delete = []
-        for i in node.block_items:
-            if str(i.coord) not in to_keep:
-                delete.append(i)
-        for i in delete:
-            node.block_items.remove(i)    
+            codeast.block_items.append(c_ast.Continue())   
 
 def insert_node_after_continue(codeast, node):
     if type(codeast) == c_ast.Compound:
@@ -207,25 +163,6 @@ def insert_node_after_continue(codeast, node):
 
             return False
         
-def remove_declarations(codeast : c_ast.Node):
-    if type(codeast) == c_ast.FileAST:
-        to_delete = []
-        for statement in codeast.ext:
-            if is_var_declaration(statement):
-                to_delete.append(statement)
-
-        for node in to_delete:
-            codeast.block_items.remove(node)
-
-    elif type(codeast) == c_ast.Compound:
-        to_delete = []
-        for statement in codeast.block_items:
-            if is_var_declaration(statement):
-                to_delete.append(statement)
-
-        for node in to_delete:
-            codeast.block_items.remove(node)
-
 def replace_while_with_body(codeast : c_ast.Node):
     if type(codeast) == c_ast.Compound:
         new_block_items = copy.deepcopy(codeast.block_items)
@@ -238,28 +175,10 @@ def replace_while_with_body(codeast : c_ast.Node):
 
         codeast.block_items = new_block_items
         
-
-def keep_func_call_with_context(codeast : c_ast.Node, name):
-    items = None
-    if type(codeast) == c_ast.FileAST:
-        items = codeast.ext
-
-    elif type(codeast) == c_ast.Compound:
-        items = codeast.block_items
-
-    if items is not None: 
-        to_delete = []
-        for statement in items:
-            if not recursive_node(statement) and not is_funccall_with_name(statement, name):
-                to_delete.append(statement) 
-
-        for node in to_delete:
-            items.remove(node)
-
 def is_funccall_with_name(node : c_ast.Node, name):
     return type(node) == c_ast.FuncCall and node.name.name == name
 
-def count_no_if_statements(node : c_ast.Node) -> int:
+def count_inner_ifs(node : c_ast.Node) -> int:
     class NonIfCounterVisitor(c_ast.NodeVisitor):
         def __init__(self):
             self.result = 0
@@ -273,43 +192,6 @@ def count_no_if_statements(node : c_ast.Node) -> int:
     v = NonIfCounterVisitor()
     v.visit(node)
     return v.result
-
-def remove_empty_ifs(codeast : c_ast.Node):
-    items = None
-    if type(codeast) == c_ast.FileAST:
-        items = codeast.ext
-
-    elif type(codeast) == c_ast.Compound:
-        items = codeast.block_items
-
-    if items is not None: 
-        to_delete = []
-        for statement in items:
-
-            if type(statement) == c_ast.If:                              
-                if count_no_if_statements(statement) == 0:
-                    to_delete.append(statement) 
-
-        for node in to_delete:
-            items.remove(node)
-
-def remove_send_mbox_code(codeast : c_ast.Node):
-    items = None
-    if type(codeast) == c_ast.FileAST:
-        items = codeast.ext
-
-    elif type(codeast) == c_ast.Compound:
-        items = codeast.block_items
-
-    if items is not None: 
-        to_delete = []
-        for statement in items:
-            # TODO: is_var_assignment(statement, 'mbox') or not
-            if is_funccall_with_name(statement, 'send'):
-                to_delete.append(statement)
-
-        for node in to_delete:
-            items.remove(node)
 
 def variable_assigments_by_value(cfg, variable) -> Dict[str, List[c_ast.Assignment]]:
     """Returns a dictionary that maps rvalues to all nodes in the `cfg` where 
@@ -370,6 +252,12 @@ def is_syncvar_assigned_to_value(n : c_ast.Node, variable, value):
 def is_var_assignment(n : c_ast.Node, varname):
     if type(n) == c_ast.Assignment:
         return  n.op == '=' and n.lvalue.name == varname
+    else:
+        return False
+
+def is_var_assignment_to_value(n : c_ast.Node, varname, value):
+    if type(n) == c_ast.Assignment:
+        return is_var_assignment(n) and n.rvalue.name == value
     else:
         return False
 
@@ -443,52 +331,6 @@ def count_continues(path : List[c_ast.Node]):
         if type(n) == c_ast.Continue:
             i=i+1
     return i
-
-def remove_c99_comments(text):
-    """remove c-style comments"""
-
-    pattern = r"""
-                            ##  --------- COMMENT ---------
-           //.*?$           ##  Start of // .... comment
-         |                  ##
-           /\*              ##  Start of /* ... */ comment
-           [^*]*\*+         ##  Non-* followed by 1-or-more *'s
-           (                ##
-             [^/*][^*]*\*+  ##
-           )*               ##  0-or-more things which don't start with /
-                            ##    but do end with '*'
-           /                ##  End of /* ... */ comment
-         |                  ##  -OR-  various things which aren't comments:
-           (                ##
-                            ##  ------ " ... " STRING ------
-             "              ##  Start of " ... " string
-             (              ##
-               \\.          ##  Escaped char
-             |              ##  -OR-
-               [^"\\]       ##  Non "\ characters
-             )*             ##
-             "              ##  End of " ... " string
-           |                ##  -OR-
-                            ##
-                            ##  ------ ' ... ' STRING ------
-             '              ##  Start of ' ... ' string
-             (              ##
-               \\.          ##  Escaped char
-             |              ##  -OR-
-               [^'\\]       ##  Non '\ characters
-             )*             ##
-             '              ##  End of ' ... ' string
-           |                ##  -OR-
-                            ##
-                            ##  ------ ANYTHING ELSE -------
-             .              ##  Anything other char
-             [^/"'\\]*      ##  Chars which doesn't start a comment, string
-           )                ##    or escape
-    """
-    regex = re.compile(pattern, re.VERBOSE|re.MULTILINE|re.DOTALL)
-    noncomments = [m.group(2) for m in regex.finditer(text) if m.group(2)]
-
-    return "".join(noncomments)
 
 def find_while_node(ast):
     """ Return the outer while of the AST """

@@ -1,4 +1,5 @@
 import sys
+import re
 import argparse
 import os.path 
 import importlib
@@ -11,12 +12,58 @@ import cast_lib
 import athos
 import c99theory
 
+def remove_c99_comments(text):
+    """remove c-style comments"""
+
+    pattern = r"""
+                            ##  --------- COMMENT ---------
+           //.*?$           ##  Start of // .... comment
+         |                  ##
+           /\*              ##  Start of /* ... */ comment
+           [^*]*\*+         ##  Non-* followed by 1-or-more *'s
+           (                ##
+             [^/*][^*]*\*+  ##
+           )*               ##  0-or-more things which don't start with /
+                            ##    but do end with '*'
+           /                ##  End of /* ... */ comment
+         |                  ##  -OR-  various things which aren't comments:
+           (                ##
+                            ##  ------ " ... " STRING ------
+             "              ##  Start of " ... " string
+             (              ##
+               \\.          ##  Escaped char
+             |              ##  -OR-
+               [^"\\]       ##  Non "\ characters
+             )*             ##
+             "              ##  End of " ... " string
+           |                ##  -OR-
+                            ##
+                            ##  ------ ' ... ' STRING ------
+             '              ##  Start of ' ... ' string
+             (              ##
+               \\.          ##  Escaped char
+             |              ##  -OR-
+               [^'\\]       ##  Non '\ characters
+             )*             ##
+             '              ##  End of ' ... ' string
+           |                ##  -OR-
+                            ##
+                            ##  ------ ANYTHING ELSE -------
+             .              ##  Anything other char
+             [^/"'\\]*      ##  Chars which doesn't start a comment, string
+           )                ##    or escape
+    """
+    regex = re.compile(pattern, re.VERBOSE|re.MULTILINE|re.DOTALL)
+    noncomments = [m.group(2) for m in regex.finditer(text) if m.group(2)]
+
+    return "".join(noncomments)
+
 def prepare_for_pycparser(filename):
 
     with open(filename) as f:
         original_file_str = f.read()
 
-    result_str = cast_lib.remove_c99_comments(original_file_str)
+    result_str = remove_c99_comments(original_file_str)
     
     return result_str
 
