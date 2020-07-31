@@ -87,12 +87,12 @@ class C99Theory():
         structsorts = self.dict_structtype_smtsort
 
         return  "enum sorts: {" + ", ".join(enums) + "}, \
-                structs sorts: " + str(structsorts) + ", \
-                enum vars: {" + ", ".join(vardecls) + "}, \
-                function defs: { " + ", ".join(funcs) + " }, \
-                structs decls: { " + str(structdecls) + " }, \
-                declared struct vars: {" + ", ".join(structvardecls) + "}, \
-                var assigments: { " + str(self.var_assigments) + " }"
+structs sorts: " + str(structsorts) + ", \
+enum vars: {" + ", ".join(vardecls) + "}, \
+function defs: { " + ", ".join(funcs) + " }, \
+structs decls: { " + str(structdecls) + " }, \
+declared struct vars: {" + ", ".join(structvardecls) + "}, \
+var assigments: { " + str(self.var_assigments) + " }"
     
     def declare_enum_sort(self, name, values) -> (z3.DatatypeSortRef, Dict[str, z3.DatatypeRef]):
         S, enum_values = EnumSort(name, values)
@@ -124,9 +124,10 @@ class C99Theory():
         constraint = self.evaluate_ast(node.cond)
         self.solver.add(constraint) 
 
-    def handle_assigment(self, node : c_ast.Assignment):
-        constraint = self.evaluate_ast(node)
-        self.var_assigments[node.lvalue.name] = constraint 
+    def handle_assigment(self, n : c_ast.Assignment):
+        constraint = self.evaluate_ast(n)
+        #if ast.is_var(n.lvalue) and ast.is_const(n.rvalue):
+        self.var_assigments[n.lvalue.name] = constraint 
 
     def get_sort(self, asttype):
         if asttype in self.dict_enumtype_smtsort:
@@ -268,5 +269,5 @@ class C99Theory():
 
         for var in self.var_assigments:
             assertions.append(self.var_assigments[var])
-        
+
         return self.solver.check(assertions) == z3.sat

@@ -32,8 +32,8 @@ def async_to_sync(async_ast : c_ast.Node, config):
     
     # we discard what we won't use
     main_ast = ast.get_funcdef_node(async_ast,'main')
-    ast.call_recursively(main_ast, ast.remove_whiles, [])
-    ast.call_recursively(main_ast, ast.remove_declarations, [])
+    ast.map_dfs(main_ast, ast.remove_whiles, [])
+    ast.map_dfs(main_ast, ast.remove_declarations, [])
 
     codecfg = cfg.ControlFlowGraph(main_ast)
     
@@ -69,7 +69,7 @@ def async_to_sync(async_ast : c_ast.Node, config):
 
         round_sync_code = copy.deepcopy(main_ast)
         
-        ast.call_recursively(round_sync_code, ast.keep_nodes, [nodes_to_keep])
+        ast.map_dfs(round_sync_code, ast.keep_nodes, [nodes_to_keep])
 
         sync_code[label] = round_sync_code
 
