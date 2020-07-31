@@ -172,7 +172,6 @@ def dead_code_elimination(codeast : c_ast.FileAST, phasevar):
     theory = C99Theory(codeast)
 
     # Recursively explore the AST tree and cut the unfeasible branches
-    to_delete = []
     map_dfs(codeast, delete_unsat_branches, [theory])
     #map_dfs(codeast, delete_nodes, [to_delete])
 
@@ -197,10 +196,9 @@ def delete_unsat_branches(node : c_ast.Node, theory : C99Theory):
     
     if type(node) == c_ast.Compound:
         to_delete = []
-
-        for i in node.block_items:      
+        
+        for i in node.block_items:   
             if type(i) == c_ast.If:
-                print(theory.solver.sexpr(), theory.var_assigments, i.cond, theory.is_sat(i))
                 if theory.is_sat(i):
                     new_context = copy.deepcopy(theory)
                     new_context.handle_if(i)
@@ -210,7 +208,9 @@ def delete_unsat_branches(node : c_ast.Node, theory : C99Theory):
                     # delete this branch
                     to_delete.append(i)
             elif type(i) == c_ast.Assignment: 
-                theory.handle_assigment(i)   
+                theory.handle_assigment(i)
+            elif type(i) == c_ast.While:
+                map_dfs(i.stmt, delete_unsat_branches, [theory])
 
         for i in to_delete:
             node.block_items.remove(i)

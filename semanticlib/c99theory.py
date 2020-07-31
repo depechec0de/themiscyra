@@ -124,9 +124,10 @@ var assigments: { " + str(self.var_assigments) + " }"
         constraint = self.evaluate_ast(node.cond)
         self.solver.add(constraint) 
 
-    def handle_assigment(self, node : c_ast.Assignment):
-        constraint = self.evaluate_ast(node)
-        self.var_assigments[node.lvalue.name] = constraint 
+    def handle_assigment(self, n : c_ast.Assignment):
+        constraint = self.evaluate_ast(n)
+        #if ast.is_var(n.lvalue) and ast.is_const(n.rvalue):
+        self.var_assigments[n.lvalue.name] = constraint 
 
     def get_sort(self, asttype):
         if asttype in self.dict_enumtype_smtsort:
@@ -268,5 +269,5 @@ var assigments: { " + str(self.var_assigments) + " }"
 
         for var in self.var_assigments:
             assertions.append(self.var_assigments[var])
-        
+
         return self.solver.check(assertions) == z3.sat
