@@ -117,12 +117,13 @@ int main()
         if(!value_decided(p) && p != leader(phase,n) && count(mbox, null_int(), FOURTH_ROUND, leader(phase,n)) == 1 && mbox->message->decided && mbox->message->phase > phase){
 
             round = FOURTH_ROUND;
+            phase = mbox->message->phase;
             
             estimate = m->estimate;
             // from now on value_decided(p) -> true
             decide(estimate);
 
-            phase = mbox->message->phase + 1;
+            phase++;
             round = FIRST_ROUND;
             
             continue;
