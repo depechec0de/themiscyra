@@ -39,11 +39,10 @@ def map_dfs(node : c_ast.Node, function, args):
         elif typ == c_ast.FuncDef:
             map_dfs(node.body, function, args)
 
-def compound_filter_nodes(n : c_ast.Node, filter_condition, *args):
+def removes_nodes_matching(n : c_ast.Node, filter_condition, *args):
     items = None
     if type(n) == c_ast.FileAST:
         items = n.ext
-
     elif type(n) == c_ast.Compound:
         items = n.block_items
 
@@ -58,7 +57,18 @@ def compound_filter_nodes(n : c_ast.Node, filter_condition, *args):
 
 def filter_nodes(n : c_ast.Node, filter_condition, *filter_args):
     """ Filter nodes of the AST matching `filter_condition` """
-    map_dfs(n, compound_filter_nodes, [filter_condition, *filter_args])
+    map_dfs(n, removes_nodes_matching, [filter_condition, *filter_args])
+
+def find_nodes_matching(n : c_ast.Node, match_condition, matching):
+    if match_condition(n):
+        matching.append(n)
+
+def find_nodes(n : c_ast.Node, match_condition):
+    """ Find nodes of the AST matching `match_condition` """
+    matching = []
+    map_dfs(n, find_nodes_matching, [match_condition, matching])
+
+    return matching
 
 def rename_syncvar(name, iteration):
     newname = name + SYNCVAR_UNFOLD
@@ -179,6 +189,7 @@ def is_funccall_with_name(node : c_ast.Node, name):
     return type(node) == c_ast.FuncCall and node.name.name == name
 
 def count_inner_ifs(node : c_ast.Node) -> int:
+    """ Visit the AST node and count how many nested c_ast.If it contains """
     class NonIfCounterVisitor(c_ast.NodeVisitor):
         def __init__(self):
             self.result = 0

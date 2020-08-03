@@ -40,8 +40,8 @@ int main()
   struct msg *m;
   struct msg *recv_msg;
   struct list *mbox;
-  vround = STARTVIEWCHANGE;
   view = 0;
+  vround = STARTVIEWCHANGE;
   send(all, message(view, STARTVIEWCHANGE, p, null_log()));
   while (1)
   {

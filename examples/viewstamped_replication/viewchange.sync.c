@@ -7,10 +7,9 @@ int main()
 
 
 ############ update ############
+mbox = havoc(view, vround);
 int main()
 {
-  view = 0;
-  mbox = havoc(view, vround);
   if (((vround == STARTVIEWCHANGE) && (p == primary(view, n))) && (mbox->size > f))
   {
     vround_0 = DOVIEWCHANGE;
@@ -37,11 +36,11 @@ int main()
 
 
 ############ update ############
+mbox_0 = havoc(view, vround_0);
 int main()
 {
   if (((vround == STARTVIEWCHANGE) && (p == primary(view, n))) && (mbox->size > f))
   {
-    mbox_0 = havoc(view, vround_0);
     if (((vround_0 == DOVIEWCHANGE) && (p == primary(view, n))) && (mbox_0->size > f))
     {
       computes_new_log();
@@ -75,6 +74,7 @@ int main()
 
 
 ############ update ############
+mbox_0 = havoc(view, vround_0);
 int main()
 {
   if (((vround == STARTVIEWCHANGE) && (p == primary(view, n))) && (mbox->size > f))
@@ -88,7 +88,6 @@ int main()
 
   if (((vround == STARTVIEWCHANGE) && (p != primary(view, n))) && (mbox->size > f))
   {
-    mbox_0 = havoc(view, vround_0);
     if (((vround_0 == STARTVIEW) && (p != primary(view, n))) && (mbox_0->size == 1))
     {
       computes_new_log();

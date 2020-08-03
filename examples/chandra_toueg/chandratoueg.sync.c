@@ -11,6 +11,7 @@ int main()
 
 
 ############ update ############
+mbox = havoc(phase, round);
 int main()
 {
   estimate = in();
@@ -56,6 +57,7 @@ int main()
 
 
 ############ update ############
+mbox_0 = havoc(phase, round_0);
 int main()
 {
   if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))
@@ -104,6 +106,7 @@ int main()
 
 
 ############ update ############
+mbox_0 = havoc(phase, round_0);
 int main()
 {
   if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))
@@ -162,6 +165,7 @@ int main()
 
 
 ############ update ############
+mbox_1 = havoc(phase, round_1);
 int main()
 {
   if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))

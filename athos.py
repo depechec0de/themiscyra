@@ -81,9 +81,9 @@ def async_to_sync(async_ast : c_ast.Node, config):
 
     for round_label, ast_code in sync_code.items():
         compho[round_label] = {}
-        ast_send = copy.deepcopy(ast_code)
+        ast_send = c_ast.FileAST([copy.deepcopy(ast_code)])
         get_compho_send(ast_send)
-        ast_update = copy.deepcopy(ast_code)
+        ast_update = c_ast.FileAST([copy.deepcopy(ast_code)])
         get_compho_update(ast_update, round_variable, round_label)
         compho[round_label]['send'] = ast_send
         compho[round_label]['update'] = ast_update
@@ -222,5 +222,9 @@ def get_compho_update(round_ast : c_ast.Node, round_syncvar, round_label):
     cast_lib.filter_nodes(round_ast, is_send_call)
     # remove round syncvar assigment to the same sync round because is redundant
     cast_lib.filter_nodes(round_ast, is_round_assigment, round_syncvar, round_label)
-    # remove mbox = havoc()
-    cast_lib.filter_nodes(round_ast, is_mbox_assigment)
+    # move mbox = havoc() to the meta round
+    mbox_assigments = cast_lib.find_nodes(round_ast, is_mbox_assigment)
+    current_mbox = mbox_assigments[0]
+    round_ast.ext.insert(0, current_mbox)
+    main_funcdef = cast_lib.find_funcdef_node(round_ast, 'main')
+    cast_lib.filter_nodes(main_funcdef, is_mbox_assigment)
