@@ -191,9 +191,7 @@ int main()
 
       if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox_1, null_int(), FOURTH_ROUND, leader(phase, n)) == 1)) && mbox_1->message->decided) && (mbox_1->message->phase > phase))
       {
-        estimate = m->estimate;
-        decide(estimate);
-        phase = mbox_1->message->phase + 1;
+        phase = mbox_1->message->phase;
       }
 
       if ((!value_decided(p)) && timeout(round_1))
@@ -205,18 +203,14 @@ int main()
 
     if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox_0, null_int(), FOURTH_ROUND, leader(phase, n)) == 1)) && mbox_0->message->decided) && (mbox_0->message->phase > phase))
     {
-      estimate = m->estimate;
-      decide(estimate);
-      phase = mbox_0->message->phase + 1;
+      phase = mbox_0->message->phase;
     }
 
   }
 
   if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox, null_int(), FOURTH_ROUND, leader(phase, n)) == 1)) && mbox->message->decided) && (mbox->message->phase > phase))
   {
-    estimate = m->estimate;
-    decide(estimate);
-    phase = mbox->message->phase + 1;
+    phase = mbox->message->phase;
   }
 
   if (value_decided(p) && (p == leader(phase, n)))
