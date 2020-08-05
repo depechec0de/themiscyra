@@ -33,7 +33,8 @@ SECOND_ROUND
         jump_to_decision = jump_to_decision1 || jump_to_decision2;
         if(!jump_to_decision){
             condition2 = !value_decided(p) && p != leader(phase,n) && count(mbox, phase, SECOND_ROUND, leader(phase,n)) == 1;
-            if(!value_decided(p) && p != leader(phase,n) && count(mbox, phase, SECOND_ROUND, leader(phase,n)) == 1 && condition1???){
+            // adding condition1 would contradict p != leader(phase,n)
+            if(!value_decided(p) && p != leader(phase,n) && count(mbox, phase, SECOND_ROUND, leader(phase,n)) == 1){
                 m = mbox->message;
                 estimate = m->estimate;
                 timestamp = phase;
@@ -52,10 +53,14 @@ THIRD_ROUND
         jump_to_decision3 = i_should_jump();
         jump_to_decision = jump_to_decision1 || jump_to_decision2 || jump_to_decision3;
         if(!jump_to_decision){
-            condition3 = !value_decided(p) && p == leader(phase,n) && count(mbox, phase, THIRD_ROUND, null_int()) > (n+1)/2 && all_ack(mbox) && condition1???? && condition2???
-            if(!value_decided(p) && p == leader(phase,n) && count(mbox, phase, THIRD_ROUND, null_int()) > (n+1)/2 && all_ack(mbox) && condition1???? && condition2???){
+            condition3 = !value_decided(p) && p == leader(phase,n) && count(mbox, phase, THIRD_ROUND, null_int()) > (n+1)/2 && all_ack(mbox) && condition1????;
+            
+            // adding condition2 would contradict p == leader(phase,n)
+            // I see no reason to remove condition1
+            if(!value_decided(p) && p == leader(phase,n) && count(mbox, phase, THIRD_ROUND, null_int()) > (n+1)/2 && all_ack(mbox) && condition1????){
                 decide(estimate);
             }
+        
         }
 
 FOURTH_ROUND
@@ -71,7 +76,9 @@ FOURTH_ROUND
     UPDATE:
         jump_to_decision4 = i_should_jump();
         jump_to_decision = jump_to_decision1 || jump_to_decision2 || jump_to_decision3 || jump_to_decision4;
-        if(jump_to_decision || (p != leader(phase,n) && count(mbox, phase, FOURTH_ROUND, leader(phase,n)) == 1 && mbox->message->decided)){
+        
+        // I see no reason to remove condition1
+        if(jump_to_decision || (p != leader(phase,n) && count(mbox, phase, FOURTH_ROUND, leader(phase,n)) == 1 && mbox->message->decided && condition2????)){
             estimate = m->estimate;
             decide(estimate);
         }
