@@ -12,7 +12,7 @@ FIRST_ROUND
         jump_to_decision1 = i_should_jump();
         jump_to_decision = jump_to_decision1;
         if(!jump_to_decision){
-            condition = !value_decided(p) && p == leader(phase,n) && count(mbox, phase, FIRST_ROUND, null_int()) > (n+1)/2;
+            condition1 = !value_decided(p) && p == leader(phase,n) && count(mbox, phase, FIRST_ROUND, null_int()) > (n+1)/2;
             if(!value_decided(p) && p == leader(phase,n) && count(mbox, phase, FIRST_ROUND, null_int()) > (n+1)/2){
                 round = SECOND_ROUND;
                 m = max_timestamp(mbox);
@@ -23,7 +23,7 @@ FIRST_ROUND
 SECOND_ROUND
     SEND:
         if(!jump_to_decision){
-            if(!value_decided(p) && p == leader(phase,n) && condition){
+            if(!value_decided(p) && p == leader(phase,n) && condition1){
                 send(message(phase, SECOND_ROUND, estimate, p, null_int(), null_bool()), to_all); 
             }
         }
@@ -32,8 +32,8 @@ SECOND_ROUND
         jump_to_decision2 = i_should_jump();
         jump_to_decision = jump_to_decision1 || jump_to_decision2;
         if(!jump_to_decision){
-            condtion1 = !value_decided(p) && p != leader(phase,n) && count(mbox, phase, SECOND_ROUND, leader(phase,n)) == 1;
-            if(!value_decided(p) && p != leader(phase,n) && count(mbox, phase, SECOND_ROUND, leader(phase,n)) == 1 && condition???){
+            condition2 = !value_decided(p) && p != leader(phase,n) && count(mbox, phase, SECOND_ROUND, leader(phase,n)) == 1;
+            if(!value_decided(p) && p != leader(phase,n) && count(mbox, phase, SECOND_ROUND, leader(phase,n)) == 1 && condition1???){
                 m = mbox->message;
                 estimate = m->estimate;
                 timestamp = phase;
@@ -43,7 +43,7 @@ SECOND_ROUND
 THIRD_ROUND
     SEND:
         if(!jump_to_decision){
-            if(!value_decided(p) && p != leader(phase,n) && condition1){
+            if(!value_decided(p) && p != leader(phase,n) && condition2){
                 send(message(phase, THIRD_ROUND, estimate, p, timestamp, true), leader(phase,n)); 
             }
         }
@@ -52,8 +52,8 @@ THIRD_ROUND
         jump_to_decision3 = i_should_jump();
         jump_to_decision = jump_to_decision1 || jump_to_decision2 || jump_to_decision3;
         if(!jump_to_decision){
-            condition2 = !value_decided(p) && p == leader(phase,n) && count(mbox, phase, THIRD_ROUND, null_int()) > (n+1)/2 && all_ack(mbox) && condition???? && condition1???
-            if(!value_decided(p) && p == leader(phase,n) && count(mbox, phase, THIRD_ROUND, null_int()) > (n+1)/2 && all_ack(mbox) && condition???? && condition1???){
+            condition3 = !value_decided(p) && p == leader(phase,n) && count(mbox, phase, THIRD_ROUND, null_int()) > (n+1)/2 && all_ack(mbox) && condition1???? && condition2???
+            if(!value_decided(p) && p == leader(phase,n) && count(mbox, phase, THIRD_ROUND, null_int()) > (n+1)/2 && all_ack(mbox) && condition1???? && condition2???){
                 decide(estimate);
             }
         }
@@ -61,7 +61,7 @@ THIRD_ROUND
 FOURTH_ROUND
     SEND:
         if(!jump_to_decision){
-            if(p == leader(phase,n) && condition2){
+            if(p == leader(phase,n) && condition3){
                 send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
             }
             if(value_decided(p) && p == leader(phase,n)){
