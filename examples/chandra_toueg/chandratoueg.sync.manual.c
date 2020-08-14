@@ -1,10 +1,10 @@
 /*
 given current_phase' > current_phase
 
-jumpt_to()  = (current_phase', FIRST_ROUND) if leader(current_phase') && count(mbox, FIRST_ROUND) > f
-            = (current_phase', THIRD_ROUND) if leader(current_phase') && count(mbox, THIRD_ROUND) > f
-            = (current_phase', SECOND_ROUND) if !leader(current_phase') && count(mbox, THIRD_ROUND) == 1
-            = (current_phase', FOURTH_ROUND) if !leader(current_phase') && count(mbox, FOURTH_ROUND) == 1
+jumpt_to()  = (current_phase', FIRST_ROUND) if leader(current_phase') && count(mbox, current_phase', FIRST_ROUND) > f
+            = (current_phase', THIRD_ROUND) if leader(current_phase') && count(mbox, current_phase', THIRD_ROUND) > f
+            = (current_phase', SECOND_ROUND) if !leader(current_phase') && count(mbox, current_phase', THIRD_ROUND) == 1
+            = (current_phase', FOURTH_ROUND) if !leader(current_phase') && count(mbox, current_phase', FOURTH_ROUND) == 1
 
 */
 jumpt_to(int current_phase, int current_round);
