@@ -230,6 +230,8 @@ var assigments: { " + str(self.var_assigments) + " }"
                 return leftnode / rightnode
             elif node.op == '+':
                 return leftnode + rightnode
+            elif node.op == '-':
+                return leftnode - rightnode
 
         elif typ == c_ast.Assignment and node.op == '=':
             leftnode = self.evaluate_ast(node.lvalue)
