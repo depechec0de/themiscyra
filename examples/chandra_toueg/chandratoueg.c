@@ -79,11 +79,7 @@ int main()
         }
 
         
-        if  (leader(phase) && 
-            phase_matching(mbox, phase, FIRST_ROUND, (n-1)/2) >= phase && 
-            // P -> Q iff (!P || Q), I jump or I am in the same message's timestamp
-            (phase_matching(mbox, phase, FIRST_ROUND, (n-1)/2) != phase || round == FIRST_ROUND) && 
-            !value_decided(phase))
+        if  (leader(phase) && phase_matching(mbox, phase, FIRST_ROUND, (n-1)/2) >= phase && !value_decided(phase))
         {
             if(phase_matching(mbox, phase, FIRST_ROUND, (n-1)/2) > phase)
             {
@@ -101,11 +97,7 @@ int main()
             continue;
         }
 
-        if  (!leader(phase) && 
-            phase_matching(mbox, phase, SECOND_ROUND, 1) >= phase && 
-            // P -> Q iff (!P || Q), I jump or I am in the same message's timestamp
-            (phase_matching(mbox, phase, SECOND_ROUND, 1) != phase || round == SECOND_ROUND) && 
-            !value_decided(phase))
+        if  (!leader(phase) && phase_matching(mbox, phase, SECOND_ROUND, 1) >= phase && !value_decided(phase))
         {
             if(phase_matching(mbox, phase, SECOND_ROUND, 1) > phase)
             {
@@ -124,10 +116,7 @@ int main()
             continue;
         }  
 
-        if  (leader(phase) && 
-            phase_matching(mbox, phase, THIRD_ROUND, (n-1)/2)  >= phase && 
-            // P -> Q iff (!P || Q), I jump or I am in the same message's timestamp
-            (phase_matching(mbox, phase, THIRD_ROUND, (n-1)/2) != phase || round == THIRD_ROUND) && !value_decided(phase))
+        if  (leader(phase) && phase_matching(mbox, phase, THIRD_ROUND, (n-1)/2)  >= phase)
         {     
             if(phase_matching(mbox, phase, THIRD_ROUND, (n-1)/2) > phase)
             {
@@ -145,11 +134,7 @@ int main()
 
         }
 
-        if  (!leader(phase) && 
-            phase_matching(mbox, phase, FOURTH_ROUND, 1) >= phase && 
-            // P -> Q iff (!P || Q), I jump or I am in the same message's timestamp
-            (phase_matching(mbox, phase, FOURTH_ROUND, 1) != phase || round == FOURTH_ROUND) && 
-            !value_decided(phase))
+        if  (!leader(phase) && phase_matching(mbox, phase, FOURTH_ROUND, 1) >= phase && !value_decided(phase))
         {
             if(phase_matching(mbox, phase, FOURTH_ROUND, 1) > phase)
             {
