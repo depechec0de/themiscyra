@@ -1,6 +1,6 @@
 struct msg
 {
-  int round;
+  enum round_typ round;
   int phase;
   int estimate;
   int timestamp;
@@ -27,13 +27,30 @@ int in();
 struct msg *max_timestamp(struct list *mbox);
 _Bool all_ack(struct list *mbox);
 _Bool send(struct msg *message, int pid);
-int leader(int phase, int net_size);
-int count(struct list *mbox, int phase, enum round_typ round, int from);
+_Bool leader(int phase);
+int leaderid(int phase);
 struct list *havoc(int phase, enum round_typ round);
+struct list *query(struct list *mbox, int phase, enum round_typ round);
+int max_phase_recv(struct list *mbox);
 _Bool timeout(enum round_typ round);
 struct msg *message(int phase, enum round_typ round, int estimate, int p, int timestamp, _Bool decided);
 _Bool value_decided(int p);
 _Bool decide(int estimate);
+int phase_matching(struct list *mbox, int current_phase, enum round_typ round, int size_to_count);
+int phase_matching(struct list *mbox, int current_phase, enum round_typ round, int size_to_count)
+{
+  for (int i = current_phase; i <= max_phase_recv(mbox); i++)
+  {
+    if (query(mbox, i, round) >= size_to_count)
+    {
+      return i;
+    }
+
+  }
+
+  return 0;
+}
+
 int main()
 {
   struct list *mbox_2;
@@ -58,64 +75,53 @@ int main()
   while (1)
   {
     mbox = havoc(phase, round);
-    if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))
+    if ((!value_decided(p)) && (round == FIRST_ROUND))
     {
-      round_0 = SECOND_ROUND;
-      m = max_timestamp(mbox);
-      estimate = m->estimate;
-      send(message(phase, SECOND_ROUND, estimate, p, null_int(), null_bool()), to_all);
-      round_0 = THIRD_ROUND;
-      mbox_0 = havoc(phase, round_0);
-      if ((((((!value_decided(p)) && (p == leader(phase, n))) && (round_0 == THIRD_ROUND)) && (count(mbox_0, phase, THIRD_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox_0, null_int(), FOURTH_ROUND, null_int()) == 0)) && all_ack(mbox_0))
-      {
-        round_1 = FOURTH_ROUND;
-        send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
-        decide(estimate);
-        phase++;
-        continue;
-      }
-
-      if ((((((!value_decided(p)) && (p == leader(phase, n))) && (round_0 == THIRD_ROUND)) && (count(mbox_0, phase, THIRD_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox_0, null_int(), FOURTH_ROUND, null_int()) == 0)) && (!all_ack(mbox_0)))
-      {
-        phase++;
-        continue;
-      }
-
-      if ((!value_decided(p)) && timeout(round_0))
-      {
-        phase++;
-        continue;
-      }
-
-      continue;
-    }
-
-    if (((!value_decided(p)) && (p != leader(phase, n))) && (round == FIRST_ROUND))
-    {
-      send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leader(phase, n));
+      send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
       round_0 = SECOND_ROUND;
       mbox_0 = havoc(phase, round_0);
-      if (((((!value_decided(p)) && (p != leader(phase, n))) && (round_0 == SECOND_ROUND)) && (count(mbox_0, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0, null_int(), FOURTH_ROUND, null_int()) == 0))
+      if ((leader(phase) && (phase_matching(mbox_0, phase, FIRST_ROUND, (n - 1) / 2) >= phase)) && (!value_decided(phase)))
       {
-        round_1 = THIRD_ROUND;
-        m = mbox_0->message;
-        estimate = m->estimate;
-        timestamp = phase;
-        send(message(phase, THIRD_ROUND, estimate, p, timestamp, true), leader(phase, n));
-        round_1 = FOURTH_ROUND;
-        mbox_1 = havoc(phase, round_1);
-        if (((((!value_decided(p)) && (p != leader(phase, n))) && (round_1 == FOURTH_ROUND)) && (count(mbox_1, phase, FOURTH_ROUND, leader(phase, n)) == 1)) && mbox_1->message->decided)
+        if (phase_matching(mbox, phase, FIRST_ROUND, (n - 1) / 2) > phase)
         {
+          phase = phase_matching(mbox_1, phase, FIRST_ROUND, (n - 1) / 2);
+          round_2 = FIRST_ROUND;
+        }
+
+        m = max_timestamp(mbox_0);
+        estimate = m->estimate;
+        round_1 = SECOND_ROUND;
+        send(message(phase, SECOND_ROUND, estimate, p, null_int(), null_bool()), to_all);
+        round_1 = THIRD_ROUND;
+        mbox_1 = havoc(phase, round_1);
+        if ((leader(phase) && (phase_matching(mbox_1, phase, FIRST_ROUND, (n - 1) / 2) >= phase)) && (!value_decided(phase)))
+        {
+          if (phase_matching(mbox, phase, FIRST_ROUND, (n - 1) / 2) > phase)
+          {
+            phase = phase_matching(mbox, phase, FIRST_ROUND, (n - 1) / 2);
+            round = FIRST_ROUND;
+          }
+
+          m = max_timestamp(mbox_1);
           estimate = m->estimate;
-          decide(estimate);
-          phase++;
+          round_2 = SECOND_ROUND;
+          send(message(phase, SECOND_ROUND, estimate, p, null_int(), null_bool()), to_all);
+          round_2 = THIRD_ROUND;
           continue;
         }
 
-        if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox_1, null_int(), FOURTH_ROUND, leader(phase, n)) == 1)) && mbox_1->message->decided) && (mbox_1->message->phase > phase))
+        if (leader(phase) && (phase_matching(mbox_1, phase, THIRD_ROUND, (n - 1) / 2) >= phase))
         {
+          if (phase_matching(mbox, phase, THIRD_ROUND, (n - 1) / 2) > phase)
+          {
+            phase = phase_matching(mbox, phase, THIRD_ROUND, (n - 1) / 2);
+            round = THIRD_ROUND;
+          }
+
+          decide(estimate);
           round_2 = FOURTH_ROUND;
-          phase = mbox_1->message->phase;
+          send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+          phase++;
           continue;
         }
 
@@ -128,10 +134,95 @@ int main()
         continue;
       }
 
-      if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox_0, null_int(), FOURTH_ROUND, leader(phase, n)) == 1)) && mbox_0->message->decided) && (mbox_0->message->phase > phase))
+      if (((!leader(phase)) && (phase_matching(mbox_0, phase, SECOND_ROUND, 1) >= phase)) && (!value_decided(phase)))
       {
+        if (phase_matching(mbox, phase, SECOND_ROUND, 1) > phase)
+        {
+          phase = phase_matching(mbox_1, phase, SECOND_ROUND, 1);
+          round_2 = SECOND_ROUND;
+        }
+
+        m = mbox_0->message;
+        estimate = m->estimate;
+        timestamp = phase;
+        round_1 = THIRD_ROUND;
+        send(message(phase, THIRD_ROUND, estimate, p, timestamp, true), leaderid(phase));
         round_1 = FOURTH_ROUND;
-        phase = mbox_0->message->phase;
+        mbox_1 = havoc(phase, round_1);
+        if (((!leader(phase)) && (phase_matching(mbox_1, phase, SECOND_ROUND, 1) >= phase)) && (!value_decided(phase)))
+        {
+          if (phase_matching(mbox, phase, SECOND_ROUND, 1) > phase)
+          {
+            phase = phase_matching(mbox, phase, SECOND_ROUND, 1);
+            round = SECOND_ROUND;
+          }
+
+          m = mbox_1->message;
+          estimate = m->estimate;
+          timestamp = phase;
+          round_2 = THIRD_ROUND;
+          send(message(phase, THIRD_ROUND, estimate, p, timestamp, true), leaderid(phase));
+          round_2 = FOURTH_ROUND;
+          continue;
+        }
+
+        if (((!leader(phase)) && (phase_matching(mbox_1, phase, FOURTH_ROUND, 1) >= phase)) && (!value_decided(phase)))
+        {
+          if (phase_matching(mbox, phase, FOURTH_ROUND, 1) > phase)
+          {
+            phase = phase_matching(mbox, phase, FOURTH_ROUND, 1);
+            round = FOURTH_ROUND;
+          }
+
+          if (mbox->message->decided)
+          {
+            estimate = m->estimate;
+            decide(estimate);
+          }
+
+          phase++;
+          continue;
+        }
+
+        if ((!value_decided(p)) && timeout(round_1))
+        {
+          phase++;
+          continue;
+        }
+
+        continue;
+      }
+
+      if (leader(phase) && (phase_matching(mbox_0, phase, THIRD_ROUND, (n - 1) / 2) >= phase))
+      {
+        if (phase_matching(mbox, phase, THIRD_ROUND, (n - 1) / 2) > phase)
+        {
+          phase = phase_matching(mbox_1, phase, THIRD_ROUND, (n - 1) / 2);
+          round_2 = THIRD_ROUND;
+        }
+
+        decide(estimate);
+        round_1 = FOURTH_ROUND;
+        send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+        phase++;
+        continue;
+      }
+
+      if (((!leader(phase)) && (phase_matching(mbox_0, phase, FOURTH_ROUND, 1) >= phase)) && (!value_decided(phase)))
+      {
+        if (phase_matching(mbox, phase, FOURTH_ROUND, 1) > phase)
+        {
+          phase = phase_matching(mbox_1, phase, FOURTH_ROUND, 1);
+          round_2 = FOURTH_ROUND;
+        }
+
+        if (mbox->message->decided)
+        {
+          estimate = m->estimate;
+          decide(estimate);
+        }
+
+        phase++;
         continue;
       }
 
@@ -144,23 +235,258 @@ int main()
       continue;
     }
 
-    if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox, null_int(), FOURTH_ROUND, leader(phase, n)) == 1)) && mbox->message->decided) && (mbox->message->phase > phase))
+    if ((leader(phase) && (phase_matching(mbox, phase, FIRST_ROUND, (n - 1) / 2) >= phase)) && (!value_decided(phase)))
+    {
+      if (phase_matching(mbox, phase, FIRST_ROUND, (n - 1) / 2) > phase)
+      {
+        phase = phase_matching(mbox_0, phase, FIRST_ROUND, (n - 1) / 2);
+        round_1 = FIRST_ROUND;
+      }
+
+      m = max_timestamp(mbox);
+      estimate = m->estimate;
+      round_0 = SECOND_ROUND;
+      send(message(phase, SECOND_ROUND, estimate, p, null_int(), null_bool()), to_all);
+      round_0 = THIRD_ROUND;
+      mbox_0 = havoc(phase, round_0);
+      if ((leader(phase) && (phase_matching(mbox_0, phase, FIRST_ROUND, (n - 1) / 2) >= phase)) && (!value_decided(phase)))
+      {
+        if (phase_matching(mbox, phase, FIRST_ROUND, (n - 1) / 2) > phase)
+        {
+          phase = phase_matching(mbox_1, phase, FIRST_ROUND, (n - 1) / 2);
+          round_2 = FIRST_ROUND;
+        }
+
+        m = max_timestamp(mbox_0);
+        estimate = m->estimate;
+        round_1 = SECOND_ROUND;
+        send(message(phase, SECOND_ROUND, estimate, p, null_int(), null_bool()), to_all);
+        round_1 = THIRD_ROUND;
+        mbox_1 = havoc(phase, round_1);
+        if ((leader(phase) && (phase_matching(mbox_1, phase, FIRST_ROUND, (n - 1) / 2) >= phase)) && (!value_decided(phase)))
+        {
+          if (phase_matching(mbox, phase, FIRST_ROUND, (n - 1) / 2) > phase)
+          {
+            phase = phase_matching(mbox, phase, FIRST_ROUND, (n - 1) / 2);
+            round = FIRST_ROUND;
+          }
+
+          m = max_timestamp(mbox_1);
+          estimate = m->estimate;
+          round_2 = SECOND_ROUND;
+          send(message(phase, SECOND_ROUND, estimate, p, null_int(), null_bool()), to_all);
+          round_2 = THIRD_ROUND;
+          continue;
+        }
+
+        if (leader(phase) && (phase_matching(mbox_1, phase, THIRD_ROUND, (n - 1) / 2) >= phase))
+        {
+          if (phase_matching(mbox, phase, THIRD_ROUND, (n - 1) / 2) > phase)
+          {
+            phase = phase_matching(mbox, phase, THIRD_ROUND, (n - 1) / 2);
+            round = THIRD_ROUND;
+          }
+
+          decide(estimate);
+          round_2 = FOURTH_ROUND;
+          send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+          phase++;
+          continue;
+        }
+
+        if (leader(phase) && value_decided(p))
+        {
+          round_2 = FOURTH_ROUND;
+          send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+          phase++;
+          continue;
+        }
+
+        if ((!value_decided(p)) && timeout(round_1))
+        {
+          phase++;
+          continue;
+        }
+
+        continue;
+      }
+
+      if (leader(phase) && (phase_matching(mbox_0, phase, THIRD_ROUND, (n - 1) / 2) >= phase))
+      {
+        if (phase_matching(mbox, phase, THIRD_ROUND, (n - 1) / 2) > phase)
+        {
+          phase = phase_matching(mbox_1, phase, THIRD_ROUND, (n - 1) / 2);
+          round_2 = THIRD_ROUND;
+        }
+
+        decide(estimate);
+        round_1 = FOURTH_ROUND;
+        send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+        phase++;
+        continue;
+      }
+
+      if (leader(phase) && value_decided(p))
+      {
+        round_1 = FOURTH_ROUND;
+        send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+        phase++;
+        continue;
+      }
+
+      if ((!value_decided(p)) && timeout(round_0))
+      {
+        phase++;
+        continue;
+      }
+
+      continue;
+    }
+
+    if (((!leader(phase)) && (phase_matching(mbox, phase, SECOND_ROUND, 1) >= phase)) && (!value_decided(phase)))
+    {
+      if (phase_matching(mbox, phase, SECOND_ROUND, 1) > phase)
+      {
+        phase = phase_matching(mbox_0, phase, SECOND_ROUND, 1);
+        round_1 = SECOND_ROUND;
+      }
+
+      m = mbox->message;
+      estimate = m->estimate;
+      timestamp = phase;
+      round_0 = THIRD_ROUND;
+      send(message(phase, THIRD_ROUND, estimate, p, timestamp, true), leaderid(phase));
+      round_0 = FOURTH_ROUND;
+      mbox_0 = havoc(phase, round_0);
+      if (((!leader(phase)) && (phase_matching(mbox_0, phase, SECOND_ROUND, 1) >= phase)) && (!value_decided(phase)))
+      {
+        if (phase_matching(mbox, phase, SECOND_ROUND, 1) > phase)
+        {
+          phase = phase_matching(mbox_1, phase, SECOND_ROUND, 1);
+          round_2 = SECOND_ROUND;
+        }
+
+        m = mbox_0->message;
+        estimate = m->estimate;
+        timestamp = phase;
+        round_1 = THIRD_ROUND;
+        send(message(phase, THIRD_ROUND, estimate, p, timestamp, true), leaderid(phase));
+        round_1 = FOURTH_ROUND;
+        mbox_1 = havoc(phase, round_1);
+        if (((!leader(phase)) && (phase_matching(mbox_1, phase, SECOND_ROUND, 1) >= phase)) && (!value_decided(phase)))
+        {
+          if (phase_matching(mbox, phase, SECOND_ROUND, 1) > phase)
+          {
+            phase = phase_matching(mbox, phase, SECOND_ROUND, 1);
+            round = SECOND_ROUND;
+          }
+
+          m = mbox_1->message;
+          estimate = m->estimate;
+          timestamp = phase;
+          round_2 = THIRD_ROUND;
+          send(message(phase, THIRD_ROUND, estimate, p, timestamp, true), leaderid(phase));
+          round_2 = FOURTH_ROUND;
+          continue;
+        }
+
+        if (((!leader(phase)) && (phase_matching(mbox_1, phase, FOURTH_ROUND, 1) >= phase)) && (!value_decided(phase)))
+        {
+          if (phase_matching(mbox, phase, FOURTH_ROUND, 1) > phase)
+          {
+            phase = phase_matching(mbox, phase, FOURTH_ROUND, 1);
+            round = FOURTH_ROUND;
+          }
+
+          if (mbox->message->decided)
+          {
+            estimate = m->estimate;
+            decide(estimate);
+          }
+
+          phase++;
+          continue;
+        }
+
+        if ((!value_decided(p)) && timeout(round_1))
+        {
+          phase++;
+          continue;
+        }
+
+        continue;
+      }
+
+      if (((!leader(phase)) && (phase_matching(mbox_0, phase, FOURTH_ROUND, 1) >= phase)) && (!value_decided(phase)))
+      {
+        if (phase_matching(mbox, phase, FOURTH_ROUND, 1) > phase)
+        {
+          phase = phase_matching(mbox_1, phase, FOURTH_ROUND, 1);
+          round_2 = FOURTH_ROUND;
+        }
+
+        if (mbox->message->decided)
+        {
+          estimate = m->estimate;
+          decide(estimate);
+        }
+
+        phase++;
+        continue;
+      }
+
+      if ((!value_decided(p)) && timeout(round_0))
+      {
+        phase++;
+        continue;
+      }
+
+      continue;
+    }
+
+    if (leader(phase) && (phase_matching(mbox, phase, THIRD_ROUND, (n - 1) / 2) >= phase))
+    {
+      if (phase_matching(mbox, phase, THIRD_ROUND, (n - 1) / 2) > phase)
+      {
+        phase = phase_matching(mbox_0, phase, THIRD_ROUND, (n - 1) / 2);
+        round_1 = THIRD_ROUND;
+      }
+
+      decide(estimate);
+      round_0 = FOURTH_ROUND;
+      send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+      phase++;
+      continue;
+    }
+
+    if (((!leader(phase)) && (phase_matching(mbox, phase, FOURTH_ROUND, 1) >= phase)) && (!value_decided(phase)))
+    {
+      if (phase_matching(mbox, phase, FOURTH_ROUND, 1) > phase)
+      {
+        phase = phase_matching(mbox_0, phase, FOURTH_ROUND, 1);
+        round_1 = FOURTH_ROUND;
+      }
+
+      if (mbox->message->decided)
+      {
+        estimate = m->estimate;
+        decide(estimate);
+      }
+
+      phase++;
+      continue;
+    }
+
+    if (leader(phase) && value_decided(p))
     {
       round_0 = FOURTH_ROUND;
-      phase = mbox->message->phase;
+      send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+      phase++;
       continue;
     }
 
     if ((!value_decided(p)) && timeout(round))
     {
-      phase++;
-      continue;
-    }
-
-    if (value_decided(p) && (p == leader(phase, n)))
-    {
-      round_0 = FOURTH_ROUND;
-      send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
       phase++;
       continue;
     }
