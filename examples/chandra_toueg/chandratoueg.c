@@ -70,7 +70,7 @@ int main()
 
         mbox = havoc(phase, round);
 
-        if(!leader(phase) && !value_decided(p) && round == FIRST_ROUND)
+        if(!value_decided(p) && round == FIRST_ROUND)
         {
             send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase)); 
             round = SECOND_ROUND;
@@ -116,7 +116,7 @@ int main()
             continue;
         }  
 
-        if  (leader(phase) && phase_matching(mbox, phase, THIRD_ROUND, (n-1)/2)  >= phase)
+        if  (leader(phase) && phase_matching(mbox, phase, THIRD_ROUND, (n-1)/2) >= phase)
         {     
             if(phase_matching(mbox, phase, THIRD_ROUND, (n-1)/2) > phase)
             {
@@ -124,9 +124,10 @@ int main()
                 round = THIRD_ROUND;
             }
 
+            decide(estimate);
+
             round = FOURTH_ROUND;
             send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
-            decide(estimate);
             
             phase++;
             round = FIRST_ROUND;
@@ -152,14 +153,6 @@ int main()
             continue;
         }
 
-        if(!value_decided(p) && timeout(round))
-        {
-            phase++;
-            round = FIRST_ROUND;
-
-            continue;
-        } 
-
         if(leader(phase) && value_decided(p))
         {
             round = FOURTH_ROUND;
@@ -169,6 +162,14 @@ int main()
 
             continue;
         }
+
+        if(!value_decided(p) && timeout(round))
+        {
+            phase++;
+            round = FIRST_ROUND;
+
+            continue;
+        } 
 
     }
 
