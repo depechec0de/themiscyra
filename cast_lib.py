@@ -320,8 +320,8 @@ def get_structref_firstref_field(n : c_ast.StructRef):
 
 def is_var_increment(n : c_ast.Node, variable):
     is_increment = type(n) == c_ast.UnaryOp and n.op == 'p++' and n.expr.name == variable
-    is_jump = type(n) == c_ast.Assignment and n.lvalue.name == variable
-    return is_increment or is_jump
+    #is_jump = type(n) == c_ast.Assignment and n.lvalue.name == variable
+    return is_increment
 
 def is_var_declaration(n : c_ast.Node):
     return  type(n) == c_ast.Decl
@@ -538,3 +538,7 @@ def declare_iterated_variables(ast, variables, iterations):
 
     v = DeclareIteratedVariablesVisitor(variables, iterations)
     v.visit(ast)
+
+def ast_to_str(node : c_ast.Node):
+    generator = c_generator.CGenerator()
+    return generator.visit(node)
