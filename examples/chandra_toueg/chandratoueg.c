@@ -19,11 +19,13 @@ enum round_typ {FIRST_ROUND, SECOND_ROUND, THIRD_ROUND, FOURTH_ROUND};
 int null_int();
 _Bool null_bool();
 int in();
-struct msg* max_timestamp(struct list* mbox);
+int max_timestamp(struct list* mbox);
 _Bool all_ack(struct list* mbox);
 _Bool send(struct msg *message, int pid);
+_Bool rbroadcast(struct msg *message, int pid);
 _Bool leader(int phase);
 int leaderid(int phase);
+int count_ack(struct list* mbox, int phase);
 // mbox query functions
 
 struct list* havoc(int phase, enum round_typ round);
@@ -31,21 +33,13 @@ struct list* query(struct list* mbox, int phase, enum round_typ round );
 int max_phase_recv(struct list* mbox);
 _Bool timeout(enum round_typ round);
 struct msg* message(int phase, enum round_typ round, int estimate, int p, int timestamp, _Bool decided);
-// value_decided(p) := false until decide(estimate) is called
-_Bool value_decided(int p);
-// Inform the client of a decision, value_decided(p) := true
-_Bool decide(int estimate);
 // Look into the mbox for a phase >= `current_phase` with at least `size_to_count` messages in round `round`
-int phase_matching(struct list * mbox, int current_phase, enum round_typ round, int size_to_count);
+int count(struct list * mbox, int current_phase, enum round_typ round);
 
-int phase_matching(struct list * mbox, int current_phase, enum round_typ round, int size_to_count){
-    for(int i = current_phase; i <= max_phase_recv(mbox); i++){ 
-        if(query(mbox, i, round) >= size_to_count){
-            return i;
-        } 
-    }
-    return 0;
-}
+// look for the messages tagged with round `round` and return the amount of message with the greatest `phase` found such that `phase` >= `current_phase`
+int count_with_max_phase_geq(struct list * mbox, int phase, enum round_typ round);
+// return the max phase >= `current_phase` found in the mailbox tagged with round `round`
+int max_phase_geq(struct list * mbox, int current_phase, enum round_typ round);
 
 int main()
 {
@@ -61,6 +55,9 @@ int main()
     struct list* mbox;
     struct msg* m;
 
+    _Bool value_decided;
+
+    value_decided = false;
     phase = 1;
     round = FIRST_ROUND;
     estimate = in();
@@ -70,25 +67,16 @@ int main()
 
         mbox = havoc(phase, round);
 
-        if(!value_decided(p) && round == FIRST_ROUND)
+        if(!value_decided && round == FIRST_ROUND)
         {
             send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase)); 
             round = SECOND_ROUND;
-
             continue;
         }
-
         
-        if  (leader(phase) && phase_matching(mbox, phase, FIRST_ROUND, (n-1)/2) >= phase && !value_decided(phase))
+        if  (!value_decided && leader(phase) && round == FIRST_ROUND && count(mbox, phase, FIRST_ROUND) > n/2)
         {
-            if(phase_matching(mbox, phase, FIRST_ROUND, (n-1)/2) > phase)
-            {
-                phase = phase_matching(mbox, phase, FIRST_ROUND, (n-1)/2);
-                round = FIRST_ROUND;
-            }
-            
-            m = max_timestamp(mbox);
-            estimate = m->estimate;
+            estimate = max_timestamp(mbox);
             
             round = SECOND_ROUND;
             send(message(phase, SECOND_ROUND, estimate, p, null_int(), null_bool()), to_all); 
@@ -97,79 +85,92 @@ int main()
             continue;
         }
 
-        if  (!leader(phase) && phase_matching(mbox, phase, SECOND_ROUND, 1) >= phase && !value_decided(phase))
+        // timeout waiting for n/2 first round messages
+        if  (!value_decided && leader(phase) && round == FIRST_ROUND && timeout(round))
         {
-            if(phase_matching(mbox, phase, SECOND_ROUND, 1) > phase)
-            {
-                phase = phase_matching(mbox, phase, SECOND_ROUND, 1);
-                round = SECOND_ROUND;
-            }
+            round = FOURTH_ROUND;
+            value_decided = false;
+            continue;
+        }
 
+        // follower receives an estimate, it sends an ack
+        if  (!value_decided && !leader(phase) && round == SECOND_ROUND && count(mbox, phase, SECOND_ROUND) == 1)
+        {
             m = mbox->message;
             estimate = m->estimate;
             timestamp = phase;
 
             round = THIRD_ROUND;
-            send(message(phase, THIRD_ROUND, estimate, p, timestamp, true), leaderid(phase)); 
+            send(message(phase, THIRD_ROUND, NULL, p, timestamp, true), leaderid(phase)); 
             round = FOURTH_ROUND;
             
             continue;
         }  
 
-        if  (leader(phase) && phase_matching(mbox, phase, THIRD_ROUND, (n-1)/2) >= phase)
-        {     
-            if(phase_matching(mbox, phase, THIRD_ROUND, (n-1)/2) > phase)
-            {
-                phase = phase_matching(mbox, phase, THIRD_ROUND, (n-1)/2);
-                round = THIRD_ROUND;
-            }
-
-            decide(estimate);
-
+        // follower suspect that leader crashed, it sends a nack to the leader
+        if  (!value_decided && !leader(phase) && round == SECOND_ROUND && timeout(round))
+        {
+            round = THIRD_ROUND;
+            send(message(phase, THIRD_ROUND, NULL, p, timestamp, false), leaderid(phase)); 
             round = FOURTH_ROUND;
-            send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+            continue;
+        }
+
+        if  (!value_decided && leader(phase) && round == THIRD_ROUND && count(mbox, phase, THIRD_ROUND) > n/2 && count_ack(mbox, phase) <= n/2)
+        {     
+            round = FOURTH_ROUND;  
+            value_decided = false;          
+            continue;
+        }
+
+        if  (!value_decided && leader(phase) && round == THIRD_ROUND && count(mbox, phase, THIRD_ROUND) > n/2 && count_ack(mbox, phase) > n/2)
+        {     
+        
+            round = FOURTH_ROUND;
+            value_decided = true;
+            rbroadcast(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);            
+            continue;
+        }
+
+        if  (!value_decided && leader(phase) && round == THIRD_ROUND && timeout(round))
+        {
+            round = FOURTH_ROUND;
+            value_decided = false;
+            continue;
+        }
+
+        if  (!value_decided && count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1)
+        {
+
+            phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
+            round = FOURTH_ROUND;
+
+            estimate = m->estimate;
+            value_decided = true;
             
             phase++;
-            round = FIRST_ROUND;
-            continue;
-
-        }
-
-        if  (!leader(phase) && phase_matching(mbox, phase, FOURTH_ROUND, 1) >= phase && !value_decided(phase))
-        {
-            if(phase_matching(mbox, phase, FOURTH_ROUND, 1) > phase)
-            {
-                phase = phase_matching(mbox, phase, FOURTH_ROUND, 1);
-                round = FOURTH_ROUND;
-            }
-
-            if(mbox->message->decided){
-                estimate = m->estimate;
-                decide(estimate);
-            }
-
-            phase++;
-            round = FIRST_ROUND;
-            continue;
-        }
-
-        if(leader(phase) && value_decided(p))
-        {
             round = FOURTH_ROUND;
-            send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
-            phase++;
-            round = FIRST_ROUND;
-
             continue;
         }
 
-        if(!value_decided(p) && timeout(round))
+        if(!value_decided && round == FOURTH_ROUND && timeout(round))
         {
             phase++;
             round = FIRST_ROUND;
 
             continue;
         } 
+
+        // the estimate is locked, is my turn to broadcast it
+        if(leader(phase) && value_decided)
+        {
+            round = FOURTH_ROUND;
+            rbroadcast(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+            phase++;
+            round = FOURTH_ROUND;
+
+            continue;
+        }
 
     }
 

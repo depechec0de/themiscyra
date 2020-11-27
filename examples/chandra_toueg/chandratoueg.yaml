@@ -13,5 +13,8 @@ labels :
 # Dead code script
 # python3 main.py examples/chandra_toueg/chandratoueg.unfolded.c examples/chandra_toueg/chandratoueg.yaml --deadcode > examples/chandra_toueg/chandratoueg.deadcode.c
 
+# Phase unfold script
+# python3 main.py examples/chandra_toueg/chandratoueg.c examples/chandra_toueg/chandratoueg.yaml --phaseunfold > examples/chandra_toueg/chandratoueg.phaseunfold.c
+
 # Sync code script
-# python3 main.py examples/chandra_toueg/chandratoueg.deadcode.c examples/chandra_toueg/chandratoueg.yaml --athos > examples/chandra_toueg/chandratoueg.sync.c
+# python3 main.py examples/chandra_toueg/chandratoueg.phaseunfold.c examples/chandra_toueg/chandratoueg.yaml --athos > examples/chandra_toueg/chandratoueg.sync.c

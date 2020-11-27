@@ -12,22 +12,66 @@ class ControlFlowGraph(nx.DiGraph):
     Placeholders AST nodes for delimitating the scope of c_ast.While and 
     c_ast.If in the CFG
     """
-    class EntryNode(c_ast.EmptyStatement):
-        def __init__(self, coord=None):
-            super().__init__(coord)
+    class Node():
+        def __str__(self):
+            return self.label
 
-    class ExitNode(c_ast.EmptyStatement):
-        def __init__(self, coord=None):
-            super().__init__(coord)
+        def __repr__(self):
+                return self.__str__()
 
-    def __init__(self, ast=None, data=None):
-        super().__init__(data)
+        def __init__(self, astnode=None):
+            self.astnode = astnode
+            self.update_label()
 
-        if ast is not None:
-            entrynode, exitnode = ast_to_cfg(self, ast)
+        def update_label(self):
+            if self.astnode is not None:
+                self.label = cast_lib.ast_to_str(self.astnode)
 
-            self.entry = entrynode
-            self.exit = exitnode 
+            if self.astnode.coord is not None:
+                node_coords = str(self.astnode.coord).split(':')
+                self.label = self.label + " @ "+node_coords[1]
+
+    class IfNode(Node):
+        def __init__(self, astnode=None):
+            super().__init__(astnode)
+
+    # Artificial CFG node to know wich IfNode branch I traversed
+    class AssertNode(Node):
+        def __init__(self, astpred):
+            super().__init__(astpred)
+
+        def update_label(self):
+            self.label = "Assert " + cast_lib.ast_to_str(self.astnode)
+
+    class ArtificialNode(Node):
+        pass
+
+    class EntryNode(ArtificialNode):
+        def __init__(self):
+            astnode = c_ast.EmptyStatement()
+            super().__init__(astnode)
+        
+        def update_label(self):
+            self.label = "entry"
+
+    class ExitNode(ArtificialNode):
+        def __init__(self):
+            astnode = c_ast.EmptyStatement()
+            super().__init__(astnode)
+
+        def update_label(self):
+            self.label = "exit"
+
+    def __init__(self, ast, loop=True, iffalse=True):
+        super().__init__()
+        # If loop is true, we create an edge back from the end of the whiles 
+        self.loop = loop
+        # If iffalse is true, we create a negated AssertNode for the else conditions
+        self.iffalse = iffalse
+        entrynode, exitnode = self.ast_to_cfg(ast)
+
+        self.entry = entrynode
+        self.exit = exitnode 
 
     def get_subgraph_between_nodes(self, start, end):
         """ Return the induced graph of the nodes in all paths from start to 
@@ -85,208 +129,274 @@ class ControlFlowGraph(nx.DiGraph):
             self.add_edge(place, first_node_graph)  
 
     def draw(self):
-        labels = dict(self.nodes())
-        for k in labels.keys():
-            labels[k] = str(self.nodes[k]["label"])
+        labelsnodes = dict(self.nodes())
+        for k in labelsnodes.keys():
+            labelsnodes[k] = str(k)
+        
+        labelsedges = dict()
+        for k in self.edges().keys():
+            if "label" in self.edges[k]:
+                labelsedges[k] = self.edges[k]["label"]
 
-        nx.draw_networkx(self, labels=labels, pos=nx.planar_layout(self))
+        #pos = nx.planar_layout(self)
+        #pos = nx.circular_layout(self)
+        pos = nx.spring_layout(self)
+
+        nx.draw_networkx(self, labels=labelsnodes, pos=pos)
+        nx.draw_networkx_edge_labels(self, edge_labels=labelsedges, pos=pos)
+
+        plt.axis('off')
         plt.show()
 
-    def print_cfg(self):
-        for n in self.nodes():
-            print("############")
-            print(str(type(n))+" "+str(n.coord)+" "+str(hex(id(n))))
-            print("successors")
-            for s in list(self.successors(n)):
-                print(str(type(s))+" "+str(s.coord)+" "+str(hex(id(s))))
-            print("")
+    def paths(self):
+        return nx.all_simple_paths(self, self.entry, self.exit)
 
-def ast_to_cfg(digraph, ast: c_ast.Node) -> (c_ast.Node, c_ast.Node):
-    """Recursively compute the CFG from a AST. Given a AST node (can be any 
-    complex structure) the function will return the first and last nodes of the
-    CFG in a tuple and will modify `cfg` adding the corresponding nodes and 
-    edges representing the final CFG.
+    def add_node(self, node):
+            super().add_node(node)
 
-    Parameters
-    ----------
-    digraph : networkx.DiGraph
-    ast : pycparser.c_ast.Node to be translated into a CFG
-    
-    Returns
-    -------
-    A tuple with references to the first and last element of the CFG
+    def join_adjacents_and_merge(self, node, removed_node, **successor_data):
+        """
+        Removes `removed_node` and joins its adjacency into `node`.  
 
-    Notes
-    -----
-    Depending on the node type, we need to build a DiGraph and return its 
-    starting/ending nodes.
-    Nodes marqued with * in figures are adhoc nodes to have only one end in the
-    graph.
-    """
-    typ = type(ast) 
+        Example
+        -------
+        {n0, ...} --->* removed_node --->* {m0, ...}
+        {j0, ...} --->* node --->* {i0, ...}
 
-    first = ControlFlowGraph.EntryNode()
-    last = ControlFlowGraph.ExitNode()
-    
-    digraph.add_node(first, label="entry", type=str(type(ast)), coord=str(ast.coord))
-    digraph.add_node(last, label="exit", type=str(type(ast)), coord=str(ast.coord))
+        to
 
-    # A c_ast.If in CFG is:
-    #              cfg(body.true)
-    #         /                      \
-    # if(cond)                       endif*
-    #         \                      /
-    #          ----------------------
-    #
-    # returns (if(c), endif)
+        {n0, ..., j0, ...} --->* node --->* {m0, ..., r0, ...} 
+        """
+        new_edges = []
 
-    if typ == c_ast.If:
+        for predecessor in self.predecessors(removed_node):
+            new_edges.append((predecessor, node, self.edges[predecessor, removed_node]))
+
+        self.add_edges_from(new_edges)
+
+        new_edges = []
+
+        for succesor in self.successors(removed_node):
+            new_edges.append((node, succesor, self.edges[removed_node, succesor]))
+
+        self.add_edges_from(new_edges, **successor_data)
+
+        self.remove_node(removed_node)
+
+        # remove self loops
+        if (node, node) in self.edges():
+            self.remove_edge(node, node)
+
+    def join_adjacents_and_remove(self, n1, n2):
+        """
+        Removes `n1` and `n2` but keeps connectivity of all paths between them (i.e. join).
+
+        Example
+        -------
+        {n0, ...} --->* n1 --->* {m0, ...}
+        {j0, ...} --->* n2 --->* {i0, ...}
+
+        to
+
+        {n0, ..., j0, ...} X {m0, ..., r0, ...}
+
+        """
+
+        new_edges = []
+
+        for (u,v) in list(it.product(self.predecessors(n1), self.successors(n2))):
+            new_edges.append((u, v, self.edges[u, n1]))
+
+        self.add_edges_from(new_edges)
+
+        self.remove_node(n1)   
+        self.remove_node(n2)
+
+    def ast_to_cfg(self, ast: c_ast.Node) -> (c_ast.Node, c_ast.Node):
+        """Recursively compute the CFG from a AST. Given a AST node (can be any 
+        complex structure) the function will return the first and last nodes of the
+        CFG in a tuple and will modify `cfg` adding the corresponding nodes and 
+        edges representing the final CFG.
+
+        Parameters
+        ----------
+        ast : pycparser.c_ast.Node to be translated into a CFG
         
-        if_start = c_ast.If(ast.cond, None, None, coord=ast.coord)
-        digraph.add_node(if_start, label=cast_lib.ast_to_str(if_start))
+        Returns
+        -------
+        A tuple with references to the first and last element of the CFG
+        """
+        typ = type(ast) 
 
-        digraph.add_edge(first, if_start)
-
-        true_branch_body_first, true_branch_body_last = ast_to_cfg(digraph, ast.iftrue)
+        entrynode = ControlFlowGraph.EntryNode()
+        exitnode = ControlFlowGraph.ExitNode()
         
-        digraph.add_edges_from(it.product([if_start], digraph.successors(true_branch_body_first)))
-        digraph.remove_node(true_branch_body_first)  
+        self.add_node(entrynode)
+        self.add_node(exitnode)
 
-        digraph.add_edges_from(it.product(digraph.predecessors(true_branch_body_last), [last]))
-        digraph.remove_node(true_branch_body_last)  
+        # A c_ast.If in CFG is:
+        #              cfg(body.true)
+        #         /                      \
+        # if(cond)                       endif*
+        #         \                      /
+        #          ----------------------
+        #
+        # returns (if(c), endif)
 
-        if ast.iffalse is not None:
-            false_branch_body_start, false_branch_body_last = ast_to_cfg(digraph, ast.iffalse)
-
-            digraph.add_edges_from(it.product([if_start], digraph.successors(false_branch_body_start)))
-            digraph.remove_node(false_branch_body_start)
-
-            digraph.add_edges_from(it.product(digraph.predecessors(false_branch_body_last), [last]))
-            digraph.remove_node(false_branch_body_last)
-        else:
-            digraph.add_edge(if_start, last)
-
-
-    # A c_ast.While in CFG is:
-    #           cfg(body)
-    #          /         \
-    # while(c)            endwhile* -->--+
-    #       ^  \         /               |
-    #       |   ---->----                |
-    #       +----------------------------+
-    #
-    # returns (while(c), endwhile*)
-    
-    elif typ == c_ast.While:
-
-        while_body_entry, while_body_exit = ast_to_cfg(digraph, ast.stmt)
-        
-        whilenode = c_ast.While(ast.cond, None, coord=ast.coord)
-        digraph.add_node(whilenode, label=cast_lib.ast_to_str(whilenode))
-        
-        digraph.add_edge(first, whilenode)
-
-        digraph.add_edges_from(it.product([whilenode], digraph.successors(while_body_entry)))
-        digraph.add_edges_from(it.product(digraph.predecessors(while_body_exit), [last]))
-
-        # In a while the last statement return to the while condition 
-        digraph.add_edges_from(it.product(digraph.predecessors(while_body_exit), [whilenode]))
-        
-        digraph.remove_node(while_body_entry)
-        digraph.remove_node(while_body_exit)
-
-
-    # A c_ast.Compound in CFG is:
-    #
-    # cfg(block(1)) --> cfg(block(2)) --> ... --> cfg(block(n))
-    #
-    # return (cfg(block(1)).first, cfg(block(n)).last)
-
-    elif typ == c_ast.Compound:
-
-        items = ast.block_items
-
-        if items is not None:
-
-            first_node = items[0]
+        if typ == c_ast.If:
             
-            first_node_entry, prev_node_exit = ast_to_cfg(digraph, first_node)
+            astif = c_ast.If(ast.cond, None, None, coord=ast.coord)
+            if_start = ControlFlowGraph.IfNode(astif)
 
-            digraph.add_edges_from(it.product([first], digraph.successors(first_node_entry)))
-            digraph.add_edges_from(it.product(digraph.predecessors(first_node_entry),[first]))
-            digraph.remove_node(first_node_entry)
+            self.add_node(if_start)
 
-            if len(items) > 1:
- 
-                for i in items[1:-1]:
-                    i_node_entry, i_node_exit = ast_to_cfg(digraph, i)
-                    
-                    merge_nodes(digraph, prev_node_exit, i_node_entry)
-                    
-                    prev_node_exit = i_node_exit
+            self.add_edge(entrynode, if_start)
+
+            true_branch_body_entry, true_branch_body_exit = self.ast_to_cfg(ast.iftrue)
+
+            asserttrue = ControlFlowGraph.AssertNode(ast.cond)
+            self.add_node(asserttrue)
+            self.add_edge(if_start, asserttrue)
+            self.add_edge(asserttrue, true_branch_body_entry)
+            
+            self.join_adjacents_and_merge(asserttrue, removed_node=true_branch_body_entry) 
+            self.join_adjacents_and_merge(exitnode, removed_node=true_branch_body_exit)  
+
+            if ast.iffalse is not None:
+                false_branch_body_start, false_branch_body_last = self.ast_to_cfg(ast.iffalse)
+
+                if self.iffalse:
+                    assertfalse = ControlFlowGraph.AssertNode(c_ast.UnaryOp("!", ast.cond))
+                    self.add_node(assertfalse)
+                    self.add_edge(if_start, assertfalse)
+                    self.add_edge(assertfalse, false_branch_body_start)
+                else:
+                    self.add_edge(if_start, false_branch_body_start)
+
+                self.join_adjacents_and_merge(assertfalse, removed_node=false_branch_body_start) 
+                self.join_adjacents_and_merge(exitnode, removed_node=false_branch_body_last) 
+            else:
+                if self.iffalse:
+                    assertfalse = ControlFlowGraph.AssertNode(c_ast.UnaryOp("!", ast.cond))
+                    self.add_node(assertfalse)
+                    self.add_edge(if_start, assertfalse)
+                    self.add_edge(assertfalse, exitnode)
+                else:
+                    self.add_edge(if_start, exitnode)
+
+        # A c_ast.While in CFG is:
+        #           cfg(body)
+        #          /         \
+        # while(c)            endwhile* -->--+
+        #       ^  \         /               |
+        #       |   ---->----                |
+        #       +----------------------------+
+        #
+        # returns (while(c), endwhile*)
+        
+        elif typ == c_ast.While:
+
+            while_body_entry, while_body_exit = self.ast_to_cfg(ast.stmt)
+            
+            astwhile = c_ast.While(ast.cond, None, coord=ast.coord)
+            whilenode = ControlFlowGraph.Node(astwhile)
+            self.add_node(whilenode)
+            
+            self.add_edge(whilenode, exitnode)
+            self.add_edge(entrynode, whilenode)
+
+            asserttrue = ControlFlowGraph.AssertNode(ast.cond)
+            self.add_node(asserttrue)
+            self.add_edge(whilenode, asserttrue)
+            self.add_edge(asserttrue, while_body_entry)
+
+            self.join_adjacents_and_merge(asserttrue, removed_node=while_body_entry) 
+            # In a while the last statement return to the while condition
+            if self.loop:
+                self.join_adjacents_and_merge(whilenode, removed_node=while_body_exit) 
+            else:
+                self.join_adjacents_and_merge(exitnode, removed_node=while_body_exit)
+
+
+        # A c_ast.Compound in CFG is:
+        #
+        # cfg(block(1)) --> cfg(block(2)) --> ... --> cfg(block(n))
+        #
+        # return (cfg(block(1)).first, cfg(block(n)).last)
+
+        elif typ == c_ast.Compound:
+
+            items = ast.block_items
+
+            if items is not None:
+
+                first_node = items[0]
                 
-                last_node = items[-1]
+                first_node_entry, prev_node_exit = self.ast_to_cfg(first_node)
 
-                last_node_entry, last_node_exit = ast_to_cfg(digraph, last_node)
+                self.join_adjacents_and_merge(entrynode, removed_node=first_node_entry) 
 
-                merge_nodes(digraph, prev_node_exit, last_node_entry)
+                if len(items) > 1:
+    
+                    for i in items[1:-1]:
+                        i_node_entry, i_node_exit = self.ast_to_cfg(i)
+                        
+                        self.join_adjacents_and_remove(prev_node_exit, i_node_entry)
+                        
+                        prev_node_exit = i_node_exit
+                    
+                    last_node = items[-1]
+
+                    last_node_entry, last_node_exit = self.ast_to_cfg(last_node)
+
+                    self.join_adjacents_and_remove(prev_node_exit, last_node_entry)
+
+                else:
+                    last_node = first_node
+                    last_node_exit = prev_node_exit
+
+                self.join_adjacents_and_merge(exitnode, removed_node=last_node_exit) 
+                
 
             else:
-                last_node = first_node
-                last_node_exit = prev_node_exit
+                noopnode = ControlFlowGraph.Node(c_ast.EmptyStatement(coord=ast.coord))
+                self.add_node(noopnode)
 
-            digraph.add_edges_from(it.product([last],digraph.successors(last_node_exit)))
-            digraph.add_edges_from(it.product(digraph.predecessors(last_node_exit),[last]))
-            
-            digraph.remove_node(last_node_exit)
-            
+                self.add_edge(entrynode, noopnode)
+                self.add_edge(noopnode, exitnode)
+
+
+        # A c_ast.Compound in CFG is:
+        #
+        # function.name --> cfg(function.body).first
+        #
+        # return (function.name, cfg(function.body).last)
+
+        elif typ == c_ast.FuncDef:
+
+            (first_body, last_body) = self.ast_to_cfg(ast.body)
+
+            astfuncdef = c_ast.FuncDef(ast.decl, ast.param_decls, None, coord=ast.coord)
+            funcdefnode = ControlFlowGraph.Node(astfuncdef)
+
+            self.add_node(funcdefnode)
+
+            self.add_edge(entrynode, funcdefnode)
+            self.add_edge(last_body, exitnode)
+
+            # we insert the FuncDef body CFG discarding its entry and exit nodes
+            self.join_adjacents_and_merge(funcdefnode, removed_node=first_body) 
+            self.join_adjacents_and_merge(exitnode, removed_node=last_body)
 
         else:
-            noopnode = c_ast.EmptyStatement(coord=ast.coord)
-            digraph.add_node(noopnode, label=cast_lib.ast_to_str(noopnode))
+            basicnode = ControlFlowGraph.Node(ast)
+            self.add_node(basicnode)
 
-            digraph.add_edge(first, noopnode)
-            digraph.add_edge(noopnode, last)
-
-
-    # A c_ast.Compound in CFG is:
-    #
-    # function.name --> cfg(function.body).first
-    #
-    # return (function.name, cfg(function.body).last)
-
-    elif typ == c_ast.FuncDef:
-
-        (first_body, last_body) = ast_to_cfg(digraph, ast.body)
-        
-        funcdefnode = c_ast.FuncDef(ast.decl, ast.param_decls, None, coord=ast.coord)
-        digraph.add_node(funcdefnode, label=cast_lib.ast_to_str(funcdefnode))
-
-        digraph.add_edge(first, funcdefnode)
-        digraph.add_edge(last_body, last)
-
-        # we insert the FuncDef body CFG discarding its entry and exit nodes
-        digraph.add_edges_from(it.product([funcdefnode], digraph.successors(first_body)))
-        digraph.add_edges_from(it.product(digraph.predecessors(last_body), [last]))
-        
-        digraph.remove_node(first_body)
-        digraph.remove_node(last_body)
-
-    else:
-        digraph.add_node(ast, label=cast_lib.ast_to_str(ast))
-
-        digraph.add_edge(first, ast)
-        digraph.add_edge(ast, last)
+            self.add_edge(entrynode, basicnode)
+            self.add_edge(basicnode, exitnode)
 
 
-    return first, last   
-
-
-
-def merge_nodes(digraph, first_node, next_node):
-    digraph.add_edges_from(it.product(digraph.predecessors(first_node), digraph.successors(next_node)))
-    digraph.remove_node(first_node)   
-    digraph.remove_node(next_node) 
+        return entrynode, exitnode   
 
 def cfg_path_to_ast(cfg):
     """Generates a AST from a CFG path (No FileAST support, it handles 

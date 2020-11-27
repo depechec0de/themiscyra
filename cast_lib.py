@@ -4,10 +4,54 @@ import re
 from typing import Type, List, Set, Dict, Tuple, Optional
 from pycparser import c_parser, c_ast, parse_file, c_generator
 
-# Sync variables are anotated with the unfolding number where they belong
-SYNCVAR_UNFOLD_REGEX = '_(\d)'
-SYNCVAR_UNFOLD = '_ITER'
+import cfg
 
+def remove_c99_comments(text):
+    """remove c-style comments"""
+
+    pattern = r"""
+                            ##  --------- COMMENT ---------
+           //.*?$           ##  Start of // .... comment
+         |                  ##
+           /\*              ##  Start of /* ... */ comment
+           [^*]*\*+         ##  Non-* followed by 1-or-more *'s
+           (                ##
+             [^/*][^*]*\*+  ##
+           )*               ##  0-or-more things which don't start with /
+                            ##    but do end with '*'
+           /                ##  End of /* ... */ comment
+         |                  ##  -OR-  various things which aren't comments:
+           (                ##
+                            ##  ------ " ... " STRING ------
+             "              ##  Start of " ... " string
+             (              ##
+               \\.          ##  Escaped char
+             |              ##  -OR-
+               [^"\\]       ##  Non "\ characters
+             )*             ##
+             "              ##  End of " ... " string
+           |                ##  -OR-
+                            ##
+                            ##  ------ ' ... ' STRING ------
+             '              ##  Start of ' ... ' string
+             (              ##
+               \\.          ##  Escaped char
+             |              ##  -OR-
+               [^'\\]       ##  Non '\ characters
+             )*             ##
+             '              ##  End of ' ... ' string
+           |                ##  -OR-
+                            ##
+                            ##  ------ ANYTHING ELSE -------
+             .              ##  Anything other char
+             [^/"'\\]*      ##  Chars which doesn't start a comment, string
+           )                ##    or escape
+    """
+    regex = re.compile(pattern, re.VERBOSE|re.MULTILINE|re.DOTALL)
+    noncomments = [m.group(2) for m in regex.finditer(text) if m.group(2)]
+
+    return "".join(noncomments)
+    
 def is_recursive_node_type(node : c_ast.Node):
     recursive_types = {c_ast.FileAST, c_ast.Compound, c_ast.If, c_ast.While, c_ast.Compound, c_ast.FuncDef}
 
@@ -70,13 +114,7 @@ def find_nodes(n : c_ast.Node, match_condition):
 
     return matching
 
-def rename_syncvar(name, iteration):
-    newname = name + SYNCVAR_UNFOLD
-    newname = newname.replace('ITER', str(iteration))
-
-    return newname
-
-def unfold(ast, k: int, syncvariables):
+def unfold(ast, k: int):
     """This function assumes a C code with a unique `while` statement. The 
     result is the code unfolded `k` times, where unfolding means replacing 
     every occurrence of a `continue` statement with the original `while`
@@ -86,7 +124,6 @@ def unfold(ast, k: int, syncvariables):
     ----------
     ast : pycparser.c_ast.Node
     k : number of unfoldings to perform
-    syncvariables : synchronization variables defined in the config
     """
 
     main_while = find_while_node(ast)
@@ -96,34 +133,13 @@ def unfold(ast, k: int, syncvariables):
 
     upons = [n for n in while_statements if type(n) == c_ast.If]
 
-    vars_to_declare = [syncvariables['round'], syncvariables['mbox']]
-
-    declare_iterated_variables(ast, vars_to_declare, k)
-
     for upon in upons:
-        _unfold(upon.iftrue, while_body, syncvariables, iteration=0, unfoldings=k-1)
+        _unfold(upon.iftrue, while_body, iteration=0, unfoldings=k-1)
 
 
-def _unfold(compound, while_body, syncvariables, iteration, unfoldings):
+def _unfold(compound, while_body, iteration, unfoldings):
 
     new_body_iteration = copy.deepcopy(while_body)
-
-    # rename compound syncvars with corresponding iteration
-    upon_code = [n for n in compound if type(n) != c_ast.If]
-    for stm in upon_code:
-        if iteration > 0:
-            rename_iterated_variables(stm, [syncvariables['mbox']], iteration-1)
-        rename_iterated_variables(stm, [syncvariables['round']], iteration)
-
-    # rename new unfolding syncvars outside the upons
-    new_iter_code = [n for n in new_body_iteration if type(n) != c_ast.If]
-    for stm in new_iter_code:
-        rename_iterated_variables(stm, [syncvariables['mbox'], syncvariables['round']], iteration)
-
-    # rename new unfolding upons conditions matching compound variables
-    new_upons = [n for n in new_body_iteration if type(n) == c_ast.If]
-    for new_upon in new_upons:
-        rename_iterated_variables(new_upon.cond, [syncvariables['mbox'], syncvariables['round']], iteration)
 
     map_dfs(compound, insert_node_after_continue, [new_body_iteration])
 
@@ -132,12 +148,7 @@ def _unfold(compound, while_body, syncvariables, iteration, unfoldings):
     # recursive calls or base cases
     for upon in new_upons:
         if unfoldings > iteration:
-            _unfold(upon.iftrue, while_body, syncvariables, iteration=iteration+1, unfoldings=unfoldings)
-        else:
-            upon_code = [n for n in upon.iftrue if type(n) != c_ast.If]
-            for stm in upon_code:
-                rename_iterated_variables(stm, [syncvariables['round']], iteration+1)
-                rename_iterated_variables(stm, [syncvariables['mbox']], iteration)
+            _unfold(upon.iftrue, while_body, iteration=iteration+1, unfoldings=unfoldings)
 
 def prune_after_phase_increment(codeast : c_ast.Node, phasevar):
     if type(codeast) == c_ast.Compound:
@@ -169,7 +180,9 @@ def insert_node_after_continue(codeast, node):
                     body = copy.deepcopy(node)
                     for e in body:
                         codeast.block_items.append(e)
-                    codeast.block_items.append(i)
+                    # uncomment this line to keep the old continue
+                    #codeast.block_items.append(i)
+                    codeast.block_items.append(c_ast.Break())
 
             return False
         
@@ -204,7 +217,7 @@ def count_inner_ifs(node : c_ast.Node) -> int:
     v.visit(node)
     return v.result
 
-def variable_assigments_by_value(cfg, variable) -> Dict[str, List[c_ast.Assignment]]:
+def variable_assigments_by_value(cfg : cfg.ControlFlowGraph, variable) -> Dict[str, List[c_ast.Assignment]]:
     """Returns a dictionary that maps rvalues to all nodes in the `cfg` where 
     `variable` is assigned.
 
@@ -229,10 +242,10 @@ def variable_assigments_by_value(cfg, variable) -> Dict[str, List[c_ast.Assignme
     """
     map_rvalue_nodes = {}
 
-    variable_assigments = [node for node in cfg if is_syncvar_assignment(node, variable)]
+    variable_assigments = [node for node in cfg if is_var_assignment(node.astnode, variable)]
 
     for n in variable_assigments:
-        value = get_assigment_value(n)
+        value = get_assigment_value(n.astnode)
 
         if not value in map_rvalue_nodes:
             map_rvalue_nodes[value] = []
@@ -244,22 +257,6 @@ def variable_assigments_by_value(cfg, variable) -> Dict[str, List[c_ast.Assignme
 def variable_increments(cfg, variable):
     return [node for node in cfg if is_var_increment(node, variable)]
 
-def is_syncvar_assignment(n : c_ast.Node, variable):
-    if type(n) == c_ast.Assignment:
-        # we discard the unfolding index
-        basename = re.sub(SYNCVAR_UNFOLD_REGEX, '', n.lvalue.name)
-        return  n.op == '=' and basename == variable
-    else:
-        return False
-
-def is_syncvar_assigned_to_value(n : c_ast.Node, variable, value):
-    if type(n) == c_ast.Assignment:
-        # we discard the unfolding index
-        basename = re.sub(SYNCVAR_UNFOLD_REGEX, '', n.lvalue.name)
-        return  n.op == '=' and basename == variable and n.rvalue.name == value
-    else:
-        return False
-
 def is_var_assignment(n : c_ast.Node, varname):
     if type(n) == c_ast.Assignment:
         return  n.op == '=' and n.lvalue.name == varname
@@ -268,7 +265,7 @@ def is_var_assignment(n : c_ast.Node, varname):
 
 def is_var_assignment_to_value(n : c_ast.Node, varname, value):
     if type(n) == c_ast.Assignment:
-        return is_var_assignment(n) and n.rvalue.name == value
+        return is_var_assignment(n, varname) and n.rvalue.name == value
     else:
         return False
 
@@ -329,19 +326,11 @@ def is_var_declaration(n : c_ast.Node):
 def get_assigment_value(n : c_ast.Assignment):
     return str(n.rvalue.name)
 
-def count_variable_assigments(path, variable):
-    i = 0
-    for n in path:
-        if is_syncvar_assignment(n, variable):
-            i=i+1
-    return i
-
 def count_continues(path : List[c_ast.Node]):
-    i = 0
-    for n in path:
-        if type(n) == c_ast.Continue:
-            i=i+1
-    return i
+    return len([1 for n in path if type(n) == c_ast.Continue])
+
+def count_variable_assigments(path : List[c_ast.Node], var_name):
+    return len([1 for n in path if is_var_assignment(n, var_name)])
 
 def find_while_node(ast):
     """ Return the outer while of the AST """
@@ -463,82 +452,76 @@ def get_declared_vars(ast):
     v = VariableDeclarationVisitor()
     v.visit(ast)
     return v.result
-    
-def rename_iterated_variables(ast, variables, iteration):
+
+def add_variable_assignment_version(ast):
     class RenameVariablesVisitor(c_ast.NodeVisitor):
-        def __init__(self, variables, iteration):
-            self.variables = variables
-            self.iteration = iteration
+        def __init__(self):
+            self.assignment_counter = dict()
+
+        def visit_Assignment(self, node):
+            self.generic_visit(node.rvalue)
+
+            var_name = node.lvalue.name
+            if var_name in self.assignment_counter:
+                self.assignment_counter[var_name] += 1
+            else:
+                self.assignment_counter[var_name] = 1
+
+            node.lvalue.name = node.lvalue.name + "__" + str(self.assignment_counter[var_name])
+
+        def visit_FuncCall(self, node):
+            for arg in node.args:
+                self.generic_visit(arg)
+ 
+        def visit_ID(self, node):
+            var_name = node.name
+            if var_name in self.assignment_counter:
+                node.name = var_name + "__" + str(self.assignment_counter[var_name])
+            else: 
+                node.name = var_name + "__0"
+
+    v = RenameVariablesVisitor()
+    v.visit(ast)
+
+def rename_variable(ast, dict_rename):
+
+    class RenameVariablesVisitor(c_ast.NodeVisitor):
+        def __init__(self, original_ast, dict_rename):
+            self.original_ast = original_ast
+            self.dict_rename = dict_rename
+
+        def visit_FuncCall(self, node):
+            for arg in node.args:
+                self.visit(arg)
 
         def visit_ID(self, node):
-            if node.name in self.variables:
-                node.name = rename_syncvar(node.name, self.iteration)
+            for var_origname, var_newname in self.dict_rename.items():
+                if node.name == var_origname:
+                    node.name = var_newname
 
-    v = RenameVariablesVisitor(variables, iteration)
+    v = RenameVariablesVisitor(ast, dict_rename)
     v.visit(ast)  
+    
+def get_initial_assignments(ast):
 
-def declare_iterated_variables(ast, variables, iterations):
-    """ Look for `var` in `variables` and copy its declarations adding the 
-    iteration number.
+    class InitialAssignmentsVisitor(c_ast.NodeVisitor):
+        def __init__(self):
+            self.assignments = []
 
-    Example
-    -------
-    If the code declares:
+        def visit_Assignment(self, node):
+            self.assignments.append(node)
 
-    enum phase;
-
-    and `iterations` equals 2, we need to add two declarations:
-
-    enum phase;
-    enum phase_1;
-    enum phase_2;
-    """
-    class DeclareIteratedVariablesVisitor(c_ast.NodeVisitor):
-        def __init__(self, variables, iterations):
-            self.variables = variables
-            self.iterations = iterations
-            self.visited = []
-            self.current_parent = None
-
-        def visit_Decl(self, node):
-            if  type(node.type) == c_ast.TypeDecl:
-                if  type(node.type.type) == c_ast.Enum and \
-                    node.name in self.variables and \
-                    node not in self.visited:
-                        self.visited.append(node)
-                        for i in range(0,self.iterations+1):
-                            new_decl = copy.deepcopy(node)
-                            new_decl.name = rename_syncvar(new_decl.name, i)
-                            new_decl.type.declname = new_decl.name
-                        
-                            self.visited.append(new_decl)
-                            self.current_parent.block_items.insert(0,new_decl)
-
-            elif type(node.type) == c_ast.PtrDecl:
-                if  node.type.type.declname in self.variables and \
-                    node not in self.visited:
-                    self.visited.append(node)
-                    for i in range(0,self.iterations+1):
-                        new_decl = copy.deepcopy(node)
-                        new_decl.name = rename_syncvar(new_decl.name, i)
-                        new_decl.type.type.declname = new_decl.name
-                        
-                        self.visited.append(new_decl)
-                        self.current_parent.block_items.insert(0,new_decl)
-
-        def generic_visit(self, node):
-            """ Called if no explicit visitor function exists for a
-                node. Implements preorder visiting of the node.
-            """
-            oldparent = self.current_parent
-            self.current_parent = node
-            for c in node:
-                self.visit(c)
-            self.current_parent = oldparent
-
-    v = DeclareIteratedVariablesVisitor(variables, iterations)
+        # We don't enter the main loop
+        def visit_While(self, node):
+            pass
+ 
+    v = InitialAssignmentsVisitor()
     v.visit(ast)
+
+    return v.assignments
 
 def ast_to_str(node : c_ast.Node):
     generator = c_generator.CGenerator()
-    return generator.visit(node)
+    nodestr = generator.visit(node)
+
+    return nodestr.replace('\n' , '').strip()

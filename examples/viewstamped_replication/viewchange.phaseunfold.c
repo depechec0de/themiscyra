@@ -50,6 +50,8 @@ int main()
         vround = STARTVIEW;
         send(all, message(view, STARTVIEW, p, local_log()));
         view++;
+        vround = STARTVIEWCHANGE;
+        send(all, message(view, STARTVIEWCHANGE, p, null_log()));
         continue;
       }
 
@@ -66,6 +68,8 @@ int main()
       {
         computes_new_log();
         view++;
+        vround = STARTVIEWCHANGE;
+        send(all, message(view, STARTVIEWCHANGE, p, null_log()));
         continue;
       }
 

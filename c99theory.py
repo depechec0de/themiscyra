@@ -15,7 +15,7 @@ class C99Theory():
         self.solver = Solver()
 
         ### Context
-        self.var_assigments = dict()
+        self.var_predicates = dict()
 
         ### Declarations ###
         # variables
@@ -41,7 +41,7 @@ class C99Theory():
             self.dict_structtype_smtsort[structtype] = DeclareSort(structtype)
         
         for enum_name, enum_constants in self.dict_enumtype_constants.items():
-            smt_enum_sort, smt_constants = self.declare_enum_sort(enum_name, enum_constants)
+            smt_enum_sort, smt_constants = self.generate_smt_enum_sort(enum_name, enum_constants)
 
             for const in enum_constants:
                 self.dict_const_smtsort[const] = smt_enum_sort
@@ -51,10 +51,11 @@ class C99Theory():
             self.dict_const_smtconst = dict(self.dict_const_smtconst, **smt_constants)
 
         for var_name, var_type in self.dict_variable_type.items():
-            self.dict_variable_smtvar[var_name] = self.declare_variable(var_name, var_type)    
+            smt_var = self.generate_smt_variable(var_name, var_type)
+            self.declare_variable(var_name, smt_var)    
         
         for funcname, astfuncdecl in self.dict_funcname_astfunc.items():
-            self.dict_funcname_smtfunc[funcname] = self.declare_func(funcname, astfuncdecl)
+            self.dict_funcname_smtfunc[funcname] = self.generate_smt_func(funcname, astfuncdecl)
         
     def __repr__(self):
 
@@ -87,14 +88,14 @@ class C99Theory():
         structsorts = self.dict_structtype_smtsort
 
         return  "enum sorts: {" + ", ".join(enums) + "}, \
-structs sorts: " + str(structsorts) + ", \
-enum vars: {" + ", ".join(vardecls) + "}, \
-function defs: { " + ", ".join(funcs) + " }, \
-structs decls: { " + str(structdecls) + " }, \
-declared struct vars: {" + ", ".join(structvardecls) + "}, \
-var assigments: { " + str(self.var_assigments) + " }"
+                structs sorts: " + str(structsorts) + ", \
+                vars: {" + ", ".join(vardecls) + "}, \
+                function defs: { " + ", ".join(funcs) + " }, \
+                structs decls: { " + str(structdecls) + " }, \
+                declared struct vars: {" + ", ".join(structvardecls) + "}, \
+                var assigments: { " + str(self.var_predicates) + " }"
     
-    def declare_enum_sort(self, name, values) -> (z3.DatatypeSortRef, Dict[str, z3.DatatypeRef]):
+    def generate_smt_enum_sort(self, name, values) -> (z3.DatatypeSortRef, Dict[str, z3.DatatypeRef]):
         S, enum_values = EnumSort(name, values)
 
         map_enum = {}
@@ -105,7 +106,7 @@ var assigments: { " + str(self.var_assigments) + " }"
 
         return S, map_enum
 
-    def declare_func(self, name, fdecl : c_ast.FuncDecl):
+    def generate_smt_func(self, name, fdecl : c_ast.FuncDecl):
         domain = []
         if fdecl.args is not None:
             for arg in fdecl.args.params:
@@ -120,13 +121,27 @@ var assigments: { " + str(self.var_assigments) + " }"
 
         return f
 
+    def declare_variable(self, var_name, smt_var):
+        self.dict_variable_smtvar[var_name] = smt_var
+
+    def is_var_declared(self, var_name):
+        return var_name in self.dict_variable_smtvar
+
+    def get_var(self, var_name):
+        return self.dict_variable_smtvar[var_name]
+
     def handle_if(self, node : c_ast.If):
         constraint = self.evaluate_ast(node.cond)
         self.solver.add(constraint) 
 
-    def handle_assigment(self, n : c_ast.Assignment):
-        constraint = self.evaluate_ast(n)
-        self.var_assigments[n.lvalue.name] = constraint 
+    def add_var_predicate(self, var_name, predicate):
+        self.var_predicates[var_name] = predicate 
+
+    def get_var_predicate(self, var_name):
+        return self.var_predicates[var_name]
+
+    def get_context(self):
+        return z3.And(list(self.var_predicates.values()))
 
     def get_sort(self, asttype):
         if asttype in self.dict_enumtype_smtsort:
@@ -139,6 +154,9 @@ var assigments: { " + str(self.var_assigments) + " }"
             return self.dict_structtype_smtsort[asttype]
         else: 
             raise SemanticError('No Sort found for '+asttype)
+
+    def get_variable_type(self, var_name):
+        return self.dict_variable_type[var_name]
 
     def evaluate_structref(self, node):
         
@@ -165,11 +183,11 @@ var assigments: { " + str(self.var_assigments) + " }"
 
                 structref_type = self.dict_structtype_fields[structref_type][f]
 
-        v = self.declare_variable(varname, structref_type)
+        v = self.generate_smt_variable(varname, structref_type)
 
         return v
 
-    def declare_variable(self, idname, vtype):
+    def generate_smt_variable(self, idname, vtype):
         if vtype == 'int':
             return Int(idname)
         elif vtype in self.dict_variable_smtvar:
@@ -204,45 +222,49 @@ var assigments: { " + str(self.var_assigments) + " }"
             if node.op == '!':
                 return Not(self.evaluate_ast(node.expr))
             else:
-                raise SemanticError('Variable evaluation not possible: '+node)
+                raise SemanticError('Variable evaluation not possible: '+str(node))
 
         elif typ == c_ast.BinaryOp:
             leftnode = self.evaluate_ast(node.left)
             rightnode = self.evaluate_ast(node.right) 
-            
+
             if node.op == '&&':
                 return And(leftnode, rightnode)
             elif node.op == '||':
                 return Or(leftnode, rightnode)
             elif node.op == '==':
-                return And(leftnode == rightnode)
+                return leftnode == rightnode
             elif node.op == '<':
-                return And(leftnode < rightnode)
+                return leftnode < rightnode
             elif node.op == '<=':
-                return And(leftnode <= rightnode)
+                return leftnode <= rightnode
             elif node.op == '>':
-                return And(leftnode > rightnode)
+                return leftnode > rightnode
             elif node.op == '>=':
-                return And(leftnode >= rightnode)
+                return leftnode >= rightnode
             elif node.op == '!=':
-                return And(leftnode != rightnode)
+                return leftnode != rightnode
             elif node.op == '/':
                 return leftnode / rightnode
             elif node.op == '+':
                 return leftnode + rightnode
             elif node.op == '-':
                 return leftnode - rightnode
+            elif node.op == '*':
+                return leftnode * rightnode
+            else:
+                raise SemanticError('Unrecognized BinaryOp: '+str(node.op))
 
         elif typ == c_ast.Assignment and node.op == '=':
             leftnode = self.evaluate_ast(node.lvalue)
             rightnode = self.evaluate_ast(node.rvalue) 
-            
+
             return leftnode == rightnode
         elif typ == c_ast.Constant:
             if node.type == 'int':
                 return IntVal(int(node.value))
             else:
-                raise SemanticError('Variable evaluation not possible: '+node)
+                raise SemanticError('Variable evaluation not possible: '+str(node))
         elif typ == c_ast.FuncCall:
             args = []
             if node.args is not None:
@@ -258,56 +280,20 @@ var assigments: { " + str(self.var_assigments) + " }"
             return self.evaluate_variable(node.name)
         elif typ == c_ast.StructRef:
             return self.evaluate_structref(node)
+        elif typ == c_ast.EmptyStatement:
+            return Bool(True)
         else:
-            raise SemanticError('Variable evaluation not possible: '+node)
+            raise SemanticError('Variable evaluation not possible: '+str(node))
 
-    def is_sat(self, astif : c_ast.If) -> Bool:
-        
-        predicate = self.evaluate_ast(astif.cond)
+    def is_sat(self, predicate) -> Bool:
 
         assertions = []
         assertions.append(predicate)
 
-        for var in self.var_assigments:
-            assertions.append(self.var_assigments[var])
+        for var in self.var_predicates:
+            assertions.append(self.var_predicates[var])
 
         return self.solver.check(assertions) == z3.sat
 
-def dead_code_elimination(codeast : c_ast.FileAST, phasevar):
-
-    # Syntactic tree prune, everything after a phase increment is removed
-    main_while = cast_lib.find_while_node(codeast)
-    cast_lib.map_dfs(main_while, cast_lib.prune_after_phase_increment, [phasevar])
-
-    # Construct a theory using definitions and declarations
-    theory = C99Theory(codeast)
-
-    # Recursively explore the AST tree and cut the unfeasible branches
-    cast_lib.map_dfs(codeast, prune_unsat_branches, [theory])
-
-
-def prune_unsat_branches(node : c_ast.Node, theory : C99Theory): 
-    
-    if type(node) == c_ast.Compound:
-        to_delete = []
-        
-        for i in node.block_items:   
-            if type(i) == c_ast.If:
-                if theory.is_sat(i):
-                    new_context = copy.deepcopy(theory)
-                    new_context.handle_if(i)
-                    # start a new dfs with the augmented context
-                    cast_lib.map_dfs(i.iftrue, prune_unsat_branches, [new_context])
-                else:
-                    # delete this branch
-                    to_delete.append(i)
-            elif type(i) == c_ast.Assignment: 
-                theory.handle_assigment(i)
-            elif type(i) == c_ast.While:
-                cast_lib.map_dfs(i.stmt, prune_unsat_branches, [theory])
-
-        for i in to_delete:
-            node.block_items.remove(i)
-
-        # break dfs on this branch
-        return False 
+    def is_unsat(self, predicate) -> Bool:
+        return not self.is_sat(predicate)

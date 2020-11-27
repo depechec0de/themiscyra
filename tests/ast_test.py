@@ -11,25 +11,33 @@ def test_rename_variables():
                         if(var == 0){
                             var = 1;
                             var = 2;
+                            foo = func(var, test);
+                            bar = var + 2;
+                            foo = func(func(1,2,exec(var)), test);
+                            var = var;
                         }
                         foo = false;
                     }
                     """
     src_to_assert = """
                     int main(){
-                        if(var_0 == 0){
-                            var_0 = 1;
-                            var_0 = 2;
+                        if(var__0 == 0){
+                            var__0 = 1;
+                            var__0 = 2;
+                            foo = func(var__0, test);
+                            bar = var__0 + 2;
+                            foo = func(func(1,2,exec(var__0)), test);
+                            var__0 = var__0;
                         }
                         foo = false;
                     }
                     """
     
-
+    
     src_to_assert_ast = parser.parse(src_to_assert)
     src_to_test_ast = parser.parse(src_to_test)
-
-    rename_iterated_variables(src_to_test_ast, ['var'], 0)
+    dict_rename = {'var': 'var__0'}
+    rename_variable(src_to_test_ast, dict_rename)
 
     assert_ast_equality(src_to_test_ast, src_to_assert_ast)
 
@@ -81,32 +89,30 @@ int main()
     while(1){
         mbox = havoc(phase, round);
         if(round==1){
-            round_0=3;
-
-            mbox_0 = havoc(phase, round_0);
-            if(round_0==1){
-                round_1=3;
+            round=3;
+            mbox = havoc(phase, round);
+            if(round==1){
+                round=3;
                 continue;
             }
-            if(round_0==2){
-                round_1=4;
+            if(round==2){
+                round=4;
                 continue;
             }
-            continue;
+            break;
         }
         if(round==2){
-            round_0=4;
-
-            mbox_0 = havoc(phase, round_0);
-            if(round_0==1){
-                round_1=3;
+            round=4;
+            mbox = havoc(phase, round);
+            if(round==1){
+                round=3;
                 continue;
             }
-            if(round_0==2){
-                round_1=4;
+            if(round==2){
+                round=4;
                 continue;
             }
-            continue;
+            break;
         }
     }
 }
@@ -115,7 +121,7 @@ int main()
     src_to_assert_ast = parser.parse(src_to_assert)
     src_to_test_ast = parser.parse(src_to_test)
 
-    unfold(src_to_test_ast, 1, {'round':'round', 'mbox':'mbox'})
+    unfold(src_to_test_ast, 1)
     
     assert_ast_equality(src_to_test_ast, src_to_assert_ast)
 
@@ -148,120 +154,114 @@ int main()
         mbox = havoc(phase, round);
         if (round == 1)
         {
-            round_0 = 2;
-            func1(phase, round_0, mbox);
-            round_0 = 3;
-            mbox_0 = havoc(phase, round_0);
-            if (round_0 == 1)
+            round = 2;
+            func1(phase, round, mbox);
+            round = 3;
+            mbox = havoc(phase, round);
+            if (round == 1)
             {
-                round_1 = 2;
-                func1(phase, round_1, mbox_0);
-                round_1 = 3;
-                mbox_1 = havoc(phase, round_1);
-                if (round_1 == 1)
+                round = 2;
+                func1(phase, round, mbox);
+                round = 3;
+                mbox = havoc(phase, round);
+                if (round == 1)
                 {
-                    round_2 = 2;
-                    func1(phase, round_2, mbox_1);
-                    round_2 = 3;
+                    round = 2;
+                    func1(phase, round, mbox);
+                    round = 3;
                     continue;
                 }
 
-                if (round_1 == 2)
+                if (round == 2)
                 {
-                    round_2 = 4;
-                    func2(phase, round_2, mbox_1);
-                    round_2 = 5;
+                    round = 4;
+                    func2(phase, round, mbox);
+                    round = 5;
                     continue;
                 }
-
-                continue;
+                break;
             }
 
-            if (round_0 == 2)
+            if (round == 2)
             {
-                round_1 = 4;
-                func2(phase, round_1, mbox_0);
-                round_1 = 5;
-                mbox_1 = havoc(phase, round_1);
-                if (round_1 == 1)
+                round = 4;
+                func2(phase, round, mbox);
+                round = 5;
+                mbox = havoc(phase, round);
+                if (round == 1)
                 {
-                    round_2 = 2;
-                    func1(phase, round_2, mbox_1);
-                    round_2 = 3;
+                    round = 2;
+                    func1(phase, round, mbox);
+                    round = 3;
                     continue;
                 }
 
-                if (round_1 == 2)
+                if (round == 2)
                 {
-                    round_2 = 4;
-                    func2(phase, round_2, mbox_1);
-                    round_2 = 5;
+                    round = 4;
+                    func2(phase, round, mbox);
+                    round = 5;
                     continue;
                 }
-
-                continue;
+                break;
             }
-
-            continue;
+            break;
         }
 
         if (round == 2)
         {
-            round_0 = 4;
-            func2(phase, round_0, mbox);
-            round_0 = 5;
-            mbox_0 = havoc(phase, round_0);
-            if (round_0 == 1)
+            round = 4;
+            func2(phase, round, mbox);
+            round = 5;
+            mbox = havoc(phase, round);
+            if (round == 1)
             {
-                round_1 = 2;
-                func1(phase, round_1, mbox_0);
-                round_1 = 3;
-                mbox_1 = havoc(phase, round_1);
-                if (round_1 == 1)
+                round = 2;
+                func1(phase, round, mbox);
+                round = 3;
+                mbox = havoc(phase, round);
+                if (round == 1)
                 {
-                    round_2 = 2;
-                    func1(phase, round_2, mbox_1);
-                    round_2 = 3;
+                    round = 2;
+                    func1(phase, round, mbox);
+                    round = 3;
                     continue;
                 }
 
-                if (round_1 == 2)
+                if (round == 2)
                 {
-                    round_2 = 4;
-                    func2(phase, round_2, mbox_1);
-                    round_2 = 5;
+                    round = 4;
+                    func2(phase, round, mbox);
+                    round = 5;
                     continue;
                 }
-
-                continue;
+                break;
             }
 
-            if (round_0 == 2)
+            if (round == 2)
             {
-                round_1 = 4;
-                func2(phase, round_1, mbox_0);
-                round_1 = 5;
-                mbox_1 = havoc(phase, round_1);
-                if (round_1 == 1)
+                round = 4;
+                func2(phase, round, mbox);
+                round = 5;
+                mbox = havoc(phase, round);
+                if (round == 1)
                 {
-                    round_2 = 2;
-                    func1(phase, round_2, mbox_1);
-                    round_2 = 3;
+                    round = 2;
+                    func1(phase, round, mbox);
+                    round = 3;
                     continue;
                 }
 
-                if (round_1 == 2)
+                if (round == 2)
                 {
-                    round_2 = 4;
-                    func2(phase, round_2, mbox_1);
-                    round_2 = 5;
+                    round = 4;
+                    func2(phase, round, mbox);
+                    round = 5;
                     continue;
                 }
-
-                continue;
+                break;
             }
-
-            continue;
+            break;
         }
     }
 }
@@ -270,9 +270,10 @@ int main()
     src_to_assert_ast = parser.parse(src_to_assert)
     src_to_test_ast = parser.parse(src_to_test)
 
-    unfold(src_to_test_ast, 2, {'round':'round', 'mbox':'mbox'})
+    unfold(src_to_test_ast, 2)
     
     assert_ast_equality(src_to_test_ast, src_to_assert_ast)
+
 
 print("test_rename_variables")
 test_rename_variables()
