@@ -27,7 +27,6 @@ int in();
 int max_timestamp(struct list *mbox);
 _Bool all_ack(struct list *mbox);
 _Bool send(struct msg *message, int pid);
-_Bool rbroadcast(struct msg *message, int pid);
 _Bool leader(int phase);
 int leaderid(int phase);
 int count_ack(struct list *mbox, int phase);
@@ -56,12 +55,12 @@ int main()
   round = FIRST_ROUND;
   estimate = in();
   timestamp = 0;
+  send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
   while (1)
   {
     mbox = havoc(phase, round);
-    if ((!value_decided) && (round == FIRST_ROUND))
+    if (((!value_decided) && (round == FIRST_ROUND)) && (!leader(phase)))
     {
-      send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
       round = SECOND_ROUND;
       mbox = havoc(phase, round);
       if ((((!value_decided) && (!leader(phase))) && (round == SECOND_ROUND)) && (count(mbox, phase, SECOND_ROUND) == 1))
@@ -88,6 +87,7 @@ int main()
         {
           phase++;
           round = FIRST_ROUND;
+          send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
           continue;
         }
 
@@ -115,6 +115,7 @@ int main()
         {
           phase++;
           round = FIRST_ROUND;
+          send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
           continue;
         }
 
@@ -162,6 +163,7 @@ int main()
         {
           phase++;
           round = FIRST_ROUND;
+          send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
           continue;
         }
 
@@ -172,12 +174,12 @@ int main()
       {
         round = FOURTH_ROUND;
         value_decided = true;
-        rbroadcast(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+        send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
         mbox = havoc(phase, round);
         if (leader(phase) && value_decided)
         {
           round = FOURTH_ROUND;
-          rbroadcast(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+          send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
           phase++;
           round = FOURTH_ROUND;
           continue;
@@ -206,6 +208,7 @@ int main()
         {
           phase++;
           round = FIRST_ROUND;
+          send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
           continue;
         }
 
@@ -246,6 +249,7 @@ int main()
       {
         phase++;
         round = FIRST_ROUND;
+        send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
         continue;
       }
 
@@ -266,7 +270,7 @@ int main()
     if (leader(phase) && value_decided)
     {
       round = FOURTH_ROUND;
-      rbroadcast(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+      send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
       phase++;
       round = FOURTH_ROUND;
       continue;

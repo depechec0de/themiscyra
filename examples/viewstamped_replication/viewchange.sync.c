@@ -1,101 +1,68 @@
 ################## STARTVIEWCHANGE ######################
-############ send ############
-int main()
+SEND: 
 {
   send(all, message(view, STARTVIEWCHANGE, p, null_log()));
 }
 
-
-############ update ############
-mbox = havoc(view, vround);
-int main()
+UPDATE: 
 {
   if (((vround == STARTVIEWCHANGE) && (p == primary(view, n))) && (mbox->size > f))
   {
-    vround_0 = DOVIEWCHANGE;
+    __pred_0 = ((vround == STARTVIEWCHANGE) && (p == primary(view, n))) && (mbox->size > f);
   }
 
   if (((vround == STARTVIEWCHANGE) && (p != primary(view, n))) && (mbox->size > f))
   {
-    vround_0 = DOVIEWCHANGE;
+    __pred_2 = ((vround == STARTVIEWCHANGE) && (p != primary(view, n))) && (mbox->size > f);
   }
 
 }
 
-
 ################## DOVIEWCHANGE ######################
-############ send ############
-int main()
+SEND: 
 {
-  if (((vround == STARTVIEWCHANGE) && (p != primary(view, n))) && (mbox->size > f))
+  if (__pred_2)
   {
     send(primary(view, n), message(view, DOVIEWCHANGE, p, local_log()));
   }
 
 }
 
-
-############ update ############
-mbox_0 = havoc(view, vround_0);
-int main()
+UPDATE: 
 {
-  if (((vround == STARTVIEWCHANGE) && (p == primary(view, n))) && (mbox->size > f))
+  if (__pred_0)
   {
-    if (((vround_0 == DOVIEWCHANGE) && (p == primary(view, n))) && (mbox_0->size > f))
+    if (((vround == DOVIEWCHANGE) && (p == primary(view, n))) && (mbox->size > f))
     {
+      __pred_1 = ((vround == DOVIEWCHANGE) && (p == primary(view, n))) && (mbox->size > f);
       computes_new_log();
-      vround_1 = STARTVIEW;
     }
 
   }
 
-  if (((vround == STARTVIEWCHANGE) && (p != primary(view, n))) && (mbox->size > f))
-  {
-    vround_0 = STARTVIEW;
-  }
-
 }
-
 
 ################## STARTVIEW ######################
-############ send ############
-int main()
+SEND: 
 {
-  if (((vround == STARTVIEWCHANGE) && (p == primary(view, n))) && (mbox->size > f))
+  if (__pred_0 && __pred_1)
   {
-    if (((vround_0 == DOVIEWCHANGE) && (p == primary(view, n))) && (mbox_0->size > f))
-    {
-      send(all, message(view, STARTVIEW, p, local_log()));
-    }
-
+    send(all, message(view, STARTVIEW, p, local_log()));
   }
 
 }
 
-
-############ update ############
-mbox_0 = havoc(view, vround_0);
-int main()
+UPDATE: 
 {
-  if (((vround == STARTVIEWCHANGE) && (p == primary(view, n))) && (mbox->size > f))
+  if (__pred_2)
   {
-    if (((vround_0 == DOVIEWCHANGE) && (p == primary(view, n))) && (mbox_0->size > f))
+    if (((vround == STARTVIEW) && (p != primary(view, n))) && (mbox->size == 1))
     {
-      view++;
-    }
-
-  }
-
-  if (((vround == STARTVIEWCHANGE) && (p != primary(view, n))) && (mbox->size > f))
-  {
-    if (((vround_0 == STARTVIEW) && (p != primary(view, n))) && (mbox_0->size == 1))
-    {
+      __pred_3 = ((vround == STARTVIEW) && (p != primary(view, n))) && (mbox->size == 1);
       computes_new_log();
-      view++;
     }
 
   }
 
 }
-
 

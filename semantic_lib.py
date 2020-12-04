@@ -199,7 +199,6 @@ class PhaseFormula():
                 predicate = theory.evaluate_ast(n.astnode)
                 predicates.append(predicate)
                 
-                
             elif type(n) == cfg.ControlFlowGraph.Node and type(n.astnode) in to_evaluate:
 
                 if type(n.astnode) == c_ast.Assignment: 
@@ -225,21 +224,20 @@ class PhaseFormula():
 
         raise SemanticError('other is not a PathFormula')
 
-def phase_paths(code_cfg : cfg.ControlFlowGraph):
+def phase_paths(code_cfg : cfg.ControlFlowGraph, init=None):
+
+    if init is None:
+        init = code_cfg.entry
+        
     continue_nodes = [n for n in code_cfg.nodes() if type(n.astnode) == c_ast.Continue]
-
     paths = []
-
+    
     for continue_node in continue_nodes:
-        paths_to_continue = nx.all_simple_paths(code_cfg, code_cfg.entry, continue_node)
+        paths_to_continue = nx.all_simple_paths(code_cfg, init, continue_node)
 
         for p in paths_to_continue:
-            count_continues = len([1 for n in p if type(n.astnode) == c_ast.Continue])
-            count_breaks = len([1 for n in p if type(n.astnode) == c_ast.Break])
-
-            if count_continues == 1 and count_breaks == 0:
-                paths.append(p)
-
+            paths.append(p)
+        
     return paths
 
 def prune_equivalent_paths(ast : c_ast.Node):
@@ -314,6 +312,3 @@ def prune_equivalent_paths(ast : c_ast.Node):
 
                 if unique:
                     final_paths.append(chunk)
-
-    
- 

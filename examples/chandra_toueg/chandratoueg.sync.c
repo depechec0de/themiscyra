@@ -1,223 +1,295 @@
 ################## FIRST_ROUND ######################
-############ send ############
-int main()
+SEND: 
 {
-  if (((!value_decided(p)) && (p != leader(phase, n))) && (round == FIRST_ROUND))
-  {
-    send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leader(phase, n));
-  }
-
+  send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
 }
 
-
-############ update ############
-mbox = havoc(phase, round);
-int main()
+UPDATE: 
 {
   estimate = in();
   timestamp = 0;
-  if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))
+  if (((!value_decided) && (round == FIRST_ROUND)) && (!leader(phase)))
   {
-    round_0 = SECOND_ROUND;
+    __pred_0 = ((!value_decided) && (round == FIRST_ROUND)) && (!leader(phase));
   }
 
-  if (((!value_decided(p)) && (p != leader(phase, n))) && (round == FIRST_ROUND))
+  if ((((!value_decided) && leader(phase)) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND) > (n / 2)))
   {
-    round_0 = SECOND_ROUND;
+    __pred_8 = (((!value_decided) && leader(phase)) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND) > (n / 2));
+    estimate = max_timestamp(mbox);
   }
 
-  if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox, null_int(), FOURTH_ROUND, leader(phase, n)) == 1)) && mbox->message->decided) && (mbox->message->phase > phase))
+  if ((((!value_decided) && leader(phase)) && (round == FIRST_ROUND)) && timeout(round))
   {
-    round_0 = FOURTH_ROUND;
+    __pred_18 = (((!value_decided) && leader(phase)) && (round == FIRST_ROUND)) && timeout(round);
   }
 
-  if ((!value_decided(p)) && timeout(round))
+  if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
   {
-    phase++;
+    __pred_21 = (!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1);
+    phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
   }
 
-  if (value_decided(p) && (p == leader(phase, n)))
+  if (leader(phase) && value_decided)
   {
-    round_0 = FOURTH_ROUND;
+    __pred_22 = leader(phase) && value_decided;
   }
 
 }
 
-
 ################## SECOND_ROUND ######################
-############ send ############
-int main()
+SEND: 
 {
-  if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))
+  if (__pred_8)
   {
     send(message(phase, SECOND_ROUND, estimate, p, null_int(), null_bool()), to_all);
   }
 
 }
 
-
-############ update ############
-mbox_0 = havoc(phase, round_0);
-int main()
+UPDATE: 
 {
-  if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))
+  if (__pred_0)
   {
-    m = max_timestamp(mbox);
-    estimate = m->estimate;
-    round_0 = THIRD_ROUND;
-  }
-
-  if (((!value_decided(p)) && (p != leader(phase, n))) && (round == FIRST_ROUND))
-  {
-    if (((((!value_decided(p)) && (p != leader(phase, n))) && (round_0 == SECOND_ROUND)) && (count(mbox_0, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0, null_int(), FOURTH_ROUND, null_int()) == 0))
+    if ((((!value_decided) && (!leader(phase))) && (round == SECOND_ROUND)) && (count(mbox, phase, SECOND_ROUND) == 1))
     {
-      round_1 = THIRD_ROUND;
-    }
-
-    if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox_0, null_int(), FOURTH_ROUND, leader(phase, n)) == 1)) && mbox_0->message->decided) && (mbox_0->message->phase > phase))
-    {
-      round_1 = FOURTH_ROUND;
-    }
-
-    if ((!value_decided(p)) && timeout(round_0))
-    {
-      phase++;
-    }
-
-  }
-
-}
-
-
-################## THIRD_ROUND ######################
-############ send ############
-int main()
-{
-  if (((!value_decided(p)) && (p != leader(phase, n))) && (round == FIRST_ROUND))
-  {
-    if (((((!value_decided(p)) && (p != leader(phase, n))) && (round_0 == SECOND_ROUND)) && (count(mbox_0, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0, null_int(), FOURTH_ROUND, null_int()) == 0))
-    {
-      send(message(phase, THIRD_ROUND, estimate, p, timestamp, true), leader(phase, n));
-    }
-
-  }
-
-}
-
-
-############ update ############
-mbox_0 = havoc(phase, round_0);
-int main()
-{
-  if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))
-  {
-    if ((((((!value_decided(p)) && (p == leader(phase, n))) && (round_0 == THIRD_ROUND)) && (count(mbox_0, phase, THIRD_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox_0, null_int(), FOURTH_ROUND, null_int()) == 0)) && all_ack(mbox_0))
-    {
-      round_1 = FOURTH_ROUND;
-    }
-
-    if ((((((!value_decided(p)) && (p == leader(phase, n))) && (round_0 == THIRD_ROUND)) && (count(mbox_0, phase, THIRD_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox_0, null_int(), FOURTH_ROUND, null_int()) == 0)) && (!all_ack(mbox_0)))
-    {
-      phase++;
-    }
-
-    if ((!value_decided(p)) && timeout(round_0))
-    {
-      phase++;
-    }
-
-  }
-
-  if (((!value_decided(p)) && (p != leader(phase, n))) && (round == FIRST_ROUND))
-  {
-    if (((((!value_decided(p)) && (p != leader(phase, n))) && (round_0 == SECOND_ROUND)) && (count(mbox_0, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0, null_int(), FOURTH_ROUND, null_int()) == 0))
-    {
-      m = mbox_0->message;
+      __pred_1 = (((!value_decided) && (!leader(phase))) && (round == SECOND_ROUND)) && (count(mbox, phase, SECOND_ROUND) == 1);
+      m = mbox->message;
       estimate = m->estimate;
       timestamp = phase;
-      round_1 = FOURTH_ROUND;
+    }
+
+    if ((((!value_decided) && (!leader(phase))) && (round == SECOND_ROUND)) && timeout(round))
+    {
+      __pred_4 = (((!value_decided) && (!leader(phase))) && (round == SECOND_ROUND)) && timeout(round);
+    }
+
+    if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
+    {
+      __pred_7 = (!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1);
+      phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
     }
 
   }
 
 }
 
+################## THIRD_ROUND ######################
+SEND: 
+{
+  if (__pred_0 && __pred_1)
+  {
+    send(message(phase, THIRD_ROUND, NULL, p, timestamp, true), leaderid(phase));
+  }
+
+  if (__pred_0 && __pred_4)
+  {
+    send(message(phase, THIRD_ROUND, NULL, p, timestamp, false), leaderid(phase));
+  }
+
+}
+
+UPDATE: 
+{
+  if (__pred_8)
+  {
+    if (((((!value_decided) && leader(phase)) && (round == THIRD_ROUND)) && (count(mbox, phase, THIRD_ROUND) > (n / 2))) && (count_ack(mbox, phase) <= (n / 2)))
+    {
+      __pred_9 = ((((!value_decided) && leader(phase)) && (round == THIRD_ROUND)) && (count(mbox, phase, THIRD_ROUND) > (n / 2))) && (count_ack(mbox, phase) <= (n / 2));
+    }
+
+    if (((((!value_decided) && leader(phase)) && (round == THIRD_ROUND)) && (count(mbox, phase, THIRD_ROUND) > (n / 2))) && (count_ack(mbox, phase) > (n / 2)))
+    {
+      __pred_12 = ((((!value_decided) && leader(phase)) && (round == THIRD_ROUND)) && (count(mbox, phase, THIRD_ROUND) > (n / 2))) && (count_ack(mbox, phase) > (n / 2));
+    }
+
+    if ((((!value_decided) && leader(phase)) && (round == THIRD_ROUND)) && timeout(round))
+    {
+      __pred_14 = (((!value_decided) && leader(phase)) && (round == THIRD_ROUND)) && timeout(round);
+    }
+
+    if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
+    {
+      __pred_17 = (!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1);
+      phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
+    }
+
+  }
+
+}
 
 ################## FOURTH_ROUND ######################
-############ send ############
-int main()
+SEND: 
 {
-  if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))
+  if (__pred_8 && __pred_12)
   {
-    if ((((((!value_decided(p)) && (p == leader(phase, n))) && (round_0 == THIRD_ROUND)) && (count(mbox_0, phase, THIRD_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox_0, null_int(), FOURTH_ROUND, null_int()) == 0)) && all_ack(mbox_0))
+    send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+    if (leader(phase) && value_decided)
     {
       send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
     }
 
   }
 
-  if (value_decided(p) && (p == leader(phase, n)))
+  if (__pred_8 && (__pred_12 && __pred_13))
+  {
+    send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+  }
+
+  if (__pred_22)
   {
     send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
   }
 
 }
 
-
-############ update ############
-mbox_1 = havoc(phase, round_1);
-int main()
+UPDATE: 
 {
-  if (((((!value_decided(p)) && (p == leader(phase, n))) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox, null_int(), FOURTH_ROUND, null_int()) == 0))
+  if (__pred_0 && __pred_1)
   {
-    if ((((((!value_decided(p)) && (p == leader(phase, n))) && (round_0 == THIRD_ROUND)) && (count(mbox_0, phase, THIRD_ROUND, null_int()) > ((n + 1) / 2))) && (count(mbox_0, null_int(), FOURTH_ROUND, null_int()) == 0)) && all_ack(mbox_0))
+    if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
     {
-      decide(estimate);
-      phase++;
+      __pred_2 = (!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1);
+      phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
+      estimate = m->estimate;
+      value_decided = true;
+    }
+
+    if (((!value_decided) && (round == FOURTH_ROUND)) && timeout(round))
+    {
+      __pred_3 = ((!value_decided) && (round == FOURTH_ROUND)) && timeout(round);
     }
 
   }
 
-  if (((!value_decided(p)) && (p != leader(phase, n))) && (round == FIRST_ROUND))
+  if (__pred_0 && (__pred_1 && __pred_2))
   {
-    if (((((!value_decided(p)) && (p != leader(phase, n))) && (round_0 == SECOND_ROUND)) && (count(mbox_0, phase, SECOND_ROUND, leader(phase, n)) > 0)) && (count(mbox_0, null_int(), FOURTH_ROUND, null_int()) == 0))
+    estimate = m->estimate;
+    value_decided = true;
+  }
+
+  if (__pred_0 && __pred_4)
+  {
+    if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
     {
-      if (((((!value_decided(p)) && (p != leader(phase, n))) && (round_1 == FOURTH_ROUND)) && (count(mbox_1, phase, FOURTH_ROUND, leader(phase, n)) == 1)) && mbox_1->message->decided)
-      {
-        estimate = m->estimate;
-        decide(estimate);
-        phase++;
-      }
-
-      if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox_1, null_int(), FOURTH_ROUND, leader(phase, n)) == 1)) && mbox_1->message->decided) && (mbox_1->message->phase > phase))
-      {
-        phase = mbox_1->message->phase;
-      }
-
-      if ((!value_decided(p)) && timeout(round_1))
-      {
-        phase++;
-      }
-
+      __pred_5 = (!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1);
+      phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
+      estimate = m->estimate;
+      value_decided = true;
     }
 
-    if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox_0, null_int(), FOURTH_ROUND, leader(phase, n)) == 1)) && mbox_0->message->decided) && (mbox_0->message->phase > phase))
+    if (((!value_decided) && (round == FOURTH_ROUND)) && timeout(round))
     {
-      phase = mbox_0->message->phase;
+      __pred_6 = ((!value_decided) && (round == FOURTH_ROUND)) && timeout(round);
     }
 
   }
 
-  if (((((!value_decided(p)) && (p != leader(phase, n))) && (count(mbox, null_int(), FOURTH_ROUND, leader(phase, n)) == 1)) && mbox->message->decided) && (mbox->message->phase > phase))
+  if (__pred_0 && (__pred_4 && __pred_5))
   {
-    phase = mbox->message->phase;
+    estimate = m->estimate;
+    value_decided = true;
   }
 
-  if (value_decided(p) && (p == leader(phase, n)))
+  if (__pred_0 && __pred_7)
   {
-    phase++;
+    estimate = m->estimate;
+    value_decided = true;
+  }
+
+  if (__pred_8 && __pred_9)
+  {
+    value_decided = false;
+    if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
+    {
+      __pred_10 = (!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1);
+      phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
+      estimate = m->estimate;
+      value_decided = true;
+    }
+
+    if (((!value_decided) && (round == FOURTH_ROUND)) && timeout(round))
+    {
+      __pred_11 = ((!value_decided) && (round == FOURTH_ROUND)) && timeout(round);
+    }
+
+  }
+
+  if (__pred_8 && (__pred_9 && __pred_10))
+  {
+    estimate = m->estimate;
+    value_decided = true;
+  }
+
+  if (__pred_8 && __pred_12)
+  {
+    value_decided = true;
+    if (leader(phase) && value_decided)
+    {
+      __pred_13 = leader(phase) && value_decided;
+    }
+
+  }
+
+  if (__pred_8 && __pred_14)
+  {
+    value_decided = false;
+    if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
+    {
+      __pred_15 = (!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1);
+      phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
+      estimate = m->estimate;
+      value_decided = true;
+    }
+
+    if (((!value_decided) && (round == FOURTH_ROUND)) && timeout(round))
+    {
+      __pred_16 = ((!value_decided) && (round == FOURTH_ROUND)) && timeout(round);
+    }
+
+  }
+
+  if (__pred_8 && (__pred_14 && __pred_15))
+  {
+    estimate = m->estimate;
+    value_decided = true;
+  }
+
+  if (__pred_8 && __pred_17)
+  {
+    estimate = m->estimate;
+    value_decided = true;
+  }
+
+  if (__pred_18)
+  {
+    value_decided = false;
+    if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
+    {
+      __pred_19 = (!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1);
+      phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
+      estimate = m->estimate;
+      value_decided = true;
+    }
+
+    if (((!value_decided) && (round == FOURTH_ROUND)) && timeout(round))
+    {
+      __pred_20 = ((!value_decided) && (round == FOURTH_ROUND)) && timeout(round);
+    }
+
+  }
+
+  if (__pred_18 && __pred_19)
+  {
+    estimate = m->estimate;
+    value_decided = true;
+  }
+
+  if (__pred_21)
+  {
+    estimate = m->estimate;
+    value_decided = true;
   }
 
 }
-
 

@@ -245,7 +245,7 @@ def variable_assigments_by_value(cfg : cfg.ControlFlowGraph, variable) -> Dict[s
     variable_assigments = [node for node in cfg if is_var_assignment(node.astnode, variable)]
 
     for n in variable_assigments:
-        value = get_assigment_value(n.astnode)
+        value = get_assig_val(n.astnode)
 
         if not value in map_rvalue_nodes:
             map_rvalue_nodes[value] = []
@@ -260,6 +260,12 @@ def variable_increments(cfg, variable):
 def is_var_assignment(n : c_ast.Node, varname):
     if type(n) == c_ast.Assignment:
         return  n.op == '=' and n.lvalue.name == varname
+    else:
+        return False
+
+def is_ghostvar_assignment(n : c_ast.Node):
+    if type(n) == c_ast.Assignment:
+        return  n.op == '=' and "__pred_" in n.lvalue.name
     else:
         return False
 
@@ -323,7 +329,7 @@ def is_var_increment(n : c_ast.Node, variable):
 def is_var_declaration(n : c_ast.Node):
     return  type(n) == c_ast.Decl
 
-def get_assigment_value(n : c_ast.Assignment):
+def get_assig_val(n : c_ast.Assignment):
     return str(n.rvalue.name)
 
 def count_continues(path : List[c_ast.Node]):
@@ -525,3 +531,83 @@ def ast_to_str(node : c_ast.Node):
     nodestr = generator.visit(node)
 
     return nodestr.replace('\n' , '').strip()
+
+def unify_if_predicates(predicates):
+
+    if len(predicates)==1:
+        return predicates[0]
+    else:
+        return c_ast.BinaryOp('&&', predicates[0], unify_if_predicates(predicates[1:]))
+
+def create_ghost_variables(ast : c_ast.Node) -> Dict[str, c_ast.ID]:
+
+    class IfsVisitor(c_ast.NodeVisitor):
+        def __init__(self):
+            self.ghost_variables = dict()
+            self.counter = 0
+
+        def visit_If(self, node):
+            self.ghost_variables[str(node.cond.coord)] = c_ast.ID("__pred_" + str(self.counter))
+            self.counter += 1
+
+            self.visit(node.iftrue)
+            if node.iffalse is not None:
+                self.visit(node.iffalse)
+ 
+    v = IfsVisitor()
+    v.visit(ast)
+
+    return v.ghost_variables
+
+def add_ghost_variables(codeast : c_ast.Node, ghost_variables):
+
+    if type(codeast) == c_ast.Compound:
+
+        items = codeast.block_items
+
+        for n in items:
+            if type(n) == c_ast.If:
+                ghost_idx = str(n.cond.coord)
+
+                var = ghost_variables[ghost_idx]
+                pred = copy.deepcopy(n.cond)
+  
+                ghost_declaration = c_ast.Assignment('=', var, pred)
+                n.iftrue.block_items.insert(0, ghost_declaration)
+
+def has_elements(node):
+
+    class CountVisitor(c_ast.NodeVisitor):
+        def __init__(self):
+            self.result = True
+
+        def visit_Compound(self, node):
+            for n in node.block_items:
+                if type(n) != c_ast.If:
+                    self.result = False
+                else:
+                    self.visit(n)
+
+    v = CountVisitor()
+    v.visit(node)
+
+    return v.result
+
+def remove_empty_ifs(node):
+
+    class IfsVisitor(c_ast.NodeVisitor):
+
+        def visit_Compound(self, node):
+            to_delete = []
+            for n in node.block_items:
+                if type(n) == c_ast.If:
+                    if has_elements(n.iftrue):
+                        to_delete.append(n)
+                    else:
+                        self.visit(n)
+
+            for n in to_delete:
+                node.block_items.remove(n)
+
+    v = IfsVisitor()
+    v.visit(node)

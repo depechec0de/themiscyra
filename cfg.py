@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import cast_lib
 from pycparser import c_parser, c_ast, parse_file, c_generator
 
-class ControlFlowGraph(nx.DiGraph):
+class FlowGraph(nx.DiGraph):
     """
     Placeholders AST nodes for delimitating the scope of c_ast.While and 
     c_ast.If in the CFG
@@ -53,106 +53,6 @@ class ControlFlowGraph(nx.DiGraph):
         
         def update_label(self):
             self.label = "entry"
-
-    class ExitNode(ArtificialNode):
-        def __init__(self):
-            astnode = c_ast.EmptyStatement()
-            super().__init__(astnode)
-
-        def update_label(self):
-            self.label = "exit"
-
-    def __init__(self, ast, loop=True, iffalse=True):
-        super().__init__()
-        # If loop is true, we create an edge back from the end of the whiles 
-        self.loop = loop
-        # If iffalse is true, we create a negated AssertNode for the else conditions
-        self.iffalse = iffalse
-        entrynode, exitnode = self.ast_to_cfg(ast)
-
-        self.entry = entrynode
-        self.exit = exitnode 
-
-    def get_subgraph_between_nodes(self, start, end):
-        """ Return the induced graph of the nodes in all paths from start to 
-        end.
-        """
-        nodes = set()
-        nodes.add(start)
-
-        to_visit = set()
-        to_visit.add(start)
-
-        while len(to_visit) > 0:
-            current_visit = copy.copy(to_visit)
-            for tv in current_visit:
-                to_visit.remove(tv)
-                if tv is not end:
-                    for s in self.successors(tv):
-                        to_visit.add(s)
-                        nodes.add(s)
-
-        nodes.add(end)
-
-        return self.subgraph(nodes) 
-    
-    def insert_graph(self, place, graph):
-        """
-        This method insert `graph` after `place`, connecting `place` to the 
-        first node of `graph`.
-
-        Parameters
-        ----------
-        graph : ControlFlowGraph()
-        place : pycparser.c_ast.Node
-        """
-        if len(graph)>0:
-            
-            # Create and insert the graph
-            graph_copy = copy.deepcopy(graph)
-            augmented_graph = nx.union(self, graph_copy)
-
-            self.update(augmented_graph.edges(), augmented_graph.nodes())
-
-            # Connect the new graph in place
-            graph_copy_nodes_ordered = list(nx.topological_sort(graph_copy))
-            first_node_graph = graph_copy_nodes_ordered[0]
-            last_node_graph = graph_copy_nodes_ordered[-1]
-
-            # Disconnect old predecessors to the insertion place
-            old_predecessors = copy.copy(self.predecessors(place))
-            old_successors = copy.copy(self.successors(place))
-
-            for s in old_successors:
-                self.remove_edge(place, s)
-
-            self.add_edge(place, first_node_graph)  
-
-    def draw(self):
-        labelsnodes = dict(self.nodes())
-        for k in labelsnodes.keys():
-            labelsnodes[k] = str(k)
-        
-        labelsedges = dict()
-        for k in self.edges().keys():
-            if "label" in self.edges[k]:
-                labelsedges[k] = self.edges[k]["label"]
-
-        #pos = nx.planar_layout(self)
-        #pos = nx.circular_layout(self)
-        pos = nx.spring_layout(self)
-
-        nx.draw_networkx(self, labels=labelsnodes, pos=pos)
-        nx.draw_networkx_edge_labels(self, edge_labels=labelsedges, pos=pos)
-
-        plt.axis('off')
-        plt.show()
-
-    def paths(self):
-        return nx.all_simple_paths(self, self.entry, self.exit)
-
-    def add_node(self, node):
-            super().add_node(node)
 
     def join_adjacents_and_merge(self, node, removed_node, **successor_data):
         """
@@ -211,6 +111,58 @@ class ControlFlowGraph(nx.DiGraph):
 
         self.remove_node(n1)   
         self.remove_node(n2)
+
+    def draw(self):
+        labelsnodes = dict(self.nodes())
+        for k in labelsnodes.keys():
+            labelsnodes[k] = str(k)
+        
+        labelsedges = dict()
+        for k in self.edges().keys():
+            if "label" in self.edges[k]:
+                labelsedges[k] = self.edges[k]["label"]
+
+        #pos = nx.planar_layout(self)
+        #pos = nx.circular_layout(self)
+        pos = nx.spring_layout(self)
+
+        nx.draw_networkx(self, labels=labelsnodes, pos=pos)
+        nx.draw_networkx_edge_labels(self, edge_labels=labelsedges, pos=pos)
+
+        plt.axis('off')
+        plt.show()
+
+class ControlFlowGraph(FlowGraph):
+
+    class ExitNode(FlowGraph.ArtificialNode):
+        def __init__(self):
+            astnode = c_ast.EmptyStatement()
+            super().__init__(astnode)
+
+        def update_label(self):
+            self.label = "exit"
+    
+    def __init__(self, ast=None, loop=True, iffalse=True):
+        super().__init__()
+        # If loop is true, we create an edge back from the end of the whiles 
+        self.loop = loop
+        # If iffalse is true, we create a negated AssertNode for the else conditions
+        self.iffalse = iffalse
+
+        if ast is not None:
+            self.from_ast(ast)
+
+    def from_ast(self, ast):
+        entrynode, exitnode = self.ast_to_cfg(ast)
+
+        self.entry = entrynode
+        self.exit = exitnode 
+
+    def paths(self):
+        return nx.all_simple_paths(self, self.entry, self.exit)
+
+    def add_node(self, node):
+            super().add_node(node)
 
     def ast_to_cfg(self, ast: c_ast.Node) -> (c_ast.Node, c_ast.Node):
         """Recursively compute the CFG from a AST. Given a AST node (can be any 
@@ -398,47 +350,113 @@ class ControlFlowGraph(nx.DiGraph):
 
         return entrynode, exitnode   
 
-def cfg_path_to_ast(cfg):
-    """Generates a AST from a CFG path (No FileAST support, it handles 
-    FuncDecl, If, While and no compound objects).
+class PhaseUnfoldGraph(FlowGraph):
 
-    Parameters
-    ----------
-    cfg : ControlFlowGraph
-    """
-    current_compound = c_ast.Compound([])
-    ast = current_compound
-    previous_compound = None
+    def __init__(self, ast=None):
+        super().__init__()
 
-    nodes = list(nx.topological_sort(cfg))
+        if ast is not None:
+            self.from_ast(ast)
 
-    for n in nodes:
+    def from_ast(self, ast):
+        entrynode = self.ast_to_pug(ast)
 
-        if type(n) in {c_ast.FuncDef, c_ast.While, c_ast.If}:
+        self.entry = entrynode
 
-            previous_compound = current_compound
-            current_compound = c_ast.Compound([])
+    def ast_to_pug(self, ast: c_ast.Node) -> c_ast.Node:
+        """Recursively compute the Phase Unfold Graph (PUG) from a AST. Contrary to a CFG, 
+        a PUG is a tree not a DAG, in a given block only one ifs is considered to be true 
+        and no else is assumed. `ast` is assumed to be the result from executing 
+        semantic_lib.phase_unfold where there is only one possible path to any continue statement.
 
-            if type(n) == c_ast.FuncDef:
-                inner_ast = c_ast.FuncDef(n.decl, n.param_decls, current_compound)
-            elif type(n) == c_ast.While:
-                inner_ast = c_ast.While(n.cond, current_compound)
-            elif type(n) == c_ast.If:
-                inner_ast = c_ast.If(n.cond, current_compound, None)  
+        Parameters
+        ----------
+        ast : pycparser.c_ast.Node to be translated into a PUG
+        
+        Returns
+        -------
+        The entry node of the graph
+        """
+        typ = type(ast)
 
-            previous_compound.block_items.append(inner_ast)
+        entrynode = ControlFlowGraph.EntryNode()
+        
+        self.add_node(entrynode)
 
-        elif type(n) != ControlFlowGraph.ExitNode:
+        if typ == c_ast.If:
             
-            current_compound.block_items.append(n)
+            true_branch_body_entry = self.ast_to_pug(ast.iftrue)
 
-    return ast 
+            astif = c_ast.If(ast.cond, None, None, coord=ast.coord)
+            ifnode = ControlFlowGraph.IfNode(astif)
+            self.add_node(ifnode)
+            self.add_edge(entrynode, ifnode)
+            self.add_edge(ifnode, true_branch_body_entry)
+            
+            self.join_adjacents_and_merge(ifnode, removed_node=true_branch_body_entry) 
 
-def get_if_path(path):
-    nodes = [node for node in list(nx.topological_sort(path)) 
-            if type(node)==c_ast.If]
+        elif typ == c_ast.Compound:
+
+            items = ast.block_items
+
+            prev = entrynode
+
+            if items is not None:
+
+                for n in items:
+                    if type(n) != c_ast.If:
+                        basicnode = ControlFlowGraph.Node(n)
+                        self.add_node(basicnode)
+                        self.add_edge(prev, basicnode)
+                        prev = basicnode
+
+                for n in items:
+                    if type(n) == c_ast.If:
+                        if_pug = self.ast_to_pug(n)
+                        self.join_adjacents_and_merge(prev, removed_node=if_pug) 
+ 
+              
+        elif typ == c_ast.FuncDef:
+
+            first_body = self.ast_to_pug(ast.body)
+
+            astfuncdef = c_ast.FuncDef(ast.decl, ast.param_decls, None, coord=ast.coord)
+            funcdefnode = ControlFlowGraph.Node(astfuncdef)
+
+            self.add_node(funcdefnode)
+
+            self.add_edge(entrynode, funcdefnode)
+
+            # we insert the FuncDef body CFG discarding its entry and exit nodes
+            self.join_adjacents_and_merge(funcdefnode, removed_node=first_body)
+
+        else:
+            basicnode = ControlFlowGraph.Node(ast)
+            self.add_node(basicnode)
+            self.add_edge(entrynode, basicnode)
+
+        return entrynode  
+
+def digraph_to_ast(g : nx.DiGraph, init : ControlFlowGraph.Node, block_items) -> c_ast.Node:
     
-    new_path = ControlFlowGraph()
-    nx.add_path(new_path, nodes)
+    node = init
+    succesors = list(g.successors(node))
 
-    return new_path
+    while len(succesors) == 1: 
+        
+        if type(node) == ControlFlowGraph.IfNode:
+            new_block_items = []
+            new_compound = c_ast.Compound(new_block_items)
+            block_items.append(c_ast.If(node.astnode.cond, new_compound, iffalse=None))
+            block_items = new_block_items           
+        else:
+            block_items.append(node.astnode)
+    
+        node = succesors[0]
+        succesors = list(g.successors(node))
+
+    block_items.append(node.astnode)
+
+    if len(succesors) > 1:
+        for succ in succesors:
+            digraph_to_ast(g, succ, block_items)

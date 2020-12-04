@@ -10,60 +10,14 @@ from typing import List, Set, Dict, Tuple, Optional
 
 import cast_lib
 import athos
-import c99theory
-
-def remove_c99_comments(text):
-    """remove c-style comments"""
-
-    pattern = r"""
-                            ##  --------- COMMENT ---------
-           //.*?$           ##  Start of // .... comment
-         |                  ##
-           /\*              ##  Start of /* ... */ comment
-           [^*]*\*+         ##  Non-* followed by 1-or-more *'s
-           (                ##
-             [^/*][^*]*\*+  ##
-           )*               ##  0-or-more things which don't start with /
-                            ##    but do end with '*'
-           /                ##  End of /* ... */ comment
-         |                  ##  -OR-  various things which aren't comments:
-           (                ##
-                            ##  ------ " ... " STRING ------
-             "              ##  Start of " ... " string
-             (              ##
-               \\.          ##  Escaped char
-             |              ##  -OR-
-               [^"\\]       ##  Non "\ characters
-             )*             ##
-             "              ##  End of " ... " string
-           |                ##  -OR-
-                            ##
-                            ##  ------ ' ... ' STRING ------
-             '              ##  Start of ' ... ' string
-             (              ##
-               \\.          ##  Escaped char
-             |              ##  -OR-
-               [^'\\]       ##  Non '\ characters
-             )*             ##
-             '              ##  End of ' ... ' string
-           |                ##  -OR-
-                            ##
-                            ##  ------ ANYTHING ELSE -------
-             .              ##  Anything other char
-             [^/"'\\]*      ##  Chars which doesn't start a comment, string
-           )                ##    or escape
-    """
-    regex = re.compile(pattern, re.VERBOSE|re.MULTILINE|re.DOTALL)
-    noncomments = [m.group(2) for m in regex.finditer(text) if m.group(2)]
-
-    return "".join(noncomments)
+import semantic_lib
 
 def prepare_for_pycparser(filename):
 
     with open(filename) as f:
         original_file_str = f.read()
 
-    result_str = remove_c99_comments(original_file_str)
+    result_str = cast_lib.remove_c99_comments(original_file_str)
     
     return result_str
 
@@ -81,6 +35,7 @@ if __name__ == "__main__":
     argparser.add_argument('--unfold', help='number of unfolds to perform', type=check_positive)
     argparser.add_argument('--athos', help='perform async to sync translation', action='store_true')
     argparser.add_argument('--deadcode', help='perform a deadcode elimination', action='store_true')
+    argparser.add_argument('--phaseunfold', help='execute the phaseunfold algorithm', action='store_true')
     args = argparser.parse_args()
 
     # Pycparser doesn't support directives, we replace them for its content
@@ -96,7 +51,7 @@ if __name__ == "__main__":
 
     if args.unfold:
         
-        cast_lib.unfold(codeast, args.unfold, config)
+        cast_lib.unfold(codeast, args.unfold)
 
         code = generator.visit(codeast)
         print(code)
@@ -105,17 +60,23 @@ if __name__ == "__main__":
         
         compho = athos.async_to_sync(codeast, config)      
         
-        for label, compho in compho.items():
+        for label, syncround in compho.items():
             print("################## "+label+" ######################")
-            for step, step_code_ast in compho.items():
-                print("############ "+step+" ############") 
-                code = generator.visit(step_code_ast)
-                print(code)
+            print(syncround)
 
     elif args.deadcode:
 
-        c99theory.dead_code_elimination(codeast, config['phase'])
+        semantic_lib.dead_code_elimination(codeast, config)
 
         code = generator.visit(codeast)
         print(code)
+
+    elif args.phaseunfold:
+
+        codeast_unfolded = semantic_lib.phase_unfold(codeast, config)
+
+        code = generator.visit(codeast_unfolded)
+        print(code)
+
+
     
