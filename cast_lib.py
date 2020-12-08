@@ -572,7 +572,8 @@ def add_ghost_variables(codeast : c_ast.Node, ghost_variables):
                 var = ghost_variables[ghost_idx]
                 pred = copy.deepcopy(n.cond)
   
-                ghost_declaration = c_ast.Assignment('=', var, pred)
+                #ghost_declaration = c_ast.Assignment('=', var, pred)
+                ghost_declaration = c_ast.Assignment('=', var, c_ast.ID('true'))
                 n.iftrue.block_items.insert(0, ghost_declaration)
 
 def has_elements(node):
@@ -595,7 +596,7 @@ def has_elements(node):
 
 def remove_empty_ifs(node):
 
-    class IfsVisitor(c_ast.NodeVisitor):
+    class CompoundVisitor(c_ast.NodeVisitor):
 
         def visit_Compound(self, node):
             to_delete = []
@@ -609,5 +610,39 @@ def remove_empty_ifs(node):
             for n in to_delete:
                 node.block_items.remove(n)
 
-    v = IfsVisitor()
+    v = CompoundVisitor()
+    v.visit(node)
+
+def chain_ifs(node):
+    class CompoundVisitor(c_ast.NodeVisitor):
+
+        def visit_Compound(self, node):
+            to_chain = []
+            
+            for n in node.block_items:
+                if type(n) == c_ast.If:
+                    to_chain.append(n)
+                    #print(n)
+
+                    self.visit(n)
+
+            if len(to_chain)>1:
+                for n in to_chain:
+                    node.block_items.remove(n)
+
+                first_if = to_chain[0]
+                chained_if = c_ast.If(first_if.cond, iftrue=first_if.iftrue, iffalse=None)
+                prev_if = chained_if
+                node.block_items.append(chained_if)
+
+                for n in to_chain[1:-1]:
+                    new_if = c_ast.If(n.cond, iftrue=n.iftrue, iffalse=None)
+                    prev_if.iffalse = new_if
+                    prev_if = new_if
+                    
+                last_if = to_chain[-1]
+                prev_if.iffalse = c_ast.If(last_if.cond, iftrue=last_if.iftrue, iffalse=None)
+                
+
+    v = CompoundVisitor()
     v.visit(node)
