@@ -17,4 +17,4 @@ labels :
 # python3 main.py examples/chandra_toueg/chandratoueg.c examples/chandra_toueg/chandratoueg.yaml --phaseunfold > examples/chandra_toueg/chandratoueg.phaseunfold.c
 
 # Sync code script
-# python3 main.py examples/chandra_toueg/chandratoueg.phaseunfold.c examples/chandra_toueg/chandratoueg.yaml --athos > examples/chandra_toueg/chandratoueg.sync.c
+# python3 main.py examples/chandra_toueg/chandratoueg.phaseunfold.c examples/chandra_toueg/chandratoueg.yaml --athos > examples/chandra_toueg/chandratoueg.sync

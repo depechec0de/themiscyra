@@ -59,10 +59,7 @@ if __name__ == "__main__":
     elif args.athos:
         
         compho = athos.async_to_sync(codeast, config)      
-        
-        for label, syncround in compho.items():
-            print("################## "+label+" ######################")
-            print(syncround)
+        print(compho)
 
     elif args.deadcode:
 

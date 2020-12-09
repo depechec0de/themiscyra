@@ -1,0 +1,529 @@
+INIT()
+{
+  value_decided = false;
+  estimate = in();
+  timestamp = 0;
+  phase = 1;
+}
+
+FIRST_ROUND{
+
+	SEND(PHASE, ROUND)
+	{
+	  if ((phase == PHASE) && (round == ROUND))
+	  {
+	    send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
+	  }
+	
+	}
+	
+	UPDATE(MBOX, PHASE, ROUND)
+	{
+	  if ((phase == PHASE) && (round == ROUND))
+	  {
+	    round = FIRST_ROUND;
+	    if (((!value_decided) && (round == FIRST_ROUND)) && (!leader(phase)))
+	    {
+	      __pred_0 = true;
+	      round = SECOND_ROUND;
+	    }
+	    else
+	      if ((((!value_decided) && leader(phase)) && (round == FIRST_ROUND)) && (count(mbox, phase, FIRST_ROUND) > (n / 2)))
+	    {
+	      __pred_11 = true;
+	      estimate = max_timestamp(mbox);
+	      round = SECOND_ROUND;
+	    }
+	    else
+	      if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
+	    {
+	      __pred_18 = true;
+	      round = FOURTH_ROUND;
+	    }
+	    else
+	      if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
+	    {
+	      __pred_19 = true;
+	      estimate = m->estimate;
+	      value_decided = true;
+	      phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
+	      round = FOURTH_ROUND;
+	    }
+	    else
+	      if ((((!value_decided) && leader(phase)) && (round == FIRST_ROUND)) && timeout(round))
+	    {
+	      __pred_21 = true;
+	      value_decided = false;
+	    }
+	
+	
+	
+	
+	
+	  }
+	
+	}
+	
+}
+
+SECOND_ROUND{
+
+	SEND(PHASE, ROUND)
+	{
+	  if ((phase == PHASE) && (round == ROUND))
+	  {
+	    if (__pred_11)
+	    {
+	      send(message(phase, SECOND_ROUND, estimate, p, null_int(), null_bool()), to_all);
+	    }
+	
+	  }
+	
+	}
+	
+	UPDATE(MBOX, PHASE, ROUND)
+	{
+	  if ((phase == PHASE) && (round == ROUND))
+	  {
+	    if (__pred_0)
+	    {
+	      round = SECOND_ROUND;
+	      if ((((!value_decided) && (!leader(phase))) && (round == SECOND_ROUND)) && (count(mbox, phase, SECOND_ROUND) == 1))
+	      {
+	        __pred_1 = true;
+	        round = THIRD_ROUND;
+	      }
+	      else
+	        if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
+	      {
+	        __pred_5 = true;
+	        estimate = m->estimate;
+	        value_decided = true;
+	        phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
+	        round = FOURTH_ROUND;
+	      }
+	      else
+	        if ((((!value_decided) && (!leader(phase))) && (round == SECOND_ROUND)) && timeout(round))
+	      {
+	        __pred_7 = true;
+	        round = THIRD_ROUND;
+	      }
+	
+	
+	
+	    }
+	    else
+	      if (__pred_11)
+	    {
+	      round = SECOND_ROUND;
+	      round = THIRD_ROUND;
+	    }
+	
+	
+	  }
+	
+	}
+	
+}
+
+THIRD_ROUND{
+
+	SEND(PHASE, ROUND)
+	{
+	  if ((phase == PHASE) && (round == ROUND))
+	  {
+	    if (__pred_0 && __pred_1)
+	    {
+	      send(message(phase, THIRD_ROUND, NULL, p, timestamp, true), leaderid(phase));
+	    }
+	    else
+	      if (__pred_0 && __pred_7)
+	    {
+	      send(message(phase, THIRD_ROUND, NULL, p, timestamp, false), leaderid(phase));
+	    }
+	
+	
+	  }
+	
+	}
+	
+	UPDATE(MBOX, PHASE, ROUND)
+	{
+	  if ((phase == PHASE) && (round == ROUND))
+	  {
+	    if (__pred_0 && __pred_1)
+	    {
+	      round = THIRD_ROUND;
+	      m = mbox->message;
+	      estimate = m->estimate;
+	      timestamp = phase;
+	      round = FOURTH_ROUND;
+	    }
+	    else
+	      if (__pred_0 && __pred_7)
+	    {
+	      round = THIRD_ROUND;
+	      round = FOURTH_ROUND;
+	    }
+	    else
+	      if (__pred_11)
+	    {
+	      round = THIRD_ROUND;
+	      if (((((!value_decided) && leader(phase)) && (round == THIRD_ROUND)) && (count(mbox, phase, THIRD_ROUND) > (n / 2))) && (count_ack(mbox, phase) <= (n / 2)))
+	      {
+	        __pred_12 = true;
+	        value_decided = false;
+	      }
+	      else
+	        if (((((!value_decided) && leader(phase)) && (round == THIRD_ROUND)) && (count(mbox, phase, THIRD_ROUND) > (n / 2))) && (count_ack(mbox, phase) > (n / 2)))
+	      {
+	        __pred_13 = true;
+	        value_decided = true;
+	        round = FOURTH_ROUND;
+	      }
+	      else
+	        if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
+	      {
+	        __pred_15 = true;
+	        estimate = m->estimate;
+	        value_decided = true;
+	        phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
+	        round = FOURTH_ROUND;
+	      }
+	      else
+	        if ((((!value_decided) && leader(phase)) && (round == THIRD_ROUND)) && timeout(round))
+	      {
+	        __pred_17 = true;
+	        value_decided = false;
+	      }
+	
+	
+	
+	
+	    }
+	
+	
+	
+	  }
+	
+	}
+	
+}
+
+FOURTH_ROUND{
+
+	SEND(PHASE, ROUND)
+	{
+	  if ((phase == PHASE) && (round == ROUND))
+	  {
+	    if (__pred_0 && __pred_1)
+	    {
+	      if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
+	      {
+	        if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
+	        {
+	          send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+	        }
+	
+	      }
+	
+	    }
+	    else
+	      if (__pred_0 && (__pred_1 && __pred_2))
+	    {
+	      if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
+	      {
+	        send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+	      }
+	
+	    }
+	    else
+	      if (__pred_0 && (__pred_1 && (__pred_2 && __pred_3)))
+	    {
+	      send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+	    }
+	    else
+	      if (__pred_0 && __pred_5)
+	    {
+	      if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
+	      {
+	        send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+	      }
+	
+	    }
+	    else
+	      if (__pred_0 && (__pred_5 && __pred_6))
+	    {
+	      send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+	    }
+	    else
+	      if (__pred_0 && __pred_7)
+	    {
+	      if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
+	      {
+	        if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
+	        {
+	          send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+	        }
+	
+	      }
+	
+	    }
+	    else
+	      if (__pred_0 && (__pred_7 && __pred_8))
+	    {
+	      if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
+	      {
+	        send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+	      }
+	
+	    }
+	    else
+	      if (__pred_0 && (__pred_7 && (__pred_8 && __pred_9)))
+	    {
+	      send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+	    }
+	    else
+	      if (__pred_11 && __pred_13)
+	    {
+	      if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
+	      {
+	        send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+	      }
+	
+	    }
+	    else
+	      if (__pred_11 && (__pred_13 && __pred_14))
+	    {
+	      send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+	    }
+	    else
+	      if (__pred_11 && __pred_15)
+	    {
+	      if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
+	      {
+	        send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+	      }
+	
+	    }
+	    else
+	      if (__pred_11 && (__pred_15 && __pred_16))
+	    {
+	      send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+	    }
+	    else
+	      if (__pred_18)
+	    {
+	      send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+	    }
+	    else
+	      if (__pred_19)
+	    {
+	      if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
+	      {
+	        send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+	      }
+	
+	    }
+	    else
+	      if (__pred_19 && __pred_20)
+	    {
+	      send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+	    }
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	  }
+	
+	}
+	
+	UPDATE(MBOX, PHASE, ROUND)
+	{
+	  if ((phase == PHASE) && (round == ROUND))
+	  {
+	    if (__pred_0 && __pred_1)
+	    {
+	      round = FOURTH_ROUND;
+	      if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
+	      {
+	        __pred_2 = true;
+	        estimate = m->estimate;
+	        value_decided = true;
+	        phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
+	        round = FOURTH_ROUND;
+	        if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
+	        {
+	          __pred_3 = true;
+	          round = FOURTH_ROUND;
+	        }
+	
+	      }
+	      else
+	        if (((!value_decided) && (round == FOURTH_ROUND)) && timeout(round))
+	      {
+	        __pred_4 = true;
+	      }
+	
+	
+	    }
+	    else
+	      if (__pred_0 && (__pred_1 && __pred_2))
+	    {
+	      round = FOURTH_ROUND;
+	      if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
+	      {
+	        __pred_3 = true;
+	        round = FOURTH_ROUND;
+	      }
+	
+	    }
+	    else
+	      if (__pred_0 && (__pred_1 && (__pred_2 && __pred_3)))
+	    {
+	      round = FOURTH_ROUND;
+	    }
+	    else
+	      if (__pred_0 && __pred_5)
+	    {
+	      round = FOURTH_ROUND;
+	      if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
+	      {
+	        __pred_6 = true;
+	        round = FOURTH_ROUND;
+	      }
+	
+	    }
+	    else
+	      if (__pred_0 && (__pred_5 && __pred_6))
+	    {
+	      round = FOURTH_ROUND;
+	    }
+	    else
+	      if (__pred_0 && __pred_7)
+	    {
+	      round = FOURTH_ROUND;
+	      if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
+	      {
+	        __pred_8 = true;
+	        estimate = m->estimate;
+	        value_decided = true;
+	        phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
+	        round = FOURTH_ROUND;
+	        if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
+	        {
+	          __pred_9 = true;
+	          round = FOURTH_ROUND;
+	        }
+	
+	      }
+	      else
+	        if (((!value_decided) && (round == FOURTH_ROUND)) && timeout(round))
+	      {
+	        __pred_10 = true;
+	      }
+	
+	
+	    }
+	    else
+	      if (__pred_0 && (__pred_7 && __pred_8))
+	    {
+	      round = FOURTH_ROUND;
+	      if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
+	      {
+	        __pred_9 = true;
+	        round = FOURTH_ROUND;
+	      }
+	
+	    }
+	    else
+	      if (__pred_0 && (__pred_7 && (__pred_8 && __pred_9)))
+	    {
+	      round = FOURTH_ROUND;
+	    }
+	    else
+	      if (__pred_11 && __pred_13)
+	    {
+	      round = FOURTH_ROUND;
+	      if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
+	      {
+	        __pred_14 = true;
+	        round = FOURTH_ROUND;
+	      }
+	
+	    }
+	    else
+	      if (__pred_11 && (__pred_13 && __pred_14))
+	    {
+	      round = FOURTH_ROUND;
+	    }
+	    else
+	      if (__pred_11 && __pred_15)
+	    {
+	      round = FOURTH_ROUND;
+	      if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
+	      {
+	        __pred_16 = true;
+	        round = FOURTH_ROUND;
+	      }
+	
+	    }
+	    else
+	      if (__pred_11 && (__pred_15 && __pred_16))
+	    {
+	      round = FOURTH_ROUND;
+	    }
+	    else
+	      if (__pred_18)
+	    {
+	      round = FOURTH_ROUND;
+	    }
+	    else
+	      if (__pred_19)
+	    {
+	      round = FOURTH_ROUND;
+	      if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
+	      {
+	        __pred_20 = true;
+	        round = FOURTH_ROUND;
+	      }
+	
+	    }
+	    else
+	      if (__pred_19 && __pred_20)
+	    {
+	      round = FOURTH_ROUND;
+	    }
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	  }
+	
+	}
+	
+}
+
+

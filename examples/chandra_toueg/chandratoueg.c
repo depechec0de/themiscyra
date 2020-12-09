@@ -57,10 +57,11 @@ int main()
     _Bool value_decided;
 
     value_decided = false;
-    phase = 1;
-    round = FIRST_ROUND;
     estimate = in();
     timestamp = 0;
+
+    phase = 1;
+    round = FIRST_ROUND;
     
     send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
     
@@ -84,17 +85,7 @@ int main()
 
             continue;
         }
-
-        // timeout waiting for n/2 first round messages
-        if  (!value_decided && leader(phase) && round == FIRST_ROUND && timeout(round))
-        {
-            value_decided = false;
-            phase++;
-            round = FIRST_ROUND;
-            send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
-            continue;
-        }
-
+       
         // follower receives an estimate, it sends an ack
         if  (!value_decided && !leader(phase) && round == SECOND_ROUND && count(mbox, phase, SECOND_ROUND) == 1)
         {
@@ -108,15 +99,6 @@ int main()
             
             continue;
         }  
-
-        // follower suspect that leader crashed, it sends a nack to the leader
-        if  (!value_decided && !leader(phase) && round == SECOND_ROUND && timeout(round))
-        {
-            round = THIRD_ROUND;
-            send(message(phase, THIRD_ROUND, NULL, p, timestamp, false), leaderid(phase)); 
-            round = FOURTH_ROUND;
-            continue;
-        }
 
         if  (!value_decided && leader(phase) && round == THIRD_ROUND && count(mbox, phase, THIRD_ROUND) > n/2 && count_ack(mbox, phase) <= n/2)
         {     
@@ -135,15 +117,17 @@ int main()
             continue;
         }
 
-        if  (!value_decided && leader(phase) && round == THIRD_ROUND && timeout(round))
+        // the estimate is locked, is my turn to broadcast it
+        if(leader(phase) && value_decided && round == FOURTH_ROUND)
         {
-            value_decided = false;
+            round = FOURTH_ROUND;
+            send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
             phase++;
-            round = FIRST_ROUND;
-            send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
+            round = FOURTH_ROUND;
+
             continue;
         }
-
+        
         if  (!value_decided && count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1)
         {
             
@@ -153,8 +137,35 @@ int main()
             phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
             round = FOURTH_ROUND;
 
+            continue;
+        }
+        
+        if  (!value_decided && leader(phase) && round == THIRD_ROUND && timeout(round))
+        {
+            value_decided = false;
             phase++;
+            round = FIRST_ROUND;
+            send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
+            continue;
+        }
+
+
+        // follower suspect that leader crashed, it sends a nack to the leader
+        if  (!value_decided && !leader(phase) && round == SECOND_ROUND && timeout(round))
+        {
+            round = THIRD_ROUND;
+            send(message(phase, THIRD_ROUND, NULL, p, timestamp, false), leaderid(phase)); 
             round = FOURTH_ROUND;
+            continue;
+        }
+
+         // timeout waiting for n/2 first round messages
+        if  (!value_decided && leader(phase) && round == FIRST_ROUND && timeout(round))
+        {
+            value_decided = false;
+            phase++;
+            round = FIRST_ROUND;
+            send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
             continue;
         }
 
@@ -167,17 +178,7 @@ int main()
             continue;
         } 
 
-        // the estimate is locked, is my turn to broadcast it
-        if(leader(phase) && value_decided)
-        {
-            round = FOURTH_ROUND;
-            send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
-            phase++;
-            round = FOURTH_ROUND;
-
-            continue;
-        }
-
+        
     }
 
 }

@@ -106,7 +106,7 @@ def _phase_unfold(compound : c_ast.Compound, while_body, initial_states, phase_v
     to_delete = []
 
     upons = [n for n in compound if type(n) == c_ast.If]
-    generator = c_generator.CGenerator()
+
     for upon in upons:
 
         sat_init_state = None

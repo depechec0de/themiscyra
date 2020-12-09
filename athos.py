@@ -7,9 +7,29 @@ import semantic_lib
 from cast_lib import *
 import cfg
 
+class CompHO():
+    def __init__(self, init_ast, rounds):
+        self.init_ast = init_ast
+        self.rounds = rounds
+
+    def __repr__(self):
+        result = "INIT()\n"
+
+        generator = c_generator.CGenerator()
+        code = generator.visit(self.init_ast)
+        result += code + "\n"
+
+        for syncround in self.rounds:
+            result += str(syncround)
+            result += "\n"
+
+        return result
+
 class SyncRound():
 
     def __init__(self, label, pug : cfg.PhaseUnfoldGraph, ghost_variables, config):
+
+        self.label = label
 
         phase_var = config['phase']
         round_var = config['round']
@@ -39,7 +59,7 @@ class SyncRound():
         result_compound = c_ast.Compound(block_items)
 
         # cleaning
-        filter_nodes(result_compound, lambda n, rv=round_var : is_var_assignment(n, rv))
+        #filter_nodes(result_compound, lambda n, rv=round_var : is_var_assignment(n, rv))
         filter_nodes(result_compound, lambda n, mb=mbox_var : is_var_assignment(n, mb))
         filter_nodes(result_compound, lambda n, pv=phase_var : is_var_increment(n, pv))
         filter_nodes(result_compound, lambda n : type(n) == c_ast.Continue)
@@ -49,12 +69,14 @@ class SyncRound():
         remove_empty_ifs(self.send_ast)
         # unify ifs to conserve upon's mutual exclusion
         chain_ifs(self.send_ast)
-
+        self.send_ast = add_jump_guard(self.send_ast, phase_var, round_var)
+        
         self.update_ast = copy.deepcopy(result_compound)
         filter_nodes(self.update_ast, lambda n : is_funccall_with_name(n, 'send'))
         remove_empty_ifs(self.update_ast)
         # unify ifs to conserve upon's mutual exclusion
         chain_ifs(self.update_ast)
+        self.update_ast = add_jump_guard(self.update_ast, phase_var, round_var)
     
     def add_ast_context(self, astnode, codecfg, round_init, ghost_variables):
 
@@ -71,8 +93,15 @@ class SyncRound():
     def __repr__(self):
         generator = c_generator.CGenerator()
 
-        return  "SEND(PHASE, ROUND): " + "\n" + generator.visit(self.send_ast) + "\n" + \
-                "UPDATE(MBOX, PHASE, ROUND): " + "\n" + generator.visit(self.update_ast)
+        send_code = generator.visit(self.send_ast)
+        send_code = send_code.replace('\n', '\n\t')
+        send_code = "\tSEND(PHASE, ROUND)\n\t" + send_code
+
+        update_code = generator.visit(self.update_ast)
+        update_code = update_code.replace('\n', '\n\t')
+        update_code = "\tUPDATE(MBOX, PHASE, ROUND)\n\t" + update_code
+        
+        return  self.label+"{\n\n" + send_code + "\n" + update_code + "\n" + "}\n"
 
 
 def async_to_sync(async_ast: c_ast.Node, config):
@@ -91,17 +120,16 @@ def async_to_sync(async_ast: c_ast.Node, config):
     map_dfs(main_ast, prune_after_phase_increment, [phase_var])
     filter_nodes(main_ast, lambda n : type(n) == c_ast.Break)
 
-    #generator = c_generator.CGenerator()
-    # code = generator.visit(main_ast)
-    # print(code)
-
     codecfg = cfg.PhaseUnfoldGraph(main_ast)
 
-    compho = {}
+    init_ast = get_init_code(copy.deepcopy(main_ast), config)
 
+    rounds = []
     for label in labels:
         sr = SyncRound(label, codecfg, ghost_variables, config)
-        compho[label] = sr
+        rounds.append(sr)
+
+    compho = CompHO(init_ast, rounds)
 
     return compho
 
@@ -133,10 +161,9 @@ def compute_round_forest(pug : cfg.PhaseUnfoldGraph, label, round_var):
 
         for p in round_paths:
             for n in p:
+                round_nodes.append(n)
                 if is_var_assignment(n.astnode, round_var) and get_assig_val(n.astnode) != label:
                     break
-
-                round_nodes.append(n)
         
         subcfg = pug.subgraph(round_nodes)
         sg = nx.DiGraph(subcfg.edges())
@@ -144,3 +171,20 @@ def compute_round_forest(pug : cfg.PhaseUnfoldGraph, label, round_var):
         round_graphs.append(sg)
 
     return round_graphs
+
+def get_init_code(node : c_ast.FuncDef, config):
+    result = node.body
+    filter_nodes(result, lambda n : type(n) != c_ast.Assignment)
+    filter_nodes(result, lambda n, mb=config['mbox'] : is_var_assignment(n, mb))
+    filter_nodes(result, lambda n, rv=config['round'] : is_var_assignment(n, rv))
+
+    return result
+
+def add_jump_guard(ast_to_guard, phase_var, round_var):
+
+    guarded_ast = c_ast.If( c_ast.BinaryOp('&&',
+                        c_ast.BinaryOp('==',c_ast.ID(phase_var), c_ast.ID('PHASE')),
+                        c_ast.BinaryOp('==',c_ast.ID(round_var), c_ast.ID('ROUND'))), 
+                    ast_to_guard, None)
+
+    return c_ast.Compound([guarded_ast])

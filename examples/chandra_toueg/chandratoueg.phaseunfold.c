@@ -51,10 +51,10 @@ int main()
   struct msg *m;
   _Bool value_decided;
   value_decided = false;
-  phase = 1;
-  round = FIRST_ROUND;
   estimate = in();
   timestamp = 0;
+  phase = 1;
+  round = FIRST_ROUND;
   send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
   while (1)
   {
@@ -78,37 +78,17 @@ int main()
           value_decided = true;
           phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
           round = FOURTH_ROUND;
-          phase++;
-          round = FOURTH_ROUND;
-          continue;
-        }
+          mbox = havoc(phase, round);
+          if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
+          {
+            round = FOURTH_ROUND;
+            send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+            phase++;
+            round = FOURTH_ROUND;
+            continue;
+          }
 
-        if (((!value_decided) && (round == FOURTH_ROUND)) && timeout(round))
-        {
-          phase++;
-          round = FIRST_ROUND;
-          send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
-          continue;
-        }
-
-        break;
-      }
-
-      if ((((!value_decided) && (!leader(phase))) && (round == SECOND_ROUND)) && timeout(round))
-      {
-        round = THIRD_ROUND;
-        send(message(phase, THIRD_ROUND, NULL, p, timestamp, false), leaderid(phase));
-        round = FOURTH_ROUND;
-        mbox = havoc(phase, round);
-        if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
-        {
-          estimate = m->estimate;
-          value_decided = true;
-          phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
-          round = FOURTH_ROUND;
-          phase++;
-          round = FOURTH_ROUND;
-          continue;
+          break;
         }
 
         if (((!value_decided) && (round == FOURTH_ROUND)) && timeout(round))
@@ -128,9 +108,53 @@ int main()
         value_decided = true;
         phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
         round = FOURTH_ROUND;
-        phase++;
+        mbox = havoc(phase, round);
+        if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
+        {
+          round = FOURTH_ROUND;
+          send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+          phase++;
+          round = FOURTH_ROUND;
+          continue;
+        }
+
+        break;
+      }
+
+      if ((((!value_decided) && (!leader(phase))) && (round == SECOND_ROUND)) && timeout(round))
+      {
+        round = THIRD_ROUND;
+        send(message(phase, THIRD_ROUND, NULL, p, timestamp, false), leaderid(phase));
         round = FOURTH_ROUND;
-        continue;
+        mbox = havoc(phase, round);
+        if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
+        {
+          estimate = m->estimate;
+          value_decided = true;
+          phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
+          round = FOURTH_ROUND;
+          mbox = havoc(phase, round);
+          if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
+          {
+            round = FOURTH_ROUND;
+            send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+            phase++;
+            round = FOURTH_ROUND;
+            continue;
+          }
+
+          break;
+        }
+
+        if (((!value_decided) && (round == FOURTH_ROUND)) && timeout(round))
+        {
+          phase++;
+          round = FIRST_ROUND;
+          send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
+          continue;
+        }
+
+        break;
       }
 
       break;
@@ -157,7 +181,26 @@ int main()
         value_decided = true;
         round = FOURTH_ROUND;
         mbox = havoc(phase, round);
-        if (leader(phase) && value_decided)
+        if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
+        {
+          round = FOURTH_ROUND;
+          send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+          phase++;
+          round = FOURTH_ROUND;
+          continue;
+        }
+
+        break;
+      }
+
+      if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
+      {
+        estimate = m->estimate;
+        value_decided = true;
+        phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
+        round = FOURTH_ROUND;
+        mbox = havoc(phase, round);
+        if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
         {
           round = FOURTH_ROUND;
           send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
@@ -178,12 +221,29 @@ int main()
         continue;
       }
 
-      if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
+      break;
+    }
+
+    if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
+    {
+      round = FOURTH_ROUND;
+      send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
+      phase++;
+      round = FOURTH_ROUND;
+      continue;
+    }
+
+    if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
+    {
+      estimate = m->estimate;
+      value_decided = true;
+      phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
+      round = FOURTH_ROUND;
+      mbox = havoc(phase, round);
+      if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
       {
-        estimate = m->estimate;
-        value_decided = true;
-        phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
         round = FOURTH_ROUND;
+        send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
         phase++;
         round = FOURTH_ROUND;
         continue;
@@ -198,26 +258,6 @@ int main()
       phase++;
       round = FIRST_ROUND;
       send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
-      continue;
-    }
-
-    if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
-    {
-      estimate = m->estimate;
-      value_decided = true;
-      phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
-      round = FOURTH_ROUND;
-      phase++;
-      round = FOURTH_ROUND;
-      continue;
-    }
-
-    if (leader(phase) && value_decided)
-    {
-      round = FOURTH_ROUND;
-      send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
-      phase++;
-      round = FOURTH_ROUND;
       continue;
     }
 
