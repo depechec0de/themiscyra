@@ -201,59 +201,6 @@ def replace_while_with_body(codeast : c_ast.Node):
 def is_funccall_with_name(node : c_ast.Node, name):
     return type(node) == c_ast.FuncCall and node.name.name == name
 
-def count_inner_ifs(node : c_ast.Node) -> int:
-    """ Visit the AST node and count how many nested c_ast.If it contains """
-    class NonIfCounterVisitor(c_ast.NodeVisitor):
-        def __init__(self):
-            self.result = 0
-
-        def visit_Compound(self, node):
-            count_no_if_stm = len([n for n in node.block_items if type(n)!=c_ast.If])
-            self.result = self.result + count_no_if_stm
-
-            c_ast.NodeVisitor.generic_visit(self, node)
-
-    v = NonIfCounterVisitor()
-    v.visit(node)
-    return v.result
-
-def variable_assigments_by_value(cfg : cfg.ControlFlowGraph, variable) -> Dict[str, List[c_ast.Assignment]]:
-    """Returns a dictionary that maps rvalues to all nodes in the `cfg` where 
-    `variable` is assigned.
-
-    Parameters
-    ----------
-    cfg : ControlFlowGraph
-    variable : string
-        The name of the variable to match in the CFG assigments
-
-    Example
-    -------
-    considering the following C99 code in form of a CFG:
-
-    1   foo = val1;
-    2   foo = val2;
-    3   foo = val1;
-    4   foo = val3;
-    5   var = val1;
-
-    >>> variable_assigments_by_value(cfg, 'foo') 
-    >>> {val1: [node:1, node:3], val2: [node:2], val3: [node:4]}
-    """
-    map_rvalue_nodes = {}
-
-    variable_assigments = [node for node in cfg if is_var_assignment(node.astnode, variable)]
-
-    for n in variable_assigments:
-        value = get_assig_val(n.astnode)
-
-        if not value in map_rvalue_nodes:
-            map_rvalue_nodes[value] = []
-
-        map_rvalue_nodes[value].append(n)
-
-    return map_rvalue_nodes
-
 def variable_increments(cfg, variable):
     return [node for node in cfg if is_var_increment(node, variable)]
 
@@ -351,7 +298,7 @@ def find_while_node(ast):
     v.visit(ast)
     return v.result
 
-def find_funcdef_node(ast, funcname) -> c_ast.FuncDef:
+def find_funcdef_node(ast, funcname) -> c_ast.Compound:
     """ Returns  the corresponding FuncDef node in the AST defined as 
     `funcname`.
 
@@ -373,7 +320,7 @@ def find_funcdef_node(ast, funcname) -> c_ast.FuncDef:
 
     v = FuncDefVisitor(funcname)
     v.visit(ast)
-    return v.result
+    return v.result.body
 
 def get_enum_declarations(ast) -> Dict[str, List[str]]:
     """ Returns enum definitions in the AST as a dictionary: {enum_type_name: [const1, ...]}
@@ -458,36 +405,6 @@ def get_declared_vars(ast):
     v = VariableDeclarationVisitor()
     v.visit(ast)
     return v.result
-
-def add_variable_assignment_version(ast):
-    class RenameVariablesVisitor(c_ast.NodeVisitor):
-        def __init__(self):
-            self.assignment_counter = dict()
-
-        def visit_Assignment(self, node):
-            self.generic_visit(node.rvalue)
-
-            var_name = node.lvalue.name
-            if var_name in self.assignment_counter:
-                self.assignment_counter[var_name] += 1
-            else:
-                self.assignment_counter[var_name] = 1
-
-            node.lvalue.name = node.lvalue.name + "__" + str(self.assignment_counter[var_name])
-
-        def visit_FuncCall(self, node):
-            for arg in node.args:
-                self.generic_visit(arg)
- 
-        def visit_ID(self, node):
-            var_name = node.name
-            if var_name in self.assignment_counter:
-                node.name = var_name + "__" + str(self.assignment_counter[var_name])
-            else: 
-                node.name = var_name + "__0"
-
-    v = RenameVariablesVisitor()
-    v.visit(ast)
 
 def rename_variable(ast, dict_rename):
 
@@ -576,42 +493,71 @@ def add_ghost_variables(codeast : c_ast.Node, ghost_variables):
                 ghost_declaration = c_ast.Assignment('=', var, c_ast.ID('true'))
                 n.iftrue.block_items.insert(0, ghost_declaration)
 
-def has_elements(node):
+def has_elements(node, predicate = lambda n : True):
 
     class CountVisitor(c_ast.NodeVisitor):
-        def __init__(self):
-            self.result = True
+        def __init__(self, predicate):
+            self.result = False
+            self.predicate = predicate
+            self.compound_types = {c_ast.If, c_ast.While}
 
         def visit_Compound(self, node):
-            for n in node.block_items:
-                if type(n) != c_ast.If:
-                    self.result = False
-                else:
-                    self.visit(n)
+            if node.block_items:
+                for n in node.block_items:
+                    if type(n) not in self.compound_types and predicate(n):
+                        self.result = True
+                    else:
+                        self.visit(n)
 
-    v = CountVisitor()
+    v = CountVisitor(predicate)
     v.visit(node)
 
     return v.result
 
-def remove_empty_ifs(node):
-
-    class CompoundVisitor(c_ast.NodeVisitor):
+def remove_matching_predicate(node, predicate):
+    class CleanVisitor(c_ast.NodeVisitor):
+        def __init__(self, predicate):
+            self.predicate = predicate
 
         def visit_Compound(self, node):
             to_delete = []
+
             for n in node.block_items:
-                if type(n) == c_ast.If:
-                    if has_elements(n.iftrue):
-                        to_delete.append(n)
-                    else:
-                        self.visit(n)
+                if predicate(n):
+                    to_delete.append(n)
+                else:
+                    self.visit(n)
 
             for n in to_delete:
                 node.block_items.remove(n)
 
-    v = CompoundVisitor()
+    v = CleanVisitor(predicate)
     v.visit(node)
+
+def replace_context_with_ghost_vars(node, round_var, label, ghost_variables):
+    class ReplaceVisitor(c_ast.NodeVisitor):
+        def __init__(self, round_var, label, ghost_variables):
+            self.ghost_variables = ghost_variables
+            self.round_var = round_var
+            self.label = label
+            self.round_start = False
+
+        def visit_Compound(self, node):
+            for n in node.block_items:
+                if is_var_assignment_to_value(n, round_var, label):
+                    self.round_start = True
+                elif type(n) == c_ast.If and not self.round_start:
+                    n.cond = ghost_variables[str(n.cond.coord)]
+                    self.visit(n)
+                    self.round_start = False
+                else:
+                    self.visit(n)
+
+    v = ReplaceVisitor(round_var, label, ghost_variables)
+    v.visit(node)
+
+def remove_empty_ifs(node):         
+    remove_matching_predicate(node, lambda n : type(n) == c_ast.If and not has_elements(n.iftrue))
 
 def chain_ifs(node):
     class CompoundVisitor(c_ast.NodeVisitor):
@@ -622,8 +568,6 @@ def chain_ifs(node):
             for n in node.block_items:
                 if type(n) == c_ast.If:
                     to_chain.append(n)
-                    #print(n)
-
                     self.visit(n)
 
             if len(to_chain)>1:
@@ -646,3 +590,63 @@ def chain_ifs(node):
 
     v = CompoundVisitor()
     v.visit(node)
+
+def ast_slice(node, start_predicate, end_predicate, delete_predicate):
+
+    class SliceVisitor(c_ast.NodeVisitor):
+
+        def __init__(self, start_predicate, end_predicate, delete_predicate):
+            self.start_seen = False
+            self.end_seen = False
+            self.start_predicate = start_predicate
+            self.end_predicate = end_predicate
+            self.delete_predicate = delete_predicate
+            self.not_handle_types = {c_ast.If, c_ast.While}
+
+        def visit_Compound(self, node):
+            to_delete = []
+
+            for n in node.block_items:
+                
+                if start_predicate(n, self.start_seen, self.end_seen):
+                    self.start_seen = True
+
+                if type(n) not in self.not_handle_types:
+                    if delete_predicate(n, self.start_seen, self.end_seen):
+                        to_delete.append(n)
+
+                if end_predicate(n, self.start_seen, self.end_seen):
+                    self.end_seen = True
+
+                old_start = self.start_seen
+                old_end = self.end_seen
+                self.visit(n)
+                self.start_seen = old_start
+                self.end_seen = old_end
+
+            for n in to_delete:
+                node.block_items.remove(n)               
+
+    v = SliceVisitor(start_predicate, end_predicate, delete_predicate)
+    v.visit(node)
+
+    remove_matching_predicate(node, lambda n : type(n) == c_ast.If and not has_elements(n.iftrue, lambda n: not is_ghostvar_assignment(n)))
+
+def round_slice_delete_predicate(n, start_seen, end_seen, round_var, label):
+    if is_var_assignment_to_value(n, round_var, label):
+        return False
+    elif is_var_assignment(n, round_var) and get_assig_val(n) != label and start_seen and not end_seen:
+        return False
+    elif start_seen and not end_seen:
+        return False
+    else:
+        return True
+
+def round_start_predicate(n, start_seen, end_seen, round_var, label):
+    return is_var_assignment_to_value(n, round_var, label)
+
+def round_end_predicate(n, start_seen, end_seen, round_var, label):
+    return is_var_assignment(n, round_var) and get_assig_val(n) != label and start_seen 
+
+def replace_with_ghost_var(n : c_ast.If, ghost_variables):
+    n.cond = ghost_variables[str(n.cond.coord)]

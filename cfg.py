@@ -460,3 +460,6 @@ def digraph_to_ast(g : nx.DiGraph, init : ControlFlowGraph.Node, block_items) ->
     if len(succesors) > 1:
         for succ in succesors:
             digraph_to_ast(g, succ, block_items)
+
+def initial_node(g : nx.DiGraph):
+        return list(nx.topological_sort(g))[0]

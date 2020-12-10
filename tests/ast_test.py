@@ -274,6 +274,128 @@ int main()
     
     assert_ast_equality(src_to_test_ast, src_to_assert_ast)
 
+def test_remove_empty_ifs():
+    src_to_test =   """
+int main(){
+    if(a){
+        if(b){
+            if(c){
+                break;
+            }
+        }
+        if(d){
+        }
+        if(e){
+            break;
+        }
+    }
+    if(f){
+        break;
+    }
+    if(a){
+        if(b){
+            if(c){
+            }
+        }
+    }
+}
+"""
+
+    src_to_assert = """
+int main(){
+    if(a){
+        if(b){
+            if(c){
+                break;
+            }
+        }
+        if(e){
+            break;
+        }
+    }
+    if(f){
+        break;
+    }
+}
+"""
+    
+    src_to_assert_ast = parser.parse(src_to_assert)
+    src_to_test_ast = parser.parse(src_to_test)
+
+    remove_empty_ifs(src_to_test_ast)
+    
+    assert_ast_equality(src_to_test_ast, src_to_assert_ast)
+
+def test_slice_round():
+    src_to_test =   """
+int main(){
+    round = A;
+    while(1){
+        code1();
+        if(x){
+            __pred_0 = true;
+            round = B;
+            if(y){
+                __pred_1 = true;
+                code21();
+                round = C;
+                if(z){
+                    __pred_2 = true;
+                    code31();
+                }
+            }
+        }
+
+        if(y){
+            __pred_3 = true;
+            code12();
+            round = C;
+            if(z){
+                code32();
+            }
+        }
+
+        if(z){
+            __pred_4 = true;
+            code13();
+            round = C;
+        }
+    }
+}
+"""
+
+    src_to_assert_round1 = """
+int main(){
+    while(1){
+        if(x){
+            round = B;
+            if(y){
+                __pred_1 = true;
+                code21();
+                round = C;
+            }
+        }
+
+    }
+}
+"""
+    
+    src_to_assert_round1_ast = parser.parse(src_to_assert_round1)
+    src_to_test_ast = parser.parse(src_to_test)
+
+    round_var = 'round'
+    label = 'B'
+
+    start_slice_predicate = lambda n, se, es, rv=round_var, l=label : round_start_predicate(n, se, es, rv, l)
+    end_slice_predicate = lambda n, se, es, rv=round_var, l=label : round_end_predicate(n, se, es, rv, l)
+    delete_predicate_label = lambda n, se, es, rv=round_var, l=label: round_slice_delete_predicate(n, se, es, rv, l)
+
+    ast_slice(src_to_test_ast, start_slice_predicate, end_slice_predicate, delete_predicate_label)
+    
+    assert_ast_equality(src_to_test_ast, src_to_assert_round1_ast)
+
+
+
 
 print("test_rename_variables")
 test_rename_variables()
@@ -283,3 +405,7 @@ print("test_unfolding_simple")
 test_unfolding_simple()
 print("test_unfolding")
 test_unfolding()
+print("test_remove_empty_ifs")
+test_remove_empty_ifs()
+print("test_slice_round")
+test_slice_round()

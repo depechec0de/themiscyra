@@ -1,0 +1,135 @@
+INIT()
+{
+  view = 0;
+}
+
+STARTVIEWCHANGE{
+
+	SEND(PHASE, ROUND)
+	{
+	  if ((view == PHASE) && (vround == ROUND))
+	  {
+	    send(all, message(view, STARTVIEWCHANGE, p, null_log()));
+	  }
+	
+	}
+	
+	UPDATE(MBOX, PHASE, ROUND)
+	{
+	  if ((view == PHASE) && (vround == ROUND))
+	  {
+	    vround = STARTVIEWCHANGE;
+	    if (((vround == STARTVIEWCHANGE) && (p == primary(view, n))) && (mbox->size > f))
+	    {
+	      __pred_0 = true;
+	      vround = DOVIEWCHANGE;
+	    }
+	    else
+	      if (((vround == STARTVIEWCHANGE) && (p != primary(view, n))) && (mbox->size > f))
+	    {
+	      __pred_2 = true;
+	      vround = DOVIEWCHANGE;
+	    }
+	
+	
+	  }
+	
+	}
+	
+}
+
+DOVIEWCHANGE{
+
+	SEND(PHASE, ROUND)
+	{
+	  if ((view == PHASE) && (vround == ROUND))
+	  {
+	    if (__pred_2)
+	    {
+	      send(primary(view, n), message(view, DOVIEWCHANGE, p, local_log()));
+	    }
+	
+	  }
+	
+	}
+	
+	UPDATE(MBOX, PHASE, ROUND)
+	{
+	  if ((view == PHASE) && (vround == ROUND))
+	  {
+	    if (__pred_0)
+	    {
+	      vround = DOVIEWCHANGE;
+	      if (((vround == DOVIEWCHANGE) && (p == primary(view, n))) && (mbox->size > f))
+	      {
+	        __pred_1 = true;
+	        computes_new_log();
+	        vround = STARTVIEW;
+	      }
+	
+	    }
+	    else
+	      if (__pred_2)
+	    {
+	      vround = DOVIEWCHANGE;
+	      vround = STARTVIEW;
+	    }
+	
+	
+	  }
+	
+	}
+	
+}
+
+STARTVIEW{
+
+	SEND(PHASE, ROUND)
+	{
+	  if ((view == PHASE) && (vround == ROUND))
+	  {
+	    if (__pred_0)
+	    {
+	      if (__pred_1)
+	      {
+	        send(all, message(view, STARTVIEW, p, local_log()));
+	      }
+	
+	    }
+	
+	  }
+	
+	}
+	
+	UPDATE(MBOX, PHASE, ROUND)
+	{
+	  if ((view == PHASE) && (vround == ROUND))
+	  {
+	    if (__pred_0)
+	    {
+	      if (__pred_1)
+	      {
+	        vround = STARTVIEW;
+	      }
+	
+	    }
+	    else
+	      if (__pred_2)
+	    {
+	      vround = STARTVIEW;
+	      if (((vround == STARTVIEW) && (p != primary(view, n))) && (mbox->size == 1))
+	      {
+	        __pred_3 = true;
+	        computes_new_log();
+	      }
+	
+	    }
+	
+	
+	  }
+	
+	}
+	
+}
+
+
