@@ -38,8 +38,8 @@ def test_parse_if_cfg():
 
     codecfg = cfg.ControlFlowGraph(main_ast)
 
-    assert len(codecfg.nodes()) == 9
-    assert len(codecfg.edges()) == 9
+    assert len(codecfg.nodes()) == 8
+    assert len(codecfg.edges()) == 8
     assert nx.is_directed_acyclic_graph(codecfg)
     assert_degrees(codecfg, 1)
 
@@ -63,8 +63,8 @@ def test_parse_simple_cfg():
     
     #codecfg.draw()
 
-    assert len(codecfg.nodes()) == 10
-    assert len(codecfg.edges()) == 11
+    assert len(codecfg.nodes()) == 9
+    assert len(codecfg.edges()) == 10
 
     assert_degrees(codecfg, 1)
 
@@ -96,8 +96,8 @@ def test_parse_complex_cfg():
 
     #codecfg.draw()
 
-    assert len(codecfg.nodes()) == 17
-    assert len(codecfg.edges()) == 19
+    assert len(codecfg.nodes()) == 16
+    assert len(codecfg.edges()) == 18
     assert nx.is_directed_acyclic_graph(codecfg)
 
     assert_degrees(codecfg, 3)
@@ -122,8 +122,8 @@ def test_parse_while_no_loop():
     
     #codecfg.draw()
 
-    assert len(codecfg.nodes()) == 10
-    assert len(codecfg.edges()) == 11
+    assert len(codecfg.nodes()) == 9
+    assert len(codecfg.edges()) == 10
     assert nx.is_directed_acyclic_graph(codecfg)
 
     assert_degrees(codecfg, 2)
