@@ -395,7 +395,43 @@ int main(){
     assert_ast_equality(src_to_test_ast, src_to_assert_round1_ast)
 
 
+def test_is_jump_predicate():
+    round_var = 'round'
+    mbox_var = 'mbox'
+    current_round = 'A'
+    labels = ['A','B','C']
 
+    src = """
+            int main(){ 
+                function0(mbox, B, 1, data); 
+                function1(mbox, B, 1, data) && round == B; 
+                function2(mbox, B, 1, data) && round == C; 
+                function3(mbox, B, 1, data) && round == B && round == C; 
+                function4(mbox, B, 1, data) && round == A && round == C; 
+                (!value_decided) && (count_with_max_phase_geq(mbox, phase, C) == 1);
+                (!value_decided) && (count_with_max_phase_geq(mbox, phase, A) == 1);
+            }
+"""
+    ast_code = parser.parse(src)
+
+    # a function applied to mbox with a future round is a jump
+    f0 = ast_code.ext[0].body.block_items[0]
+    # f1 asks for round == B so the mbox is not used in the "future"
+    f1 = ast_code.ext[0].body.block_items[1]
+    # the round guard is different to the one in the function accesing the mbox, this is a jump
+    f2 = ast_code.ext[0].body.block_items[2]
+    f3 = ast_code.ext[0].body.block_items[3]
+    f4 = ast_code.ext[0].body.block_items[4]
+    f5 = ast_code.ext[0].body.block_items[5]
+    f6 = ast_code.ext[0].body.block_items[6]
+
+    assert is_jump_predicate(f0, round_var, mbox_var, current_round, labels)
+    assert not is_jump_predicate(f1, round_var, mbox_var, current_round, labels)
+    assert is_jump_predicate(f2, round_var, mbox_var, current_round, labels)
+    assert not is_jump_predicate(f3, round_var, mbox_var, current_round, labels)
+    assert is_jump_predicate(f4, round_var, mbox_var, current_round, labels)
+    assert is_jump_predicate(f5, round_var, mbox_var, current_round, labels)
+    assert not is_jump_predicate(f6, round_var, mbox_var, current_round, labels)
 
 print("test_rename_variables")
 test_rename_variables()
@@ -409,3 +445,5 @@ print("test_remove_empty_ifs")
 test_remove_empty_ifs()
 print("test_slice_round")
 test_slice_round()
+print("test_is_jump_predicate")
+test_is_jump_predicate()

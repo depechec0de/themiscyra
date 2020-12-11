@@ -69,6 +69,17 @@ class SyncRound():
         # unify ifs to conserve upon's mutual exclusion
         chain_ifs(self.update_ast)
         self.update_ast = add_jump_guard(self.update_ast, phase_var, round_var)
+
+        # Look for jumps
+        self.jumps = parse_jumps(self.update_ast, label, config)
+
+    def get_jumps(self):
+        return self.jumps
+
+    def add_jumps(self, jump_map : Dict[str, c_ast.Node]):
+        for ghost_var, code in jump_map.items():
+            ghost_var_ast = c_ast.ID(ghost_var)
+            add_code_inside_matching_if(self.update_ast, ghost_var_ast, code)
     
     def __repr__(self):
         generator = c_generator.CGenerator()
@@ -106,10 +117,18 @@ def async_to_sync(async_ast: c_ast.Node, config):
 
     rounds = []
 
+    jump_map = dict()
+
     for label in labels:
         round_ast = copy.deepcopy(main_ast)
         sr = SyncRound(label, round_ast, ghost_variables, config)
+        jd = sr.get_jumps()
+        jump_map.update(jd)
+
         rounds.append(sr)
+
+    for sr in rounds:
+        sr.add_jumps(jump_map)
 
     compho = CompHO(init_ast, rounds)
 

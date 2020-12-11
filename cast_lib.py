@@ -210,6 +210,15 @@ def is_var_assignment(n : c_ast.Node, varname):
     else:
         return False
 
+def is_var_equality(n : c_ast.Node, op1, op2):
+    if type(n) == c_ast.BinaryOp:
+        return  n.op == '==' \
+                and (   (n.left.name == op1 and n.right.name == op2) or
+                        (n.left.name == op2 and n.right.name == op1)
+                    )
+    else:
+        return False
+
 def is_ghostvar_assignment(n : c_ast.Node):
     if type(n) == c_ast.Assignment:
         return  n.op == '=' and "__pred_" in n.lvalue.name
@@ -316,7 +325,7 @@ def find_funcdef_node(ast, funcname) -> c_ast.Compound:
             if node.decl.name == self.funcname:
                 self.result = node
             elif hasattr(node, 'args'):
-                self.visit(node.args)
+                self.generic_visit(node)
 
     v = FuncDefVisitor(funcname)
     v.visit(ast)
@@ -414,8 +423,7 @@ def rename_variable(ast, dict_rename):
             self.dict_rename = dict_rename
 
         def visit_FuncCall(self, node):
-            for arg in node.args:
-                self.visit(arg)
+            self.generic_visit(node.args)
 
         def visit_ID(self, node):
             for var_origname, var_newname in self.dict_rename.items():
@@ -467,9 +475,7 @@ def create_ghost_variables(ast : c_ast.Node) -> Dict[str, c_ast.ID]:
             self.ghost_variables[str(node.cond.coord)] = c_ast.ID("__pred_" + str(self.counter))
             self.counter += 1
 
-            self.visit(node.iftrue)
-            if node.iffalse is not None:
-                self.visit(node.iffalse)
+            self.generic_visit(node)
  
     v = IfsVisitor()
     v.visit(ast)
@@ -507,7 +513,7 @@ def has_elements(node, predicate = lambda n : True):
                     if type(n) not in self.compound_types and predicate(n):
                         self.result = True
                     else:
-                        self.visit(n)
+                        self.generic_visit(n)
 
     v = CountVisitor(predicate)
     v.visit(node)
@@ -526,7 +532,7 @@ def remove_matching_predicate(node, predicate):
                 if predicate(n):
                     to_delete.append(n)
                 else:
-                    self.visit(n)
+                    self.generic_visit(n)
 
             for n in to_delete:
                 node.block_items.remove(n)
@@ -548,10 +554,10 @@ def replace_context_with_ghost_vars(node, round_var, label, ghost_variables):
                     self.round_start = True
                 elif type(n) == c_ast.If and not self.round_start:
                     n.cond = ghost_variables[str(n.cond.coord)]
-                    self.visit(n)
+                    self.generic_visit(n)
                     self.round_start = False
                 else:
-                    self.visit(n)
+                    self.generic_visit(n)
 
     v = ReplaceVisitor(round_var, label, ghost_variables)
     v.visit(node)
@@ -568,7 +574,7 @@ def chain_ifs(node):
             for n in node.block_items:
                 if type(n) == c_ast.If:
                     to_chain.append(n)
-                    self.visit(n)
+                    self.generic_visit(n)
 
             if len(to_chain)>1:
                 for n in to_chain:
@@ -620,7 +626,7 @@ def ast_slice(node, start_predicate, end_predicate, delete_predicate):
 
                 old_start = self.start_seen
                 old_end = self.end_seen
-                self.visit(n)
+                self.generic_visit(n)
                 self.start_seen = old_start
                 self.end_seen = old_end
 
@@ -650,3 +656,126 @@ def round_end_predicate(n, start_seen, end_seen, round_var, label):
 
 def replace_with_ghost_var(n : c_ast.If, ghost_variables):
     n.cond = ghost_variables[str(n.cond.coord)]
+
+def is_jump_predicate(n : c_ast.Node, round_var, mbox_var, current_round, labels) -> bool:
+    """ A n.cond is a jump if it has a function ranging from the mbox, a round jump_round
+     with a value distinct to `current_round`, and there is no other BinaryOp such that
+     `round_var` == jump_round
+    """
+    class JumpVisitor(c_ast.NodeVisitor):
+        def __init__(self, round_var, mbox_var, current_round, labels):
+            self.round_var = round_var
+            self.mbox_var = mbox_var
+            self.labels = labels
+            self.current_round = current_round
+
+            # Set of labels distinct to `current_round` found in functions
+            self.func_labels = set()
+            # Set of labels where `round_var` == l was found
+            self.guarded_labels = set()
+
+        def visit_FuncCall(self, node):
+
+            mbox_found = False
+            future_round = False
+            future_labels = set()
+
+            for arg in node.args.exprs:
+                if type(arg) == c_ast.ID:
+                    if arg.name == mbox_var:
+                        mbox_found = True
+                    elif arg.name != current_round and arg.name in labels:
+                        future_round = True
+                        future_labels.add(arg.name)
+
+            # I need to check if this label is guarded
+            if mbox_found and future_round:
+                self.func_labels.update(future_labels)
+ 
+        def visit_BinaryOp(self, node):
+            
+            if node.op == '==' and type(node.left) == c_ast.ID and type(node.right) == c_ast.ID:
+                l = node.left.name
+                r = node.right.name
+                if (r == round_var and l in labels) or (l == round_var and r in labels):
+                    self.guarded_labels.add(r)
+            else:
+                self.generic_visit(node)
+
+    v = JumpVisitor(round_var, mbox_var, current_round, labels)
+    v.visit(n)
+
+    # if the set of guarded labels is different to the set of labels used in funcs with mbox we have a jump
+    return not v.func_labels.issubset(v.guarded_labels) 
+
+def parse_jumps(code_ast, label, config) -> Dict[str, c_ast.Node]:
+    """ Collect jump code with its ghost variable triggers and replace the code accordingly """
+
+    class GhostVariableVisitor(c_ast.NodeVisitor):
+        def visit_Assignment(self, node):
+            if is_ghostvar_assignment(node):
+                self.result = node.lvalue.name
+
+    class JumpCollectVisitor(c_ast.NodeVisitor):
+        def __init__(self, label, config):
+            self.jump_map = dict()
+            self.config = config
+            self.label = label
+
+        def visit_If(self, node):
+
+            if is_jump_predicate(node.cond, config['round'], config['mbox'], label, config['labels']):
+
+                v = GhostVariableVisitor()
+                v.visit(node.iftrue)
+                gv = v.result
+
+                jump_code = copy.deepcopy(node.iftrue)
+                remove_matching_predicate(jump_code, lambda n : is_ghostvar_assignment(n))
+
+                node.cond = c_ast.FuncCall(c_ast.ID('jump'), None)
+                remove_matching_predicate(node.iftrue, lambda n : not is_ghostvar_assignment(n))
+
+                self.jump_map[gv] = jump_code
+
+            self.generic_visit(node)
+
+    v = JumpCollectVisitor(label, config)
+    v.visit(code_ast)
+
+    return v.jump_map
+
+def add_code_inside_matching_if(code_ast, matching_cond, new_code : c_ast.Compound):
+
+    class IfVisitor(c_ast.NodeVisitor):
+        def __init__(self, matching_cond, new_code):
+            self.matching_cond = matching_cond
+            self.new_code = new_code
+
+        def visit_If(self, node):
+            generator = c_generator.CGenerator()
+
+            if compare_asts(node.cond, self.matching_cond):
+                node.iftrue.block_items = new_code.block_items + node.iftrue.block_items
+            else:
+                self.generic_visit(node)
+            
+    v = IfVisitor(matching_cond, new_code)
+    v.visit(code_ast)
+
+def compare_asts(ast1, ast2):
+    if type(ast1) != type(ast2):
+        return False
+    if isinstance(ast1, tuple) and isinstance(ast2, tuple):
+        if ast1[0] != ast2[0]:
+            return False
+        ast1 = ast1[1]
+        ast2 = ast2[1]
+        return compare_asts(ast1, ast2)
+    for attr in ast1.attr_names:
+        if getattr(ast1, attr) != getattr(ast2, attr):
+            return False
+    for i, c1 in enumerate(ast1.children()):
+        if compare_asts(c1, ast2.children()[i]) == False:
+            return False
+    return True
