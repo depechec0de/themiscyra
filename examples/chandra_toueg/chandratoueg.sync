@@ -10,7 +10,7 @@ FIRST_ROUND{
 
 	SEND(PHASE, ROUND)
 	{
-	  if ((phase == PHASE) && (round == FIRST_ROUND))
+	  if (phase == PHASE)
 	  {
 	    send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
 	  }
@@ -19,7 +19,7 @@ FIRST_ROUND{
 	
 	UPDATE(MBOX, PHASE, ROUND)
 	{
-	  if ((phase == PHASE) && (round == FIRST_ROUND))
+	  if (phase == PHASE)
 	  {
 	    if (((!value_decided) && (round == FIRST_ROUND)) && (!leader(phase)))
 	    {
@@ -58,7 +58,7 @@ SECOND_ROUND{
 
 	SEND(PHASE, ROUND)
 	{
-	  if ((phase == PHASE) && (round == SECOND_ROUND))
+	  if (phase == PHASE)
 	  {
 	    if (__pred_11)
 	    {
@@ -71,7 +71,7 @@ SECOND_ROUND{
 	
 	UPDATE(MBOX, PHASE, ROUND)
 	{
-	  if ((phase == PHASE) && (round == SECOND_ROUND))
+	  if (phase == PHASE)
 	  {
 	    if (__pred_0)
 	    {
@@ -112,7 +112,7 @@ THIRD_ROUND{
 
 	SEND(PHASE, ROUND)
 	{
-	  if ((phase == PHASE) && (round == THIRD_ROUND))
+	  if (phase == PHASE)
 	  {
 	    if (__pred_0)
 	    {
@@ -135,7 +135,7 @@ THIRD_ROUND{
 	
 	UPDATE(MBOX, PHASE, ROUND)
 	{
-	  if ((phase == PHASE) && (round == THIRD_ROUND))
+	  if (phase == PHASE)
 	  {
 	    if (__pred_0)
 	    {
@@ -197,7 +197,7 @@ FOURTH_ROUND{
 
 	SEND(PHASE, ROUND)
 	{
-	  if ((phase == PHASE) && (round == FOURTH_ROUND))
+	  if (phase == PHASE)
 	  {
 	    if (__pred_0)
 	    {
@@ -280,7 +280,7 @@ FOURTH_ROUND{
 	
 	UPDATE(MBOX, PHASE, ROUND)
 	{
-	  if ((phase == PHASE) && (round == FOURTH_ROUND))
+	  if (phase == PHASE)
 	  {
 	    if (__pred_0)
 	    {
