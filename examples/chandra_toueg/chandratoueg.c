@@ -89,11 +89,11 @@ int main()
         // follower receives an estimate, it sends an ack
         if  (!value_decided && !leader(phase) && round == SECOND_ROUND && count(mbox, phase, SECOND_ROUND) == 1)
         {
-            round = THIRD_ROUND;
             m = mbox->message;
             estimate = m->estimate;
             timestamp = phase;
-            
+
+            round = THIRD_ROUND;      
             send(message(phase, THIRD_ROUND, NULL, p, timestamp, true), leaderid(phase)); 
             round = FOURTH_ROUND;
             

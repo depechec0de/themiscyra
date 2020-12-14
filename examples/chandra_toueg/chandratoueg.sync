@@ -78,6 +78,9 @@ SECOND_ROUND{
 	      if ((((!value_decided) && (!leader(phase))) && (round == SECOND_ROUND)) && (count(mbox, phase, SECOND_ROUND) == 1))
 	      {
 	        __pred_1 = true;
+	        m = mbox->message;
+	        estimate = m->estimate;
+	        timestamp = phase;
 	        round = THIRD_ROUND;
 	      }
 	      else
@@ -141,9 +144,6 @@ THIRD_ROUND{
 	    {
 	      if (__pred_1)
 	      {
-	        m = mbox->message;
-	        estimate = m->estimate;
-	        timestamp = phase;
 	        round = FOURTH_ROUND;
 	      }
 	      else
