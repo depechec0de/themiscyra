@@ -152,7 +152,9 @@ def get_init_code(node : c_ast.Compound, config):
 
 def add_jump_guard(ast_to_guard, phase_var, round_var, label):
 
-    guarded_ast = c_ast.If( c_ast.BinaryOp('==',c_ast.ID(phase_var), c_ast.ID('PHASE')), 
+    guarded_ast = c_ast.If( c_ast.BinaryOp('&&',
+                        c_ast.BinaryOp('==',c_ast.ID(phase_var), c_ast.ID('PHASE')),
+                        c_ast.BinaryOp('==',c_ast.ID(round_var), c_ast.ID(label))), 
                     ast_to_guard, None)
 
     return c_ast.Compound([guarded_ast])
