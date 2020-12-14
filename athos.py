@@ -5,6 +5,7 @@ from pycparser import c_parser, c_ast, parse_file, c_generator
 
 import semantic_lib
 from cast_lib import *
+from c99theory import *
 import cfg
 
 class CompHO():
@@ -27,7 +28,7 @@ class CompHO():
 
 class SyncRound():
 
-    def __init__(self, label, code_ast, ghost_variables, config):
+    def __init__(self, label, code_ast, ghost_variables, config, theory):
 
         self.label = label
 
@@ -35,6 +36,8 @@ class SyncRound():
         round_var = config['round']
         mbox_var = config['mbox']
         labels = config['labels']
+
+        theory.add_var_predicate(round_var, theory.evaluate_variable(round_var) == theory.evaluate_variable(label))
 
         # Remove all code from other rounds and keep If structure
         start_round_predicate = lambda n, se, es, rv=round_var, l=label : round_start_predicate(n, se, es, rv, l)
@@ -49,7 +52,7 @@ class SyncRound():
         result_compound = code_ast
 
         # Clean all async variables
-        #filter_nodes(result_compound, lambda n, rv=round_var : is_var_assignment(n, rv))
+        filter_nodes(result_compound, lambda n, rv=round_var : is_var_assignment_to_value(n, rv, label))
         filter_nodes(result_compound, lambda n, mb=mbox_var : is_var_assignment(n, mb))
         filter_nodes(result_compound, lambda n, pv=phase_var : is_var_increment(n, pv))
         filter_nodes(result_compound, lambda n : type(n) == c_ast.Continue)
@@ -58,17 +61,21 @@ class SyncRound():
         self.send_ast = copy.deepcopy(result_compound)
         filter_nodes(self.send_ast, lambda n : type(n) != c_ast.If and type(n) != c_ast.Compound and not is_funccall_with_name(n, 'send'))
         remove_empty_ifs(self.send_ast)
+        # dead code elimination, phase unfold could end with several initial states that confuse the procedure
+        filter_nodes(self.send_ast, lambda n : type(n) == c_ast.If and theory.is_unsat(theory.evaluate_ast(n.cond)))
         # unify ifs to conserve upon's mutual exclusion
         chain_ifs(self.send_ast)
-        self.send_ast = add_jump_guard(self.send_ast, phase_var, round_var)
+        self.send_ast = add_jump_guard(self.send_ast, phase_var, round_var, label)
         
         # Compute UPDATE
         self.update_ast = copy.deepcopy(result_compound)
         filter_nodes(self.update_ast, lambda n : is_funccall_with_name(n, 'send'))
         remove_empty_ifs(self.update_ast)
+        # dead code elimination, phase unfold could end with several initial states that confuse the procedure
+        filter_nodes(self.update_ast, lambda n : type(n) == c_ast.If and theory.is_unsat(theory.evaluate_ast(n.cond)))
         # unify ifs to conserve upon's mutual exclusion
         chain_ifs(self.update_ast)
-        self.update_ast = add_jump_guard(self.update_ast, phase_var, round_var)
+        self.update_ast = add_jump_guard(self.update_ast, phase_var, round_var, label)
 
         # Look for jumps
         self.jumps = parse_jumps(self.update_ast, label, config)
@@ -105,14 +112,15 @@ def async_to_sync(async_ast: c_ast.Node, config):
     main_ast = find_funcdef_node(async_ast,'main')
 
     map_dfs(main_ast, replace_while_with_body, [])
-    filter_nodes(main_ast, lambda n : is_var_declaration(n))
-
+    
     ghost_variables = create_ghost_variables(main_ast)
     map_dfs(main_ast, add_ghost_variables, [ghost_variables])
     map_dfs(main_ast, prune_after_phase_increment, [phase_var])
     filter_nodes(main_ast, lambda n : type(n) == c_ast.Break)
 
-    # codecfg = cfg.PhaseUnfoldGraph(main_ast)
+    theory = C99Theory(async_ast)
+
+    filter_nodes(main_ast, lambda n : is_var_declaration(n))
     init_ast = get_init_code(copy.deepcopy(main_ast), config)
 
     rounds = []
@@ -121,7 +129,7 @@ def async_to_sync(async_ast: c_ast.Node, config):
 
     for label in labels:
         round_ast = copy.deepcopy(main_ast)
-        sr = SyncRound(label, round_ast, ghost_variables, config)
+        sr = SyncRound(label, round_ast, ghost_variables, config, theory)
         jd = sr.get_jumps()
         jump_map.update(jd)
 
@@ -142,11 +150,11 @@ def get_init_code(node : c_ast.Compound, config):
 
     return result
 
-def add_jump_guard(ast_to_guard, phase_var, round_var):
+def add_jump_guard(ast_to_guard, phase_var, round_var, label):
 
     guarded_ast = c_ast.If( c_ast.BinaryOp('&&',
                         c_ast.BinaryOp('==',c_ast.ID(phase_var), c_ast.ID('PHASE')),
-                        c_ast.BinaryOp('==',c_ast.ID(round_var), c_ast.ID('ROUND'))), 
+                        c_ast.BinaryOp('==',c_ast.ID(round_var), c_ast.ID(label))), 
                     ast_to_guard, None)
 
     return c_ast.Compound([guarded_ast])

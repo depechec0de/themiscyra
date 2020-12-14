@@ -486,6 +486,8 @@ def add_ghost_variables(codeast : c_ast.Node, ghost_variables):
 
     if type(codeast) == c_ast.Compound:
 
+        parser = c_parser.CParser()
+
         items = codeast.block_items
 
         for n in items:
@@ -494,9 +496,10 @@ def add_ghost_variables(codeast : c_ast.Node, ghost_variables):
 
                 var = ghost_variables[ghost_idx]
                 pred = copy.deepcopy(n.cond)
-  
-                #ghost_declaration = c_ast.Assignment('=', var, pred)
-                ghost_declaration = c_ast.Assignment('=', var, c_ast.ID('true'))
+
+                ghost_declaration = parser.parse('_Bool '+var.name+';').ext[0]
+                ghost_assignment = c_ast.Assignment('=', var, c_ast.ID('true'))
+                n.iftrue.block_items.insert(0, ghost_assignment)
                 n.iftrue.block_items.insert(0, ghost_declaration)
 
 def has_elements(node, predicate = lambda n : True):

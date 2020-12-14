@@ -120,7 +120,7 @@ int main()
         // the estimate is locked, is my turn to broadcast it
         if(leader(phase) && value_decided && round == FOURTH_ROUND)
         {
-            round = FOURTH_ROUND;
+            
             send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
             phase++;
             round = FOURTH_ROUND;
@@ -131,11 +131,11 @@ int main()
         if  (!value_decided && count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1)
         {
             
-            estimate = m->estimate;
-            value_decided = true;
-            
             phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
             round = FOURTH_ROUND;
+
+            estimate = m->estimate;
+            value_decided = true;
 
             continue;
         }
