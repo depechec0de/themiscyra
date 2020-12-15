@@ -40,25 +40,26 @@ class SyncRound():
         theory.add_var_predicate(round_var, theory.evaluate_variable(round_var) == theory.evaluate_variable(label))
 
         # Remove all code from other rounds and keep If structure
-        start_round_predicate = lambda n, se, es, rv=round_var, l=label : round_start_predicate(n, se, es, rv, l)
-        end_round_predicate = lambda n, se, es, rv=round_var, l=label : round_end_predicate(n, se, es, rv, l)
+        start_round_predicate = lambda n, se, es, rv=round_var, l=label : round_start_predicate(n, rv, l)
+        end_round_predicate = lambda n, se, es, rv=round_var, l=label : round_end_predicate(n, se, rv, l)
         delete_predicate_label = lambda n, se, es, rv=round_var, l=label: round_slice_delete_predicate(n, se, es, rv, l)
 
         ast_slice(code_ast, start_round_predicate, end_round_predicate, delete_predicate_label)
 
-        # Replace previous If predicates with ghost variables
-        replace_context_with_ghost_vars(code_ast, round_var, label, ghost_variables)
+        # generator = c_generator.CGenerator()
+        # print(generator.visit(code_ast))
 
-        result_compound = code_ast
+        # Replace previous If predicates with ghost variables
+        replace_context_with_ghost_vars(code_ast, round_var, label, ghost_variables, lambda n, rv=round_var, l=label : round_start_predicate(n, rv, l))
 
         # Clean all async variables
-        filter_nodes(result_compound, lambda n, rv=round_var : is_var_assignment_to_value(n, rv, label))
-        filter_nodes(result_compound, lambda n, mb=mbox_var : is_var_assignment(n, mb))
-        filter_nodes(result_compound, lambda n, pv=phase_var : is_var_increment(n, pv))
-        filter_nodes(result_compound, lambda n : type(n) == c_ast.Continue)
+        filter_nodes(code_ast, lambda n, rv=round_var : is_var_assignment_to_value(n, rv, label))
+        filter_nodes(code_ast, lambda n, mb=mbox_var : is_var_assignment(n, mb))
+        filter_nodes(code_ast, lambda n, pv=phase_var : is_var_increment(n, pv))
+        filter_nodes(code_ast, lambda n : type(n) == c_ast.Continue)
 
         # Compute SEND
-        self.send_ast = copy.deepcopy(result_compound)
+        self.send_ast = copy.deepcopy(code_ast)
         filter_nodes(self.send_ast, lambda n : type(n) != c_ast.If and type(n) != c_ast.Compound and not is_funccall_with_name(n, 'send'))
         remove_empty_ifs(self.send_ast)
         # dead code elimination, phase unfold could end with several initial states that confuse the procedure
@@ -68,7 +69,7 @@ class SyncRound():
         self.send_ast = add_jump_guard(self.send_ast, phase_var, round_var, label)
         
         # Compute UPDATE
-        self.update_ast = copy.deepcopy(result_compound)
+        self.update_ast = copy.deepcopy(code_ast)
         filter_nodes(self.update_ast, lambda n : is_funccall_with_name(n, 'send'))
         remove_empty_ifs(self.update_ast)
         # dead code elimination, phase unfold could end with several initial states that confuse the procedure
@@ -117,7 +118,8 @@ def async_to_sync(async_ast: c_ast.Node, config):
     map_dfs(main_ast, add_ghost_variables, [ghost_variables])
     map_dfs(main_ast, prune_after_phase_increment, [phase_var, round_var])
     filter_nodes(main_ast, lambda n : type(n) == c_ast.Break)
-
+    # generator = c_generator.CGenerator()
+    # print(generator.visit(main_ast))
     theory = C99Theory(async_ast)
 
     filter_nodes(main_ast, lambda n : is_var_declaration(n))
@@ -158,3 +160,21 @@ def add_jump_guard(ast_to_guard, phase_var, round_var, label):
                     ast_to_guard, None)
 
     return c_ast.Compound([guarded_ast])
+
+def round_start_predicate(n, round_var, label):
+    # if type(n) == c_ast.If:
+    #     print(has_round_predicate(n.cond, round_var, label), label, ast_to_str(n.cond))
+    return is_var_assignment_to_value(n, round_var, label) or (type(n) == c_ast.If and has_round_predicate(n.cond, round_var, label))
+
+def round_end_predicate(n, start_seen, round_var, label):
+    return is_var_assignment(n, round_var) and get_assig_val(n) != label and start_seen 
+
+def round_slice_delete_predicate(n, start_seen, end_seen, round_var, label):
+    if is_var_assignment_to_value(n, round_var, label):
+        return False
+    elif is_var_assignment(n, round_var) and get_assig_val(n) != label and start_seen and not end_seen:
+        return False
+    elif start_seen and not end_seen:
+        return False
+    else:
+        return True

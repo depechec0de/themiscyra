@@ -502,7 +502,7 @@ def add_ghost_variables(codeast : c_ast.Node, ghost_variables):
                 n.iftrue.block_items.insert(0, ghost_assignment)
                 n.iftrue.block_items.insert(0, ghost_declaration)
 
-def has_elements(node, predicate = lambda n : True):
+def compound_has_elements(node, predicate = lambda n : True):
 
     class CountVisitor(c_ast.NodeVisitor):
         def __init__(self, predicate):
@@ -519,6 +519,25 @@ def has_elements(node, predicate = lambda n : True):
                         self.generic_visit(n)
 
     v = CountVisitor(predicate)
+    v.visit(node)
+
+    return v.result
+
+def has_round_predicate(node, round_var, round_val):
+
+    class FindPredicateVisitor(c_ast.NodeVisitor):
+        def __init__(self, round_var, round_val):
+            self.result = False
+            self.round_var = round_var
+            self.round_val = round_val
+
+        def visit_BinaryOp(self, node):
+            if is_var_equality(node, round_var, round_val):
+                self.result = True
+            else:
+                self.generic_visit(node)
+
+    v = FindPredicateVisitor(round_var, round_val)
     v.visit(node)
 
     return v.result
@@ -543,17 +562,18 @@ def remove_matching_predicate(node, predicate):
     v = CleanVisitor(predicate)
     v.visit(node)
 
-def replace_context_with_ghost_vars(node, round_var, label, ghost_variables):
+def replace_context_with_ghost_vars(node, round_var, label, ghost_variables, predicate):
     class ReplaceVisitor(c_ast.NodeVisitor):
-        def __init__(self, round_var, label, ghost_variables):
+        def __init__(self, round_var, label, ghost_variables, predicate):
             self.ghost_variables = ghost_variables
             self.round_var = round_var
             self.label = label
             self.round_start = False
+            self.round_start_predicate = predicate
 
         def visit_Compound(self, node):
             for n in node.block_items:
-                if is_var_assignment_to_value(n, round_var, label):
+                if self.round_start_predicate(n, round_var, label):
                     self.round_start = True
                 elif type(n) == c_ast.If and not self.round_start:
                     n.cond = ghost_variables[str(n.cond.coord)]
@@ -562,11 +582,11 @@ def replace_context_with_ghost_vars(node, round_var, label, ghost_variables):
                 else:
                     self.generic_visit(n)
 
-    v = ReplaceVisitor(round_var, label, ghost_variables)
+    v = ReplaceVisitor(round_var, label, ghost_variables, predicate)
     v.visit(node)
 
 def remove_empty_ifs(node):         
-    remove_matching_predicate(node, lambda n : type(n) == c_ast.If and not has_elements(n.iftrue))
+    remove_matching_predicate(node, lambda n : type(n) == c_ast.If and not compound_has_elements(n.iftrue))
 
 def chain_ifs(node):
     class CompoundVisitor(c_ast.NodeVisitor):
@@ -639,23 +659,7 @@ def ast_slice(node, start_predicate, end_predicate, delete_predicate):
     v = SliceVisitor(start_predicate, end_predicate, delete_predicate)
     v.visit(node)
 
-    remove_matching_predicate(node, lambda n : type(n) == c_ast.If and not has_elements(n.iftrue, lambda n: not is_ghostvar_assignment(n)))
-
-def round_slice_delete_predicate(n, start_seen, end_seen, round_var, label):
-    if is_var_assignment_to_value(n, round_var, label):
-        return False
-    elif is_var_assignment(n, round_var) and get_assig_val(n) != label and start_seen and not end_seen:
-        return False
-    elif start_seen and not end_seen:
-        return False
-    else:
-        return True
-
-def round_start_predicate(n, start_seen, end_seen, round_var, label):
-    return is_var_assignment_to_value(n, round_var, label)
-
-def round_end_predicate(n, start_seen, end_seen, round_var, label):
-    return is_var_assignment(n, round_var) and get_assig_val(n) != label and start_seen 
+    remove_matching_predicate(node, lambda n : type(n) == c_ast.If and not compound_has_elements(n.iftrue, lambda n: not is_ghostvar_assignment(n)))
 
 def replace_with_ghost_var(n : c_ast.If, ghost_variables):
     n.cond = ghost_variables[str(n.cond.coord)]

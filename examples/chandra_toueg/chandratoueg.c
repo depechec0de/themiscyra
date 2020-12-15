@@ -113,14 +113,15 @@ int main()
         {     
             value_decided = true;
             round = FOURTH_ROUND;
-            //send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);            
+            send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);        
+            phase++;   
+            round = FOURTH_ROUND; 
             continue;
         }
 
         // the estimate is locked, is my turn to broadcast it
         if(leader(phase) && value_decided && round == FOURTH_ROUND)
         {
-            
             send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
             round = FOURTH_ROUND;
             phase++;
@@ -137,6 +138,8 @@ int main()
             estimate = m->estimate;
             value_decided = true;
 
+            phase++;
+            round = FOURTH_ROUND;
             continue;
         }
         
