@@ -150,12 +150,12 @@ def _unfold(compound, while_body, iteration, unfoldings):
         if unfoldings > iteration:
             _unfold(upon.iftrue, while_body, iteration=iteration+1, unfoldings=unfoldings)
 
-def prune_after_phase_increment(codeast : c_ast.Node, phasevar):
+def prune_after_phase_increment(codeast : c_ast.Node, phasevar, round_var):
     if type(codeast) == c_ast.Compound:
         to_delete = []
         start_deleting = False
         for statement in codeast.block_items:
-            if start_deleting:
+            if start_deleting and not is_var_assignment(statement, round_var):
                 to_delete.append(statement)
                 
             if is_var_increment(statement, phasevar):

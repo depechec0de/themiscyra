@@ -115,7 +115,7 @@ def async_to_sync(async_ast: c_ast.Node, config):
     
     ghost_variables = create_ghost_variables(main_ast)
     map_dfs(main_ast, add_ghost_variables, [ghost_variables])
-    map_dfs(main_ast, prune_after_phase_increment, [phase_var])
+    map_dfs(main_ast, prune_after_phase_increment, [phase_var, round_var])
     filter_nodes(main_ast, lambda n : type(n) == c_ast.Break)
 
     theory = C99Theory(async_ast)

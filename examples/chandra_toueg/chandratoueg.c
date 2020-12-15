@@ -103,8 +103,8 @@ int main()
         if  (!value_decided && leader(phase) && round == THIRD_ROUND && count(mbox, phase, THIRD_ROUND) > n/2 && count_ack(mbox, phase) <= n/2)
         {     
             value_decided = false;
+            round = FIRST_ROUND;
             phase++;
-            round = FIRST_ROUND;     
             send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));     
             continue;
         }
@@ -122,8 +122,8 @@ int main()
         {
             
             send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
-            phase++;
             round = FOURTH_ROUND;
+            phase++;
 
             continue;
         }
@@ -154,7 +154,7 @@ int main()
         if  (!value_decided && !leader(phase) && round == SECOND_ROUND && timeout(round))
         {
             round = THIRD_ROUND;
-            send(message(phase, THIRD_ROUND, NULL, p, timestamp, false), leaderid(phase)); 
+            send(message(phase, THIRD_ROUND, null_int(), p, null_int(), false), leaderid(phase)); 
             round = FOURTH_ROUND;
             continue;
         }

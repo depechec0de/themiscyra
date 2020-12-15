@@ -13,7 +13,7 @@ def dead_code_elimination(codeast : c_ast.FileAST, config):
     main_while = cast_lib.find_while_node(codeast)
 
     if config is not None and hasattr(config, 'phase'):
-        cast_lib.map_dfs(main_while, cast_lib.prune_after_phase_increment, [config['phase']])
+        cast_lib.map_dfs(main_while, cast_lib.prune_after_phase_increment, [config['phase'], config['round']])
 
     # Construct a theory using definitions and declarations
     theory = C99Theory(codeast)

@@ -82,8 +82,8 @@ int main()
           if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
           {
             send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
-            phase++;
             round = FOURTH_ROUND;
+            phase++;
             continue;
           }
 
@@ -92,8 +92,8 @@ int main()
 
         if (((!value_decided) && (round == FOURTH_ROUND)) && timeout(round))
         {
-          phase++;
           round = FIRST_ROUND;
+          phase++;
           send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
           continue;
         }
@@ -111,8 +111,8 @@ int main()
         if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
         {
           send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
-          phase++;
           round = FOURTH_ROUND;
+          phase++;
           continue;
         }
 
@@ -135,8 +135,8 @@ int main()
           if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
           {
             send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
-            phase++;
             round = FOURTH_ROUND;
+            phase++;
             continue;
           }
 
@@ -145,8 +145,8 @@ int main()
 
         if (((!value_decided) && (round == FOURTH_ROUND)) && timeout(round))
         {
-          phase++;
           round = FIRST_ROUND;
+          phase++;
           send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
           continue;
         }
@@ -167,8 +167,8 @@ int main()
       if (((((!value_decided) && leader(phase)) && (round == THIRD_ROUND)) && (count(mbox, phase, THIRD_ROUND) > (n / 2))) && (count_ack(mbox, phase) <= (n / 2)))
       {
         value_decided = false;
-        phase++;
         round = FIRST_ROUND;
+        phase++;
         send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
         continue;
       }
@@ -181,8 +181,8 @@ int main()
         if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
         {
           send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
-          phase++;
           round = FOURTH_ROUND;
+          phase++;
           continue;
         }
 
@@ -199,8 +199,8 @@ int main()
         if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
         {
           send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
-          phase++;
           round = FOURTH_ROUND;
+          phase++;
           continue;
         }
 
@@ -210,8 +210,8 @@ int main()
       if ((((!value_decided) && leader(phase)) && (round == THIRD_ROUND)) && timeout(round))
       {
         value_decided = false;
-        phase++;
         round = FIRST_ROUND;
+        phase++;
         send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
         continue;
       }
@@ -222,8 +222,8 @@ int main()
     if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
     {
       send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
-      phase++;
       round = FOURTH_ROUND;
+      phase++;
       continue;
     }
 
@@ -237,8 +237,8 @@ int main()
       if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
       {
         send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
-        phase++;
         round = FOURTH_ROUND;
+        phase++;
         continue;
       }
 
@@ -248,8 +248,8 @@ int main()
     if ((((!value_decided) && leader(phase)) && (round == FIRST_ROUND)) && timeout(round))
     {
       value_decided = false;
-      phase++;
       round = FIRST_ROUND;
+      phase++;
       send(message(phase, FIRST_ROUND, estimate, p, timestamp, null_bool()), leaderid(phase));
       continue;
     }

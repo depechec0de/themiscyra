@@ -161,6 +161,7 @@ THIRD_ROUND{
 	      {
 	        __pred_12 = true;
 	        value_decided = false;
+	        round = FIRST_ROUND;
 	      }
 	      else
 	        if (((((!value_decided) && leader(phase)) && (round == THIRD_ROUND)) && (count(mbox, phase, THIRD_ROUND) > (n / 2))) && (count_ack(mbox, phase) > (n / 2)))
@@ -179,6 +180,7 @@ THIRD_ROUND{
 	      {
 	        __pred_17 = true;
 	        value_decided = false;
+	        round = FIRST_ROUND;
 	      }
 	
 	
@@ -302,6 +304,7 @@ FOURTH_ROUND{
 	          if (((!value_decided) && (round == FOURTH_ROUND)) && timeout(round))
 	        {
 	          __pred_4 = true;
+	          round = FIRST_ROUND;
 	        }
 	
 	
@@ -338,6 +341,7 @@ FOURTH_ROUND{
 	          if (((!value_decided) && (round == FOURTH_ROUND)) && timeout(round))
 	        {
 	          __pred_10 = true;
+	          round = FIRST_ROUND;
 	        }
 	
 	
