@@ -562,29 +562,6 @@ def remove_matching_predicate(node, predicate):
     v = CleanVisitor(predicate)
     v.visit(node)
 
-def replace_context_with_ghost_vars(node, round_var, label, ghost_variables, predicate):
-    class ReplaceVisitor(c_ast.NodeVisitor):
-        def __init__(self, round_var, label, ghost_variables, predicate):
-            self.ghost_variables = ghost_variables
-            self.round_var = round_var
-            self.label = label
-            self.round_start = False
-            self.round_start_predicate = predicate
-
-        def visit_Compound(self, node):
-            for n in node.block_items:
-                if self.round_start_predicate(n, round_var, label):
-                    self.round_start = True
-                elif type(n) == c_ast.If and not self.round_start:
-                    n.cond = ghost_variables[str(n.cond.coord)]
-                    self.generic_visit(n)
-                    self.round_start = False
-                else:
-                    self.generic_visit(n)
-
-    v = ReplaceVisitor(round_var, label, ghost_variables, predicate)
-    v.visit(node)
-
 def remove_empty_ifs(node):         
     remove_matching_predicate(node, lambda n : type(n) == c_ast.If and not compound_has_elements(n.iftrue))
 
@@ -620,31 +597,37 @@ def chain_ifs(node):
     v = CompoundVisitor()
     v.visit(node)
 
-def ast_slice(node, start_predicate, end_predicate, delete_predicate):
+def round_slice(node, round_var, label, ghost_variables):
 
     class SliceVisitor(c_ast.NodeVisitor):
 
-        def __init__(self, start_predicate, end_predicate, delete_predicate):
+        def __init__(self, round_var, label, ghost_variables):
             self.start_seen = False
             self.end_seen = False
-            self.start_predicate = start_predicate
-            self.end_predicate = end_predicate
-            self.delete_predicate = delete_predicate
+            self.round_var = round_var
+            self.label = label
+            self.ghost_variables = ghost_variables
+
             self.not_handle_types = {c_ast.If, c_ast.While}
 
         def visit_Compound(self, node):
             to_delete = []
 
             for n in node.block_items:
-                
-                if start_predicate(n, self.start_seen, self.end_seen):
-                    self.start_seen = True
 
-                if type(n) not in self.not_handle_types:
-                    if delete_predicate(n, self.start_seen, self.end_seen):
+                if round_start_predicate(n, self.round_var, self.label) and not self.start_seen:
+                    self.start_seen = True
+                    if is_var_assignment_to_value(n, self.round_var, self.label):
                         to_delete.append(n)
 
-                if end_predicate(n, self.start_seen, self.end_seen):
+                if type(n) == c_ast.If and not self.start_seen:
+                    n.cond = ghost_variables[str(n.cond.coord)]
+
+                if type(n) not in self.not_handle_types:
+                    if round_delete_predicate(n, self.round_var, self.label, self.start_seen, self.end_seen):
+                        to_delete.append(n)
+
+                if round_end_predicate(n, self.round_var, self.label, self.start_seen):
                     self.end_seen = True
 
                 old_start = self.start_seen
@@ -654,15 +637,45 @@ def ast_slice(node, start_predicate, end_predicate, delete_predicate):
                 self.end_seen = old_end
 
             for n in to_delete:
-                node.block_items.remove(n)               
+                node.block_items.remove(n)      
 
-    v = SliceVisitor(start_predicate, end_predicate, delete_predicate)
+    v = SliceVisitor(round_var, label, ghost_variables)
     v.visit(node)
 
     remove_matching_predicate(node, lambda n : type(n) == c_ast.If and not compound_has_elements(n.iftrue, lambda n: not is_ghostvar_assignment(n)))
 
+def round_start_predicate(n, round_var, label):
+    return is_var_assignment_to_value(n, round_var, label) or (type(n) == c_ast.If and has_round_predicate(n.cond, round_var, label))
+
+def round_end_predicate(n, round_var, label, start_seen):
+    return is_var_assignment(n, round_var) and get_assig_val(n) != label and start_seen 
+
+def round_delete_predicate(n, round_var, label, start_seen, end_seen):
+    if is_var_assignment_to_value(n, round_var, label):
+        return False
+    elif is_var_assignment(n, round_var) and get_assig_val(n) != label and start_seen and not end_seen:
+        return False
+    elif start_seen and not end_seen:
+        return False
+    else:
+        return True
+
 def replace_with_ghost_var(n : c_ast.If, ghost_variables):
     n.cond = ghost_variables[str(n.cond.coord)]
+
+def get_jump_label(n, current_label, labels):
+    class IDVisitor(c_ast.NodeVisitor):
+        def __init__(self, labels):
+            self.labels = labels
+
+        def visit_ID(self, node):
+            if node.name in labels and node.name != current_label:
+                self.result = node.name
+
+    v = IDVisitor(labels)
+    v.visit(n)
+
+    return v.result
 
 def is_jump_predicate(n : c_ast.Node, round_var, mbox_var, current_round, labels) -> bool:
     """ A n.cond is a jump if it has a function ranging from the mbox, a round jump_round
@@ -715,7 +728,7 @@ def is_jump_predicate(n : c_ast.Node, round_var, mbox_var, current_round, labels
     # if the set of guarded labels is different to the set of labels used in funcs with mbox we have a jump
     return not v.func_labels.issubset(v.guarded_labels) 
 
-def parse_jumps(code_ast, label, config) -> Dict[str, c_ast.Node]:
+def parse_jumps(jump_map, code_ast, label, config):
     """ Collect jump code with its ghost variable triggers and replace the code accordingly """
 
     class GhostVariableVisitor(c_ast.NodeVisitor):
@@ -725,14 +738,15 @@ def parse_jumps(code_ast, label, config) -> Dict[str, c_ast.Node]:
 
     class JumpCollectVisitor(c_ast.NodeVisitor):
         def __init__(self, label, config):
-            self.jump_map = dict()
+            self.jump_map = jump_map
             self.config = config
             self.label = label
 
         def visit_If(self, node):
 
             if is_jump_predicate(node.cond, config['round'], config['mbox'], label, config['labels']):
-
+                
+                jump_label = get_jump_label(node.cond, label, config['labels'])
                 v = GhostVariableVisitor()
                 v.visit(node.iftrue)
                 gv = v.result
@@ -743,32 +757,13 @@ def parse_jumps(code_ast, label, config) -> Dict[str, c_ast.Node]:
                 node.cond = c_ast.FuncCall(c_ast.ID('jump'), None)
                 remove_matching_predicate(node.iftrue, lambda n : not is_ghostvar_assignment(n))
 
-                self.jump_map[gv] = jump_code
+                self.jump_map[jump_label][gv] = jump_code
 
             self.generic_visit(node)
 
     v = JumpCollectVisitor(label, config)
     v.visit(code_ast)
 
-    return v.jump_map
-
-def add_code_inside_matching_if(code_ast, matching_cond, new_code : c_ast.Compound):
-
-    class IfVisitor(c_ast.NodeVisitor):
-        def __init__(self, matching_cond, new_code):
-            self.matching_cond = matching_cond
-            self.new_code = new_code
-
-        def visit_If(self, node):
-            generator = c_generator.CGenerator()
-
-            if compare_asts(node.cond, self.matching_cond):
-                node.iftrue.block_items = new_code.block_items + node.iftrue.block_items
-            else:
-                self.generic_visit(node)
-            
-    v = IfVisitor(matching_cond, new_code)
-    v.visit(code_ast)
 
 def compare_asts(ast1, ast2):
     if type(ast1) != type(ast2):

@@ -9,9 +9,20 @@ from c99theory import *
 import cfg
 
 class CompHO():
-    def __init__(self, init_ast, rounds):
+    def __init__(self, init_ast, rounds, jump_map, config):
         self.init_ast = init_ast
         self.rounds = rounds
+        self.jump_map = jump_map
+
+        for r in self.rounds:
+            round_jumps = jump_map[r.label]
+            r.add_jumps(round_jumps)
+
+            chain_ifs(r.send_ast)
+            chain_ifs(r.update_ast)
+
+            r.send_ast = add_jump_guard(r.send_ast, config['phase'], config['round'], r.label)
+            r.update_ast = add_jump_guard(r.update_ast, config['phase'], config['round'], r.label)
 
     def __repr__(self):
         result = "INIT()\n"
@@ -28,9 +39,10 @@ class CompHO():
 
 class SyncRound():
 
-    def __init__(self, label, code_ast, ghost_variables, config, theory):
+    def __init__(self, label, code_ast, ghost_variables, config, theory, jump_map):
 
         self.label = label
+        self.jump_map = jump_map
 
         phase_var = config['phase']
         round_var = config['round']
@@ -40,20 +52,10 @@ class SyncRound():
         theory.add_var_predicate(round_var, theory.evaluate_variable(round_var) == theory.evaluate_variable(label))
 
         # Remove all code from other rounds and keep If structure
-        start_round_predicate = lambda n, se, es, rv=round_var, l=label : round_start_predicate(n, rv, l)
-        end_round_predicate = lambda n, se, es, rv=round_var, l=label : round_end_predicate(n, se, rv, l)
-        delete_predicate_label = lambda n, se, es, rv=round_var, l=label: round_slice_delete_predicate(n, se, es, rv, l)
-
-        ast_slice(code_ast, start_round_predicate, end_round_predicate, delete_predicate_label)
-
-        # generator = c_generator.CGenerator()
-        # print(generator.visit(code_ast))
-
-        # Replace previous If predicates with ghost variables
-        replace_context_with_ghost_vars(code_ast, round_var, label, ghost_variables, lambda n, rv=round_var, l=label : round_start_predicate(n, rv, l))
+        round_slice(code_ast, round_var, label, ghost_variables)
 
         # Clean all async variables
-        filter_nodes(code_ast, lambda n, rv=round_var : is_var_assignment_to_value(n, rv, label))
+        #filter_nodes(code_ast, lambda n, rv=round_var : is_var_assignment_to_value(n, rv, label))
         filter_nodes(code_ast, lambda n, mb=mbox_var : is_var_assignment(n, mb))
         filter_nodes(code_ast, lambda n, pv=phase_var : is_var_increment(n, pv))
         filter_nodes(code_ast, lambda n : type(n) == c_ast.Continue)
@@ -64,9 +66,6 @@ class SyncRound():
         remove_empty_ifs(self.send_ast)
         # dead code elimination, phase unfold could end with several initial states that confuse the procedure
         filter_nodes(self.send_ast, lambda n : type(n) == c_ast.If and theory.is_unsat(theory.evaluate_ast(n.cond)))
-        # unify ifs to conserve upon's mutual exclusion
-        chain_ifs(self.send_ast)
-        self.send_ast = add_jump_guard(self.send_ast, phase_var, round_var, label)
         
         # Compute UPDATE
         self.update_ast = copy.deepcopy(code_ast)
@@ -74,21 +73,21 @@ class SyncRound():
         remove_empty_ifs(self.update_ast)
         # dead code elimination, phase unfold could end with several initial states that confuse the procedure
         filter_nodes(self.update_ast, lambda n : type(n) == c_ast.If and theory.is_unsat(theory.evaluate_ast(n.cond)))
-        # unify ifs to conserve upon's mutual exclusion
-        chain_ifs(self.update_ast)
-        self.update_ast = add_jump_guard(self.update_ast, phase_var, round_var, label)
 
         # Look for jumps
-        self.jumps = parse_jumps(self.update_ast, label, config)
+        parse_jumps(self.jump_map, self.update_ast, label, config)
 
     def get_jumps(self):
         return self.jumps
 
     def add_jumps(self, jump_map : Dict[str, c_ast.Node]):
+
         for ghost_var, code in jump_map.items():
+            #print(ghost_var)
             ghost_var_ast = c_ast.ID(ghost_var)
-            add_code_inside_matching_if(self.update_ast, ghost_var_ast, code)
-    
+            self.update_ast.block_items.append(c_ast.If(ghost_var_ast, code, None))
+            #add_code_inside_matching_if(self.update_ast, ghost_var_ast, code)
+
     def __repr__(self):
         generator = c_generator.CGenerator()
 
@@ -129,18 +128,16 @@ def async_to_sync(async_ast: c_ast.Node, config):
 
     jump_map = dict()
 
+    for l in labels:
+        jump_map[l] = dict()
+
     for label in labels:
         round_ast = copy.deepcopy(main_ast)
-        sr = SyncRound(label, round_ast, ghost_variables, config, theory)
-        jd = sr.get_jumps()
-        jump_map.update(jd)
+        sr = SyncRound(label, round_ast, ghost_variables, config, theory, jump_map)
 
         rounds.append(sr)
 
-    for sr in rounds:
-        sr.add_jumps(jump_map)
-
-    compho = CompHO(init_ast, rounds)
+    compho = CompHO(init_ast, rounds, jump_map, config)
 
     return compho
 
@@ -160,21 +157,3 @@ def add_jump_guard(ast_to_guard, phase_var, round_var, label):
                     ast_to_guard, None)
 
     return c_ast.Compound([guarded_ast])
-
-def round_start_predicate(n, round_var, label):
-    # if type(n) == c_ast.If:
-    #     print(has_round_predicate(n.cond, round_var, label), label, ast_to_str(n.cond))
-    return is_var_assignment_to_value(n, round_var, label) or (type(n) == c_ast.If and has_round_predicate(n.cond, round_var, label))
-
-def round_end_predicate(n, start_seen, round_var, label):
-    return is_var_assignment(n, round_var) and get_assig_val(n) != label and start_seen 
-
-def round_slice_delete_predicate(n, start_seen, end_seen, round_var, label):
-    if is_var_assignment_to_value(n, round_var, label):
-        return False
-    elif is_var_assignment(n, round_var) and get_assig_val(n) != label and start_seen and not end_seen:
-        return False
-    elif start_seen and not end_seen:
-        return False
-    else:
-        return True

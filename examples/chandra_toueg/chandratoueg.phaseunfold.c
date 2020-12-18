@@ -72,14 +72,13 @@ int main()
         send(message(phase, THIRD_ROUND, NULL, p, timestamp, true), leaderid(phase));
         round = FOURTH_ROUND;
         mbox = havoc(phase, round);
-        if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
+        if (((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1)) && (round == FOURTH_ROUND))
         {
-          phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
-          round = FOURTH_ROUND;
           estimate = m->estimate;
           value_decided = true;
-          phase++;
+          phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
           round = FOURTH_ROUND;
+          phase++;
           continue;
         }
 
@@ -94,14 +93,13 @@ int main()
         break;
       }
 
-      if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
+      if (((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1)) && (round == SECOND_ROUND))
       {
-        phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
-        round = FOURTH_ROUND;
         estimate = m->estimate;
         value_decided = true;
-        phase++;
+        phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
         round = FOURTH_ROUND;
+        phase++;
         continue;
       }
 
@@ -111,14 +109,13 @@ int main()
         send(message(phase, THIRD_ROUND, null_int(), p, null_int(), false), leaderid(phase));
         round = FOURTH_ROUND;
         mbox = havoc(phase, round);
-        if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
+        if (((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1)) && (round == FOURTH_ROUND))
         {
-          phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
-          round = FOURTH_ROUND;
           estimate = m->estimate;
           value_decided = true;
-          phase++;
+          phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
           round = FOURTH_ROUND;
+          phase++;
           continue;
         }
 
@@ -158,18 +155,16 @@ int main()
         round = FOURTH_ROUND;
         send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);
         phase++;
-        round = FOURTH_ROUND;
         continue;
       }
 
-      if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
+      if (((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1)) && (round == THIRD_ROUND))
       {
-        phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
-        round = FOURTH_ROUND;
         estimate = m->estimate;
         value_decided = true;
-        phase++;
+        phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
         round = FOURTH_ROUND;
+        phase++;
         continue;
       }
 
@@ -193,14 +188,13 @@ int main()
       continue;
     }
 
-    if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
+    if (((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1)) && (round == FIRST_ROUND))
     {
-      phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
-      round = FOURTH_ROUND;
       estimate = m->estimate;
       value_decided = true;
-      phase++;
+      phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
       round = FOURTH_ROUND;
+      phase++;
       continue;
     }
 

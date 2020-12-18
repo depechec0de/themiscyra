@@ -115,7 +115,7 @@ int main()
             round = FOURTH_ROUND;
             send(message(phase, FOURTH_ROUND, estimate, p, null_int(), true), to_all);        
             phase++;   
-            round = FOURTH_ROUND; 
+            //round = FOURTH_ROUND; 
             continue;
         }
 
@@ -129,17 +129,51 @@ int main()
             continue;
         }
         
-        if  (!value_decided && count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1)
+        if  (!value_decided && count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1 && round == FIRST_ROUND)
         {
+            estimate = m->estimate;
+            value_decided = true;
             
             phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
             round = FOURTH_ROUND;
 
+            phase++;
+            continue;
+        }
+
+        if  (!value_decided && count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1 && round == SECOND_ROUND)
+        {
             estimate = m->estimate;
             value_decided = true;
 
-            phase++;
+            phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
             round = FOURTH_ROUND;
+
+            phase++;
+            continue;
+        }
+
+        if  (!value_decided && count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1 && round == THIRD_ROUND)
+        {
+            estimate = m->estimate;
+            value_decided = true;
+
+            phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
+            round = FOURTH_ROUND;
+
+            phase++;
+            continue;
+        }
+
+        if  (!value_decided && count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1 && round == FOURTH_ROUND)
+        {
+            estimate = m->estimate;
+            value_decided = true;
+
+            phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
+            round = FOURTH_ROUND;
+
+            phase++;
             continue;
         }
         

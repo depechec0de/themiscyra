@@ -43,6 +43,7 @@ FIRST_ROUND{
 	    {
 	      __pred_15 = true;
 	      value_decided = false;
+	      round = FIRST_ROUND;
 	    }
 	
 	
@@ -228,12 +229,13 @@ FOURTH_ROUND{
 	    {
 	      if (__pred_1)
 	      {
-	        if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
+	        if (((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1)) && (round == FOURTH_ROUND))
 	        {
 	          __pred_2 = true;
-	          phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
 	          estimate = m->estimate;
 	          value_decided = true;
+	          phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
+	          round = FOURTH_ROUND;
 	        }
 	        else
 	          if (((!value_decided) && (round == FOURTH_ROUND)) && timeout(round))
@@ -245,22 +247,15 @@ FOURTH_ROUND{
 	
 	      }
 	      else
-	        if (__pred_4)
-	      {
-	        phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
-	        round = FOURTH_ROUND;
-	        estimate = m->estimate;
-	        value_decided = true;
-	      }
-	      else
 	        if (__pred_5)
 	      {
-	        if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
+	        if (((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1)) && (round == FOURTH_ROUND))
 	        {
 	          __pred_6 = true;
-	          phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
 	          estimate = m->estimate;
 	          value_decided = true;
+	          phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
+	          round = FOURTH_ROUND;
 	        }
 	        else
 	          if (((!value_decided) && (round == FOURTH_ROUND)) && timeout(round))
@@ -273,33 +268,38 @@ FOURTH_ROUND{
 	      }
 	
 	
-	
-	    }
-	    else
-	      if (__pred_8)
-	    {
-	      if (__pred_11)
-	      {
-	        phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
-	        round = FOURTH_ROUND;
-	        estimate = m->estimate;
-	        value_decided = true;
-	      }
-	
 	    }
 	    else
 	      if ((leader(phase) && value_decided) && (round == FOURTH_ROUND))
 	    {
 	      __pred_13 = true;
+	      round = FOURTH_ROUND;
 	    }
 	    else
-	      if ((!value_decided) && (count_with_max_phase_geq(mbox, phase, FOURTH_ROUND) == 1))
+	      if (__pred_14)
 	    {
-	      __pred_14 = true;
-	      phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
 	      estimate = m->estimate;
 	      value_decided = true;
+	      phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
+	      round = FOURTH_ROUND;
 	    }
+	    else
+	      if (__pred_4)
+	    {
+	      estimate = m->estimate;
+	      value_decided = true;
+	      phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
+	      round = FOURTH_ROUND;
+	    }
+	    else
+	      if (__pred_11)
+	    {
+	      estimate = m->estimate;
+	      value_decided = true;
+	      phase = max_phase_geq(mbox, phase, FOURTH_ROUND);
+	      round = FOURTH_ROUND;
+	    }
+	
 	
 	
 	
