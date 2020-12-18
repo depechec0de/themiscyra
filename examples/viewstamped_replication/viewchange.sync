@@ -7,7 +7,7 @@ STARTVIEWCHANGE{
 
 	SEND(PHASE, ROUND)
 	{
-	  if ((view == PHASE) && (vround == ROUND))
+	  if ((view == PHASE) && (vround == STARTVIEWCHANGE))
 	  {
 	    send(all, message(view, STARTVIEWCHANGE, p, null_log()));
 	  }
@@ -16,9 +16,8 @@ STARTVIEWCHANGE{
 	
 	UPDATE(MBOX, PHASE, ROUND)
 	{
-	  if ((view == PHASE) && (vround == ROUND))
+	  if ((view == PHASE) && (vround == STARTVIEWCHANGE))
 	  {
-	    vround = STARTVIEWCHANGE;
 	    if (((vround == STARTVIEWCHANGE) && (p == primary(view, n))) && (mbox->size > f))
 	    {
 	      __pred_0 = true;
@@ -42,7 +41,7 @@ DOVIEWCHANGE{
 
 	SEND(PHASE, ROUND)
 	{
-	  if ((view == PHASE) && (vround == ROUND))
+	  if ((view == PHASE) && (vround == DOVIEWCHANGE))
 	  {
 	    if (__pred_2)
 	    {
@@ -55,11 +54,10 @@ DOVIEWCHANGE{
 	
 	UPDATE(MBOX, PHASE, ROUND)
 	{
-	  if ((view == PHASE) && (vround == ROUND))
+	  if ((view == PHASE) && (vround == DOVIEWCHANGE))
 	  {
 	    if (__pred_0)
 	    {
-	      vround = DOVIEWCHANGE;
 	      if (((vround == DOVIEWCHANGE) && (p == primary(view, n))) && (mbox->size > f))
 	      {
 	        __pred_1 = true;
@@ -71,7 +69,6 @@ DOVIEWCHANGE{
 	    else
 	      if (__pred_2)
 	    {
-	      vround = DOVIEWCHANGE;
 	      vround = STARTVIEW;
 	    }
 	
@@ -86,7 +83,7 @@ STARTVIEW{
 
 	SEND(PHASE, ROUND)
 	{
-	  if ((view == PHASE) && (vround == ROUND))
+	  if ((view == PHASE) && (vround == STARTVIEW))
 	  {
 	    if (__pred_0)
 	    {
@@ -103,24 +100,24 @@ STARTVIEW{
 	
 	UPDATE(MBOX, PHASE, ROUND)
 	{
-	  if ((view == PHASE) && (vround == ROUND))
+	  if ((view == PHASE) && (vround == STARTVIEW))
 	  {
 	    if (__pred_0)
 	    {
 	      if (__pred_1)
 	      {
-	        vround = STARTVIEW;
+	        vround = STARTVIEWCHANGE;
 	      }
 	
 	    }
 	    else
 	      if (__pred_2)
 	    {
-	      vround = STARTVIEW;
 	      if (((vround == STARTVIEW) && (p != primary(view, n))) && (mbox->size == 1))
 	      {
 	        __pred_3 = true;
 	        computes_new_log();
+	        vround = STARTVIEWCHANGE;
 	      }
 	
 	    }
