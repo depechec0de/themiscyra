@@ -1,0 +1,150 @@
+INIT()
+{
+  phase = 0;
+}
+
+ALPHA{
+
+	SEND(PHASE, ROUND)
+	{
+	  if ((phase == PHASE) && (round == ALPHA))
+	  {
+	    if ((round == ALPHA) && (p == primary(phase, n)))
+	    {
+	      send(all, message(phase, ALPHA, p, command(), null_bool(), null_bool()));
+	    }
+	
+	  }
+	
+	}
+	
+	UPDATE(MBOX, PHASE, ROUND)
+	{
+	  if ((phase == PHASE) && (round == ALPHA))
+	  {
+	    if ((round == ALPHA) && (p == primary(phase, n)))
+	    {
+	      __pred_0 = true;
+	      round = BETA;
+	    }
+	    else
+	      if (((round == ALPHA) && (p != primary(phase, n))) && (count(phase, ALPHA, mbox) == 1))
+	    {
+	      __pred_1 = true;
+	      commit = commit_or_abort();
+	      round = BETA;
+	    }
+	
+	
+	  }
+	
+	}
+	
+}
+
+BETA{
+
+	SEND(PHASE, ROUND)
+	{
+	  if ((phase == PHASE) && (round == BETA))
+	  {
+	    if (__pred_1)
+	    {
+	      send(primary(phase, n), message(phase, BETA, p, null_int(), commit, null_bool()));
+	    }
+	
+	  }
+	
+	}
+	
+	UPDATE(MBOX, PHASE, ROUND)
+	{
+	  if ((phase == PHASE) && (round == BETA))
+	  {
+	    if (__pred_1)
+	    {
+	      round = GAMMA;
+	    }
+	
+	  }
+	
+	}
+	
+}
+
+GAMMA{
+
+	SEND(PHASE, ROUND)
+	{
+	  if ((phase == PHASE) && (round == GAMMA))
+	  {
+	  }
+	
+	}
+	
+	UPDATE(MBOX, PHASE, ROUND)
+	{
+	  if ((phase == PHASE) && (round == GAMMA))
+	  {
+	    if (__pred_1)
+	    {
+	      if (((round == GAMMA) && (p != primary(phase, n))) && (count(phase, GAMMA, mbox) == 1))
+	      {
+	        __pred_2 = true;
+	        commit = primary_commit(phase, GAMMA, mbox);
+	        if (commit)
+	        {
+	          __pred_3 = true;
+	          execute_command();
+	        }
+	
+	        round = DELTA;
+	      }
+	
+	    }
+	
+	  }
+	
+	}
+	
+}
+
+DELTA{
+
+	SEND(PHASE, ROUND)
+	{
+	  if ((phase == PHASE) && (round == DELTA))
+	  {
+	    if (__pred_1)
+	    {
+	      if (__pred_2)
+	      {
+	        send(primary(phase, n), message(phase, DELTA, p, null_int(), null_bool(), true));
+	      }
+	
+	    }
+	
+	  }
+	
+	}
+	
+	UPDATE(MBOX, PHASE, ROUND)
+	{
+	  if ((phase == PHASE) && (round == DELTA))
+	  {
+	    if (__pred_1)
+	    {
+	      if (__pred_2)
+	      {
+	        round = ALPHA;
+	      }
+	
+	    }
+	
+	  }
+	
+	}
+	
+}
+
+

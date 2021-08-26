@@ -1,0 +1,20 @@
+phase : phase
+round : round
+mbox : mbox
+labels :
+    - ALPHA
+    - BETA
+    - GAMMA
+    - DELTA
+
+# Unfold script
+# python3 main.py examples/2pc/2pc.c examples/2pc/2pc.yaml --unfold 3 > examples/2pc/2pc.unfolded.c
+
+# Dead code script
+# python3 main.py examples/2pc/2pc.unfolded.c examples/2pc/2pc.yaml --deadcode > examples/2pc/2pc.deadcode.c
+
+# Phase unfold script
+# python3 main.py examples/2pc/2pc.c examples/2pc/2pc.yaml --phaseunfold > examples/2pc/2pc.phaseunfold.c
+
+# Sync code script
+# python3 main.py examples/2pc/2pc.phaseunfold.c examples/2pc/2pc.yaml --athos > examples/2pc/2pc.sync
