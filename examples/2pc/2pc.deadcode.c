@@ -53,6 +53,39 @@ int main()
     {
       send(all, message(phase, ALPHA, p, command(), null_bool(), null_bool()));
       round = BETA;
+      if (((round == BETA) && (p == primary(phase, n))) && (count(phase, BETA, mbox) == n))
+      {
+        commit = all_followers_commit(phase, BETA, mbox);
+        round = GAMMA;
+        send(all, message(phase, GAMMA, p, null_int(), commit, null_bool()));
+        round = DELTA;
+        if (((round == DELTA) && (p == primary(phase, n))) && (count(phase, DELTA, mbox) == n))
+        {
+          phase++;
+          round = ALPHA;
+          if ((round == ALPHA) && (p == primary(phase, n)))
+          {
+            send(all, message(phase, ALPHA, p, command(), null_bool(), null_bool()));
+            round = BETA;
+            continue;
+          }
+
+          if (((round == ALPHA) && (p != primary(phase, n))) && (count(phase, ALPHA, mbox) == 1))
+          {
+            commit = commit_or_abort();
+            round = BETA;
+            send(primary(phase, n), message(phase, BETA, p, null_int(), commit, null_bool()));
+            round = GAMMA;
+            continue;
+          }
+
+          break;
+        }
+
+        break;
+      }
+
+      break;
     }
 
     if (((round == ALPHA) && (p != primary(phase, n))) && (count(phase, ALPHA, mbox) == 1))
@@ -77,6 +110,16 @@ int main()
         {
           send(all, message(phase, ALPHA, p, command(), null_bool(), null_bool()));
           round = BETA;
+          if (((round == BETA) && (p == primary(phase, n))) && (count(phase, BETA, mbox) == n))
+          {
+            commit = all_followers_commit(phase, BETA, mbox);
+            round = GAMMA;
+            send(all, message(phase, GAMMA, p, null_int(), commit, null_bool()));
+            round = DELTA;
+            continue;
+          }
+
+          break;
         }
 
         if (((round == ALPHA) && (p != primary(phase, n))) && (count(phase, ALPHA, mbox) == 1))

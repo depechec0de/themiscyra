@@ -30,7 +30,7 @@ ALPHA{
 	    else
 	      if (((round == ALPHA) && (p != primary(phase, n))) && (count(phase, ALPHA, mbox) == 1))
 	    {
-	      __pred_1 = true;
+	      __pred_3 = true;
 	      commit = commit_or_abort();
 	      round = BETA;
 	    }
@@ -48,7 +48,7 @@ BETA{
 	{
 	  if ((phase == PHASE) && (round == BETA))
 	  {
-	    if (__pred_1)
+	    if (__pred_3)
 	    {
 	      send(primary(phase, n), message(phase, BETA, p, null_int(), commit, null_bool()));
 	    }
@@ -61,10 +61,22 @@ BETA{
 	{
 	  if ((phase == PHASE) && (round == BETA))
 	  {
-	    if (__pred_1)
+	    if (__pred_0)
+	    {
+	      if (((round == BETA) && (p == primary(phase, n))) && (count(phase, BETA, mbox) == n))
+	      {
+	        __pred_1 = true;
+	        commit = all_followers_commit(phase, BETA, mbox);
+	        round = GAMMA;
+	      }
+	
+	    }
+	    else
+	      if (__pred_3)
 	    {
 	      round = GAMMA;
 	    }
+	
 	
 	  }
 	
@@ -78,6 +90,15 @@ GAMMA{
 	{
 	  if ((phase == PHASE) && (round == GAMMA))
 	  {
+	    if (__pred_0)
+	    {
+	      if (__pred_1)
+	      {
+	        send(all, message(phase, GAMMA, p, null_int(), commit, null_bool()));
+	      }
+	
+	    }
+	
 	  }
 	
 	}
@@ -86,15 +107,24 @@ GAMMA{
 	{
 	  if ((phase == PHASE) && (round == GAMMA))
 	  {
-	    if (__pred_1)
+	    if (__pred_0)
+	    {
+	      if (__pred_1)
+	      {
+	        round = DELTA;
+	      }
+	
+	    }
+	    else
+	      if (__pred_3)
 	    {
 	      if (((round == GAMMA) && (p != primary(phase, n))) && (count(phase, GAMMA, mbox) == 1))
 	      {
-	        __pred_2 = true;
+	        __pred_4 = true;
 	        commit = primary_commit(phase, GAMMA, mbox);
 	        if (commit)
 	        {
-	          __pred_3 = true;
+	          __pred_5 = true;
 	          execute_command();
 	        }
 	
@@ -102,6 +132,7 @@ GAMMA{
 	      }
 	
 	    }
+	
 	
 	  }
 	
@@ -115,9 +146,9 @@ DELTA{
 	{
 	  if ((phase == PHASE) && (round == DELTA))
 	  {
-	    if (__pred_1)
+	    if (__pred_3)
 	    {
-	      if (__pred_2)
+	      if (__pred_4)
 	      {
 	        send(primary(phase, n), message(phase, DELTA, p, null_int(), null_bool(), true));
 	      }
@@ -132,14 +163,29 @@ DELTA{
 	{
 	  if ((phase == PHASE) && (round == DELTA))
 	  {
-	    if (__pred_1)
+	    if (__pred_0)
 	    {
-	      if (__pred_2)
+	      if (__pred_1)
+	      {
+	        if (((round == DELTA) && (p == primary(phase, n))) && (count(phase, DELTA, mbox) == n))
+	        {
+	          __pred_2 = true;
+	          round = ALPHA;
+	        }
+	
+	      }
+	
+	    }
+	    else
+	      if (__pred_3)
+	    {
+	      if (__pred_4)
 	      {
 	        round = ALPHA;
 	      }
 	
 	    }
+	
 	
 	  }
 	

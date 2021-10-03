@@ -18,3 +18,6 @@ labels :
 
 # Sync code script
 # python3 main.py examples/2pc/2pc.phaseunfold.c examples/2pc/2pc.yaml --athos > examples/2pc/2pc.sync
+
+# P to Upon
+# python3 main.py examples/2pc/P/PSrc/2PC.p examples/2pc/2pc.yaml --ptoupon > examples/2pc/2pc.p.c
