@@ -34,6 +34,7 @@ def build_upon(cond, body):
 def build_declarations(roles, config):
     declarations = []
     declarations.append(build_struct_decl('mbox', 'list'))
+    declarations.append(build_var_decl('N', 'int'))
     declarations.append(build_var_decl(config['phase'], 'int'))
     declarations.append(build_round_decl(config['labels']))
     declarations.append(build_var_enum_decl(config['round'], 'round_type'))
@@ -103,6 +104,7 @@ def build_main(p_program: ProgramNode, config):
     main_body_ast = c_ast.Compound(main_body)   
 
     parse_non_determinism(main_body)
+    rename_events(main_body)
 
     return c_ast.FuncDef(
                     decl=c_ast.Decl(
@@ -354,6 +356,16 @@ def replace_goto(ast):
                 self.generic_visit(n)
 
     v = ReplaceGotoCodeVisitor()
+    v.visit(ast)
+
+def rename_events(ast):
+    class IDVisitor(c_ast.NodeVisitor):
+
+        def visit_ID(self, node):
+            if node.name.startswith('event'):
+                node.name = node.name.replace('event','')
+
+    v = IDVisitor()
     v.visit(ast)
 
 def parse_non_determinism(ast):

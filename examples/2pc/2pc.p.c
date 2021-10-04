@@ -1,4 +1,5 @@
 struct list *mbox;
+int N;
 int phase;
 enum round_type
 {
@@ -16,11 +17,7 @@ int main()
 {
   if (Primary(phase))
   {
-    backups = b;
-    numBackup = sizeof(backups);
-    sendConfig();
-    participants = backups;
-    participants += (sizeof(participants), this);
+    initConfig(backups);
     phase = 0;
     round = ALPHA;
   }
@@ -36,7 +33,7 @@ int main()
     if ((Primary(phase) && (round == ALPHA)) && (count(phase, ALPHA, mbox) == 1))
     {
       initMbox(phase);
-      broadcast(eventALPHA, (phase = phase, from = this, payload = newcommand));
+      broadcast(ALPHA, phase, this, newcommand);
       round = BETA;
       continue;
     }
@@ -45,7 +42,7 @@ int main()
     {
       decision[m.phase] = commit_or_abort(m.phase);
       round = GAMMA;
-      broadcast(eventGAMMA, (phase = phase, from = this, payload = decision[phase]));
+      broadcast(GAMMA, phase, this, decision[phase]);
       round = DELTA;
     }
 
@@ -58,20 +55,20 @@ int main()
     if ((Backup(phase) && (round == ALPHA)) && (count(phase, ALPHA, mbox) == 1))
     {
       round = BETA;
-      v = ABORT;
+      vote = ABORT;
       if (non_deterministic_choice())
       {
-        v = COMMIT;
+        vote = COMMIT;
       }
 
-      send(leader(phase), eventBETA);
+      send(leader(phase), BETA);
       round = GAMMA;
       continue;
     }
 
     if ((Backup(phase) && (round == GAMMA)) && (count(phase, GAMMA, mbox) == 1))
     {
-      if (m.payload == COMMIT)
+      if (payload(m) == COMMIT)
       {
         decision[phase] = COMMIT;
       }
@@ -81,7 +78,7 @@ int main()
       }
 
       round = DELTA;
-      send(leader(phase), eventDELTA);
+      send(leader(phase), DELTA);
       phase = phase + 1;
       round = ALPHA;
       continue;

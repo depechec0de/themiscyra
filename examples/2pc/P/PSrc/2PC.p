@@ -29,6 +29,7 @@ machine Primary
 {
     var numBackup : int;
     var backups : seq[Backup];
+    var participants : seq[machine];
     var phase : Phase;
     var mbox : Mbox;
     var commitvotes : map[Phase, int];
@@ -38,20 +39,13 @@ machine Primary
     {
         defer eClientRequest;
 
-        entry (b: seq[Backup]){
-            var participants : seq[machine];
-
-            backups = b;
-            numBackup = sizeof(backups);
-            sendConfig();
-
-            participants = backups;
-            participants += (sizeof(participants), this);
+        entry (backups: seq[Backup]){
+            
+            initConfig(backups);
 
             announce eMonitor_Initialize, participants;
 
             phase = 0; 
-
             goto ALPHA;
         }
     }
@@ -70,7 +64,7 @@ machine Primary
 
             initMbox(phase);
 
-            broadcast(eventALPHA, (phase = phase, from=this, payload = newcommand));
+            broadcast(eventALPHA, phase, this, newcommand);
             goto BETA;
         }
     }
@@ -88,7 +82,7 @@ machine Primary
             announce eMonitor_MessageReceived, (localTs=(phase=phase, round=BETA), msgTs=(phase=m.phase, round=BETA));
 
             announce eMonitor_MailboxUsed, (id=this, mboxTs=(phase=m.phase, round=BETA));
-            if(m.payload == COMMIT)
+            if(payload(m) == COMMIT)
             {
                 commitvotes[m.phase] = commitvotes[m.phase]+1;
             }
@@ -113,7 +107,7 @@ machine Primary
         {
             announce eMonitor_TimestampChange, (id=this, ts=(phase=phase, round=GAMMA));
 
-            broadcast(eventGAMMA, (phase = phase, from=this, payload = decision[phase]));
+            broadcast(eventGAMMA, phase, this, decision[phase]);
             goto DELTA;
         }
     }
@@ -165,25 +159,38 @@ machine Primary
         return decision;
     }
 
-    fun broadcast(message: event, payload: Message)
+    fun broadcast(message: event, phase: Phase, from: machine, payload: data)
     {
         var i: int; i = 0;
+        
         while (i < numBackup) 
         {
-            send backups[i], message, payload;
+            send backups[i], message, (phase=phase, from=from, payload = payload);
             i = i + 1;
         }
     }
 
-    fun sendConfig()
+    fun initConfig(b: seq[Backup])
     {
         var i : int;
+        backups = b;
+        numBackup = sizeof(backups);
+
         i = 0;
         while (i < numBackup) 
         {
             send backups[i], configMessage, this;
             i = i + 1;
         }
+
+        participants = backups;
+        participants += (sizeof(participants), this);
+
+    }
+
+    fun payload(m: Message) : data
+    {
+        return m.payload;
     }
 }
 
@@ -192,6 +199,7 @@ machine Backup
     var phase : Phase;
     var leader : Primary;
     var decision : map[Phase, Vote];
+    var vote : Vote;
 
     start state Init 
     {
@@ -221,17 +229,15 @@ machine Backup
     {
 
         entry 
-        {
-            var v : Vote;
-            
+        {           
             announce eMonitor_TimestampChange, (id=this, ts=(phase=phase, round=BETA));
 
-            v = ABORT;
+            vote = ABORT;
             if($)
             {
-                v = COMMIT;
+                vote = COMMIT;
             }
-            send leader(phase), eventBETA, (phase = phase, from=this, payload = v);
+            send leader(phase), eventBETA, (phase = phase, from=this, payload = vote);
             goto GAMMA;
         }
 
@@ -248,11 +254,11 @@ machine Backup
             announce eMonitor_MessageReceived, (localTs=(phase=phase, round=GAMMA), msgTs=(phase=m.phase, round=GAMMA));
 
             announce eMonitor_MailboxUsed, (id=this, mboxTs=(phase=m.phase, round=GAMMA));
-            if(m.payload == COMMIT)
+            if(payload(m) == COMMIT)
             {
-                decision[phase] = COMMIT;
+                setDecision(phase, COMMIT);
             } else {
-                decision[phase] = ABORT;
+                setDecision(phase, ABORT);
             }
             goto DELTA;
         }
@@ -272,5 +278,15 @@ machine Backup
     fun leader(phase: int) : Primary
     {
         return leader;
+    }
+
+    fun setDecision(phase: Phase, vote: Vote)
+    {
+        decision[phase] = ABORT;
+    }
+
+    fun payload(m: Message) : data
+    {
+        return m.payload;
     }
 }

@@ -1,0 +1,1 @@
+test TestSyncBasic[main = TestDriverSync0]: { TestDriverSync0, ViewStampedReplicationSync, Replica };
