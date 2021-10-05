@@ -10,4 +10,6 @@ pc -proj:ViewStampedReplication.pproj
 ```
 pmc netcoreapp3.1/ViewStampedReplication.dll -m PImplementation.TestSyncBasic.Execute -i 1000
 
+pmc netcoreapp3.1/ViewStampedReplication.dll -m PImplementation.TestAsyncBasic.Execute -i 1000
+
 ```

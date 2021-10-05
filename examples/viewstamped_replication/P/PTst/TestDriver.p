@@ -9,12 +9,12 @@ machine TestDriverSync0 {
             var N : int;
             var system : ViewStampedReplicationSync;
             var i : int;
-            var participants: seq[Replica];
+            var participants: seq[SyncReplica];
             
             N = 6;
             i = 0;
             while (i < N) {
-                participants += (i, new Replica());
+                participants += (i, new SyncReplica());
                 i = i + 1;
             }
             
@@ -22,6 +22,50 @@ machine TestDriverSync0 {
 
             send system, eClientRequest, (transactionId = 100, command = "x = 0;");
             send system, eClientRequest, (transactionId = 101, command = "x = 1;");
+        }
+    }
+}
+
+machine SyncReplica {
+    start state Init {
+    }
+}
+
+machine TestDriverAsync0 {
+    start state Init {
+        entry {
+            var N : int;
+            var participants: seq[Replica];
+            var i : int;
+            var leader : Replica;
+
+            N = 5;
+            i = 0;
+            while (i < N) {
+                participants += (i, new Replica());
+                i = i + 1;
+            }
+
+            leader = participants[0];
+            
+            i = 0;
+            while (i < N) {
+                send participants[i], eConfig, (participants=participants, leader=leader);
+                i=i+1;
+            }
+
+            i = 0;
+            while (i < N) {
+                send participants[i], eClientRequest, (transactionId = 100, command = "x = 0;");
+                i=i+1;
+            }
+
+            i = 0;
+            while (i < N) {
+                send participants[i], eClientRequest, (transactionId = 101, command = "x = 1;");
+                i=i+1;
+            }
+            
         }
     }
 }
