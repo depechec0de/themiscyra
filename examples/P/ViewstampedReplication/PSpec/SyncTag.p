@@ -8,11 +8,11 @@ event eMonitor_MailboxUsed : (id: machine, mboxTs: Timestamp);
 spec SyncTagInvariant observes eMonitor_Initialize, eMonitor_TimestampChange, eMonitor_MessageReceived, eMonitor_MailboxUsed, eventSTARTVIEWCHANGE, eventDOVIEWCHANGE, eventSTARTVIEW
 {
     // a map saving the current phase for every participant
-    var participants : seq[machine];
+    var participants : set[machine];
     var participantsTimestamp: map[machine, Timestamp];
     var numParticipants: int;
     start state Init {
-        on eMonitor_Initialize goto WaitForEvents with (participants: seq[machine]) {
+        on eMonitor_Initialize goto WaitForEvents with (participants: set[machine]) {
             var i: int; 
 
             participants = participants;

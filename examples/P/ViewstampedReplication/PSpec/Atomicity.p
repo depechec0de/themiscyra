@@ -1,1 +1,1 @@
-event eMonitor_Initialize: seq[machine];
+event eMonitor_Initialize: set[machine];

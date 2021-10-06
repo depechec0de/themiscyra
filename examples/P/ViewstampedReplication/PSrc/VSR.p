@@ -6,12 +6,12 @@ event eventSTARTVIEW: (phase: Phase, from: machine, dst: machine, payload: data)
 
 type Command = int;
 type Phase = int;
-type Mbox = map[Phase, map[Round, seq[Message]]];
+type Mbox = map[Phase, map[Round, set[Message]]];
 type Timestamp = (phase: Phase, round: Round);
 type Message = (phase: Phase, from: machine, dst: machine, payload: data);
 type ClientRequest = (transactionId: int, command: string);
 
-event eConfig: (participants: seq[Replica], leader: Replica);
+event eConfig: (participants: set[Replica], leader: Replica);
 event eClientRequest: ClientRequest;
 
 enum Round { STARTVIEWCHANGE, DOVIEWCHANGE, STARTVIEW }
@@ -20,8 +20,9 @@ machine Replica
 {
     var phase : Phase;
     var leader : Replica;
-    var participants: seq[Replica];
+    var participants: set[Replica];
     var mbox : Mbox;
+    var timer : Timer;
 
     start state Init 
     {
@@ -29,47 +30,57 @@ machine Replica
 
         entry
         {
-            phase = 0;
             receive {
-                case eConfig: (payload: (participants: seq[Replica], leader: Replica)) { 
+                case eConfig: (payload: (participants: set[Replica], leader: Replica)) { 
                     participants = payload.participants;
                     leader = payload.leader;
                 }
             }
+
+            phase = 0;
+            
+            timer = CreateTimer(this);
+            goto WaitForClientRequest;
+        }
+    }
+
+    state WaitForClientRequest
+    {
+        defer eventDOVIEWCHANGE, eventSTARTVIEWCHANGE, eventSTARTVIEW;
+
+        on eClientRequest do (m : ClientRequest) 
+        {
             goto STARTVIEWCHANGE;
         }
+
     }
 
     state STARTVIEWCHANGE
     {
-        defer eventDOVIEWCHANGE, eventSTARTVIEW;
+        defer eClientRequest, eventDOVIEWCHANGE, eventSTARTVIEW;
 
         entry {
-            initMbox(phase);
-        }
-
-        on eClientRequest do (m : ClientRequest) 
-        {
             var newcommand : Command;
-            
-            broadcast(eventSTARTVIEWCHANGE, phase, this, newcommand);
-            goto DOVIEWCHANGE;
+
+            UnReliableBroadCast(participants, eventSTARTVIEWCHANGE, (phase=phase, from=this, dst=null, payload = newcommand));
+            StartTimer(timer);
         }
 
         on eventSTARTVIEWCHANGE do (m : Message) 
         {
             announce eMonitor_MessageReceived, (localTs=(phase=phase, round=STARTVIEWCHANGE), msgTs=(phase=m.phase, round=STARTVIEWCHANGE));
 
-            assert(m.phase in mbox);
-
             announce eMonitor_MailboxUsed, (id=this, mboxTs=(phase=m.phase, round=STARTVIEWCHANGE));
-            mbox[m.phase][STARTVIEWCHANGE] += (sizeof(mbox[m.phase][STARTVIEWCHANGE]),m);
+            collectMessage(m, STARTVIEWCHANGE);
 
             if(sizeof(mbox[m.phase][STARTVIEWCHANGE]) > sizeof(participants)/2)
             { 
+                CancelTimer(timer);
                 goto DOVIEWCHANGE;
             }
         }
+
+        on eTimeOut do { raise halt; }
 
     }
 
@@ -82,9 +93,11 @@ machine Replica
 
             announce eMonitor_TimestampChange, (id=this, ts=(phase=phase, round=DOVIEWCHANGE));
 
-            send leader, eventDOVIEWCHANGE, (phase = phase, from=this, dst=leader, payload = newcommand);
+            UnReliableSend(leader, eventDOVIEWCHANGE, (phase = phase, from=this, dst=leader, payload = newcommand));
 
-            if(this != leader){
+            if(this == leader){
+                StartTimer(timer);
+            }else{
                 goto STARTVIEW;
             }
             
@@ -95,14 +108,17 @@ machine Replica
             announce eMonitor_MessageReceived, (localTs=(phase=phase, round=DOVIEWCHANGE), msgTs=(phase=m.phase, round=DOVIEWCHANGE));
 
             announce eMonitor_MailboxUsed, (id=this, mboxTs=(phase=m.phase, round=DOVIEWCHANGE));
-            mbox[m.phase][DOVIEWCHANGE] += (sizeof(mbox[m.phase][DOVIEWCHANGE]),m);
+            collectMessage(m, DOVIEWCHANGE);
 
             if(sizeof(mbox[m.phase][DOVIEWCHANGE]) > sizeof(participants)/2)
             { 
                 computes_new_log();
+                CancelTimer(timer);
                 goto STARTVIEW;
             }
         }
+
+        on eTimeOut do { raise halt; }
 
     }
 
@@ -116,8 +132,10 @@ machine Replica
             announce eMonitor_TimestampChange, (id=this, ts=(phase=phase, round=STARTVIEW));
 
             if(this == leader){
-                broadcast(eventSTARTVIEW, phase, this, newcommand);
+                UnReliableBroadCast(participants, eventSTARTVIEW, (phase=phase, from=this, dst=null, payload = newcommand));
             }
+
+            StartTimer(timer);
             
         }
 
@@ -126,34 +144,35 @@ machine Replica
             announce eMonitor_MessageReceived, (localTs=(phase=phase, round=STARTVIEW), msgTs=(phase=m.phase, round=STARTVIEW));
 
             announce eMonitor_MailboxUsed, (id=this, mboxTs=(phase=m.phase, round=STARTVIEW));
-            mbox[m.phase][STARTVIEW] += (sizeof(mbox[m.phase][STARTVIEW]),m);
+            collectMessage(m, STARTVIEW);
+
+            CancelTimer(timer);
 
             computes_new_log();
 
             phase = phase+1;
-            goto STARTVIEWCHANGE;
+            goto WaitForClientRequest;
         }
 
-    }
+        on eTimeOut do { raise halt; }
 
-    fun broadcast(message: event, phase: Phase, from: machine, payload: data)
-    {
-        var i: int; i = 0;
-        
-        while (i < sizeof(participants)) 
-        {
-            send participants[i], message, (phase=phase, from=from, dst=participants[i], payload = payload);
-            i = i + 1;
-        }
     }
 
     fun initMbox(phase: Phase)
     {
-        mbox[phase] = default(map[Round, seq[Message]]);
+        mbox[phase] = default(map[Round, set[Message]]);
 
-        mbox[phase][STARTVIEWCHANGE] = default(seq[Message]);
-        mbox[phase][DOVIEWCHANGE] = default(seq[Message]);
-        mbox[phase][STARTVIEW] = default(seq[Message]);
+        mbox[phase][STARTVIEWCHANGE] = default(set[Message]);
+        mbox[phase][DOVIEWCHANGE] = default(set[Message]);
+        mbox[phase][STARTVIEW] = default(set[Message]);
+    }
+
+    fun collectMessage(m: Message, r: Round)
+    {
+        if(!(m.phase in mbox)){
+            initMbox(m.phase);
+        }
+        mbox[m.phase][r] += (m);
     }
 
     fun computes_new_log()

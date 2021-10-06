@@ -5,7 +5,7 @@ machine ViewStampedReplicationSync
     var numParticipants : int;
     var PHASE : Phase;
     var leader : machine;
-    var participants : seq[machine];
+    var participants : set[machine];
     var failures : map[machine, map[Phase, bool]];
 
     var messages : Messages;
@@ -16,7 +16,7 @@ machine ViewStampedReplicationSync
 
     start state Init 
     {
-        entry (p: seq[machine]){
+        entry (p: set[machine]){
 
             participants = p;
             numParticipants = sizeof(participants);
@@ -168,11 +168,11 @@ machine ViewStampedReplicationSync
             failures[p][PHASE] = false;
 
             messages[p] = default(Mbox);
-            messages[p][PHASE] = default(map[Round, seq[Message]]);
+            messages[p][PHASE] = default(map[Round, set[Message]]);
 
-            messages[p][PHASE][STARTVIEWCHANGE] = default(seq[Message]);
-            messages[p][PHASE][DOVIEWCHANGE] = default(seq[Message]);
-            messages[p][PHASE][STARTVIEW] = default(seq[Message]);
+            messages[p][PHASE][STARTVIEWCHANGE] = default(set[Message]);
+            messages[p][PHASE][DOVIEWCHANGE] = default(set[Message]);
+            messages[p][PHASE][STARTVIEW] = default(set[Message]);
 
             i = i+1;
         }
@@ -196,9 +196,11 @@ machine ViewStampedReplicationSync
                 j = 0;
                 while (j < numParticipants) 
                 {
-                    send this, eMessage, (phase = currentPhase, from=p, dst=participants[j], payload=newcommand);
+                    if($){
+                        send this, eMessage, (phase = currentPhase, from=p, dst=participants[j], payload=newcommand);
+                        msg_sent = msg_sent+1;
+                    }
                     j = j + 1;
-                    msg_sent = msg_sent+1;
                 }
             }
             i = i + 1;
@@ -222,8 +224,10 @@ machine ViewStampedReplicationSync
             p = participants[i];
 
             if(!failures[p][currentPhase]){
-                send this, eMessage, (phase = currentPhase, from=p, dst=leader, payload = newcommand);
-                msg_sent = msg_sent+1;
+                if($){
+                    send this, eMessage, (phase = currentPhase, from=p, dst=leader, payload = newcommand);
+                    msg_sent = msg_sent+1;
+                }
             }
             i = i+1;
         }
@@ -263,7 +267,7 @@ machine ViewStampedReplicationSync
             
             receive {
                 case eMessage: (m: Message) { 
-                    messages[m.dst][phase][round] += (sizeof(messages[m.dst][phase][round]), m); 
+                    messages[m.dst][phase][round] += (m); 
                 }
             }
             

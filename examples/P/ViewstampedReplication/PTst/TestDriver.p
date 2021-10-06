@@ -9,12 +9,12 @@ machine TestDriverSync0 {
             var N : int;
             var system : ViewStampedReplicationSync;
             var i : int;
-            var participants: seq[SyncReplica];
+            var participants: set[SyncReplica];
             
             N = 6;
             i = 0;
             while (i < N) {
-                participants += (i, new SyncReplica());
+                participants += (new SyncReplica());
                 i = i + 1;
             }
             
@@ -35,14 +35,14 @@ machine TestDriverAsync0 {
     start state Init {
         entry {
             var N : int;
-            var participants: seq[Replica];
+            var participants: set[Replica];
             var i : int;
             var leader : Replica;
 
             N = 5;
             i = 0;
             while (i < N) {
-                participants += (i, new Replica());
+                participants += (new Replica());
                 i = i + 1;
             }
 
