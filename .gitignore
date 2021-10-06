@@ -28,6 +28,8 @@ PGenerated/
 stubs.c
 *.idb
 netcoreapp*/
+*.cs
+*.csproj
 
 # Build results
 
