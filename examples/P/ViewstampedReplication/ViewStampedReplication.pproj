@@ -7,4 +7,5 @@
 </InputFiles>
 <Target>CSharp</Target>
 <OutputDir>./PGenerated/</OutputDir>
+<IncludeProject>../Common/FailureInjector/FailureInjector.pproj</IncludeProject>
 </Project>

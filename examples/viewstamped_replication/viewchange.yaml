@@ -17,3 +17,6 @@ labels :
 
 # Sync code script
 # python3 main.py examples/viewstamped_replication/viewchange.phaseunfold.c examples/viewstamped_replication/viewchange.yaml --athos > examples/viewstamped_replication/viewchange.sync
+
+# P to Upon
+# python3 main.py examples/P/ViewstampedReplication/PSrc/VSR.p examples/viewstamped_replication/viewchange.yaml --ptoupon > examples/viewstamped_replication/viewchange.p.c

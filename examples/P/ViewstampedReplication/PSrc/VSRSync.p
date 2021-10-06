@@ -243,8 +243,10 @@ machine ViewStampedReplicationSync
         {
             p = participants[i];
             if(!failures[p][currentPhase]){
-                send this, eMessage, (phase = currentPhase, from=leader, dst=p, payload = true);
-                msg_sent=msg_sent+1;
+                if($){
+                    send this, eMessage, (phase = currentPhase, from=leader, dst=p, payload = true);
+                    msg_sent=msg_sent+1;
+                }
             }
             i = i+1;
         }
@@ -252,24 +254,24 @@ machine ViewStampedReplicationSync
         return msg_sent;
     }
 
-    fun ReceiveMessages(phase: Phase, round: Round, msg_sent: int)
+    fun ReceiveMessages(phase: Phase, round: Round, msg_to_receive: int)
     {
         var i : int;
         var p : machine;
         i = 0;
-        while (i < msg_sent) {
+        while (i < msg_to_receive) {
             
             receive {
                 case eMessage: (m: Message) { 
-                    if($){
-                        messages[m.dst][phase][round] += (sizeof(messages[m.dst][phase][round]), m); 
-                    }
+                    messages[m.dst][phase][round] += (sizeof(messages[m.dst][phase][round]), m); 
                 }
             }
             
             i = i + 1;
         }      
     }
+
+    
 
     fun computes_new_log()
     {

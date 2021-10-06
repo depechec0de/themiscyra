@@ -9,3 +9,22 @@ __pycache__/
 *$py.class
 
 *.log
+
+# =========================
+# Exclude generated cs files
+# =========================
+*.g.cs
+
+# all P compiler generated output files.
+Bld/*
+!Bld/*.ps1
+!Bld/*.sh
+!Bld/Targets
+PGenerated/
+*.4ml
+!Src/**/Domains/*.4ml
+*.zing
+!Src/**/Zing/*.zing
+stubs.c
+*.idb
+netcoreapp*/
