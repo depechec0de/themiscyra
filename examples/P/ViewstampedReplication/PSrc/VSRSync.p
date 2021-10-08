@@ -10,9 +10,10 @@ machine ViewStampedReplicationSync
 
     var messages : Messages;
 
-    var log : map[machine,map[Phase, Command]];
+    var logs : map[machine,Log];
 
     var msg_sent: int;
+    var command: any;
 
     start state Init 
     {
@@ -30,6 +31,7 @@ machine ViewStampedReplicationSync
 
         on eClientRequest do (m : ClientRequest) 
         {
+            command = m.command;
             goto STARTVIEWCHANGE;
         }
     }
@@ -55,6 +57,7 @@ machine ViewStampedReplicationSync
                     // NoOp
                 }else{
                     failures[p][PHASE] = true;
+                    insertLogEntry(p, PHASE, null);
                 }
                 i=i+1;
             }
@@ -69,7 +72,6 @@ machine ViewStampedReplicationSync
         entry 
         {
             var p : machine;
-            var newcommand : Command;
             var i : int;
 
             // ###### SEND ######
@@ -85,9 +87,10 @@ machine ViewStampedReplicationSync
 
                 if(p == leader){
                     if(sizeof(messages[p][PHASE][DOVIEWCHANGE]) > numParticipants/2){
-                        computes_new_log();
+                        insertLogEntry(p, PHASE, command);
                     }else{
                         failures[p][PHASE] = true;
+                        insertLogEntry(p, PHASE, null);
                     }
                 }else{
                     // Follower NoOp
@@ -121,10 +124,11 @@ machine ViewStampedReplicationSync
 
                 if(sizeof(messages[p][PHASE][STARTVIEW]) == 1){
                     if(p != leader){
-                        computes_new_log();
+                        insertLogEntry(p, PHASE, command);
                     }
                 }else{
                     failures[p][PHASE] = true;
+                    insertLogEntry(p, PHASE, null);
                 }
                 i=i+1;
             }
@@ -154,7 +158,7 @@ machine ViewStampedReplicationSync
         
         i = 0;
        
-        log = default(map[machine,map[Phase, Command]]);
+        logs = default(map[machine,Log]);
         failures = default(map[machine,map[Phase, bool]]);
 
         messages = default(Messages);
@@ -162,7 +166,7 @@ machine ViewStampedReplicationSync
         while (i < numParticipants) {
             p = participants[i];
             
-            log[p] = default(map[Phase, Command]);
+            logs[p] = default(Log);
 
             failures[p] = default(map[Phase, bool]);
             failures[p][PHASE] = false;
@@ -181,7 +185,7 @@ machine ViewStampedReplicationSync
 
     fun SendStartViewChange(currentPhase: Phase) : int
     {
-        var newcommand : Command;
+        var newdata : data;
         // Broadcast from all to all
         var i, j: int; 
         var msg_sent: int;
@@ -197,7 +201,7 @@ machine ViewStampedReplicationSync
                 while (j < numParticipants) 
                 {
                     if($){
-                        send this, eMessage, (phase = currentPhase, from=p, dst=participants[j], payload=newcommand);
+                        send this, eMessage, (phase = currentPhase, from=p, dst=participants[j], payload=newdata);
                         msg_sent = msg_sent+1;
                     }
                     j = j + 1;
@@ -211,7 +215,7 @@ machine ViewStampedReplicationSync
 
     fun SendDoViewChange(currentPhase: Phase) : int
     {
-        var newcommand : Command;
+        var newdata : data;
         var i: int; 
         var msg_sent: int;
         var p: machine;
@@ -225,7 +229,7 @@ machine ViewStampedReplicationSync
 
             if(!failures[p][currentPhase]){
                 if($){
-                    send this, eMessage, (phase = currentPhase, from=p, dst=leader, payload = newcommand);
+                    send this, eMessage, (phase = currentPhase, from=p, dst=leader, payload = newdata);
                     msg_sent = msg_sent+1;
                 }
             }
@@ -275,11 +279,9 @@ machine ViewStampedReplicationSync
         }      
     }
 
-    
-
-    fun computes_new_log()
+    fun insertLogEntry(p: machine, phase: Phase, e: any)
     {
-        
+        logs[p][phase] = e;
     }
 
 }

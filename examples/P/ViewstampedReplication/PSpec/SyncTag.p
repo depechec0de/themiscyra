@@ -64,7 +64,7 @@ spec SyncTagInvariant observes eMonitor_Initialize, eMonitor_TimestampChange, eM
         var currentTs : Timestamp;
         currentTs = participantsTimestamp[id];
 
-        assert (equalTimestamp(currentTs,sendTs)), format ("Send with different timestamp. Timestamp before {0}, new {1}", currentTs, sendTs);
+        assert (equalTimestamp(currentTs,sendTs)), format ("{0} sent with different timestamp. Timestamp before {1}, new {2}", id, currentTs, sendTs);
 
     }
 
@@ -75,7 +75,7 @@ spec SyncTagInvariant observes eMonitor_Initialize, eMonitor_TimestampChange, eM
         currentTs = participantsTimestamp[id];
         
         assert (geqTimestamp(currentTs,newTs)),
-        format ("Participant decreased its local timestamp. Timestamp before {0}, new {1}", currentTs, newTs);
+        format ("{0} Participant decreased its local timestamp. Timestamp before {1}, new {2}", id, currentTs, newTs);
 
         participantsTimestamp[id] = newTs;
     }
