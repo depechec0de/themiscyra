@@ -4,7 +4,7 @@ event ReportMessage: ReportType;
 event DecisionMessage: DecisionType;
 
 event ConsensusRequest: ConsensusType;
-event Config: set[machine];
+event Config: (peers: set[machine], quorum: int) ;
 
 type Value = int; // 0, 1, -1 = ?
 type RequestId = int;
@@ -23,11 +23,13 @@ enum Round { REPORT, DECISION }
 
 machine Process {   
     var participants : set[machine];
+    var quorum : int;
     var K : Phase;
     var mbox : Mbox;
     var log : Log;
     var timer : Timer;
     var estimate : Value;
+    var decision : Value;
     var currentRequest : RequestId;
 
     start state Init {
@@ -35,12 +37,14 @@ machine Process {
         
         entry {
             receive {
-                case Config: (payload: set[machine]) { 
-                    participants = payload;
+                case Config: (payload: (peers: set[machine], quorum: int)) { 
+                    participants = payload.peers;
+                    quorum = payload.quorum;
                 }
             }
             timer = CreateTimer(this);
 
+            decision = -1;
             K = 0;
             goto WaitForConsensusRequest;
         }
@@ -62,25 +66,47 @@ machine Process {
     }
 
     state Report {
-        defer ConsensusRequest, DecisionMessage;
+        defer ConsensusRequest;
 
         entry {
-            init_mbox(K);
-
             UnReliableBroadCast(participants, ReportMessage, (phase=K, from=this, payload = estimate));
             StartTimer(timer);
         }
 
         on ReportMessage do (m : ReportType) {
-            collectMessage(m, REPORT);
+            
+            if(m.phase >= K){
+                collectMessage(m, REPORT);
 
-            if(sizeof(mbox[K][REPORT]) > sizeof(participants)/2){
-                print(format("{0} reached report in phase {1}", this, K));
-                CancelTimer(timer);
-                estimate = mayority_value(mbox[K][REPORT], sizeof(participants));
-                goto Decision;
+                if(m.phase > K){
+                    // Jump
+                    K = m.phase;
+                    CancelTimer(timer);
+                    print(format("{0} jumped to {1} Report", this, K ));
+                    goto Report;
+                }
+                
+                if(sizeof(mbox[K][REPORT]) >= quorum){
+                    print(format("{0} reached report in phase {1}", this, K));
+                    CancelTimer(timer);
+                    estimate = mayority_value(mbox[K][REPORT], quorum);
+                    goto Decision;
+                }
+
             }
             
+        }
+
+        on DecisionMessage do (m : DecisionType) {
+            if(m.phase >= K){
+                // Jump
+                CancelTimer(timer);
+                print(format("{0} jumped to {1} Decision", this, K ));
+                collectMessage(m, DECISION);
+
+                K = m.phase;
+                goto Decision;
+            }
         }
 
         on eShutDown do {
@@ -88,57 +114,83 @@ machine Process {
         }
 
         on eTimeOut do {
-            K = K+1;
-            goto Report;
+            timeout();
+            //goto Report;
         }
     }
 
     state Decision {
-        defer ConsensusRequest, ReportMessage;
+        defer ConsensusRequest;
 
-        entry {
-            var val : Value;
-            
-            UnReliableBroadCast(participants, DecisionMessage, (phase=K, from=this, payload = val));
-            StartTimer(timer);
+        entry { 
+            if(decision != -1){
+                UnReliableBroadCast(participants, DecisionMessage, (phase=K, from=this, payload = decision));
+            }else{
+                UnReliableBroadCast(participants, DecisionMessage, (phase=K, from=this, payload = estimate));
+                StartTimer(timer);
+            }           
+        }
+
+        on ReportMessage do (m : ReportType) {
+            if(m.phase > K){
+                // Jump
+                CancelTimer(timer);
+                print(format("{0} jumped to {1} Report", this, K ));
+
+                collectMessage(m, REPORT);
+                K = m.phase;
+                goto Report;
+            }
         }
 
         on DecisionMessage do (m : DecisionType) {
             var val : Value;
             var coin_toss : int;
 
-            collectMessage(m, DECISION);
+            if(m.phase >= K){
+                collectMessage(m, DECISION);
 
-            if(sizeof(mbox[K][DECISION]) > sizeof(participants)/2){
-                CancelTimer(timer);
+                if(m.phase > K){
+                    // Jump
+                    CancelTimer(timer);
+                    print(format("{0} jumped to {1} Report", this, K ));
 
-                print(format("{0} reached mayority decision in phase {2}", this, val, K));
-
-                val = mayority_value(mbox[K][DECISION], sizeof(participants));
-
-                if(mayority_value(mbox[K][DECISION], sizeof(participants)) != -1){
-
-                    // decide value
-                    print(format("{0} Decided {1} in phase {2}", this, val, K));
-                    insertLogEntry(val);
-                    K = K+1;
-                    print(format("{0} moves to phase {1}", this, K));
-                    goto WaitForConsensusRequest;
-
-                }else if(get_valid_estimate(mbox[K][DECISION]) != -1){
-
-                    // We try again a new phase proposing a valid value
-                    estimate = get_valid_estimate(mbox[K][DECISION]);
-                    print(format("{0} got valid estimate {1} in phase {2}", this, estimate, K));
-                    K = K+1;
-                    goto Report;
-                    
-                }else{
-                    estimate = choose(2); // 0 or 1 randomly
-                    print(format("{0} Flip a coin {1}", this, estimate));
-                    K = K+1;
-                    goto Report;
+                    K = m.phase;
+                    goto Decision;
                 }
+
+                if(sizeof(mbox[K][DECISION]) >= quorum){
+                    
+                    CancelTimer(timer);
+                    val = mayority_value(mbox[K][DECISION], quorum);
+
+                    if(val != -1){
+
+                        // decide value
+                        print(format("{0} Decided {1} in phase {2}", this, val, K));
+                        insertLogEntry(val);
+                        decision = val;
+                        // K = K+1;
+
+                        // // Keep broadcasting the decision
+                        // goto Decision;
+
+                    }else if(get_valid_estimate(mbox[K][DECISION]) != -1){
+
+                        // We try again a new phase proposing a valid value
+                        estimate = get_valid_estimate(mbox[K][DECISION]);
+                        print(format("{0} got valid estimate {1} in phase {2}", this, estimate, K));
+                        K = K+1;
+                        goto Report;
+                        
+                    }else{
+                        estimate = choose(2); // 0 or 1 randomly
+                        print(format("{0} Flip a coin {1}", this, estimate));
+                        K = K+1;
+                        goto Report;
+                    }
+                }
+
             }
             
         }
@@ -148,8 +200,8 @@ machine Process {
         }
 
         on eTimeOut do {
-            K = K+1;
-            goto Report;
+            timeout();
+            //goto Decision;
         }
     }
 
@@ -157,7 +209,10 @@ machine Process {
         if(!(m.phase in mbox)){
             init_mbox(m.phase);
         }
+        
         mbox[m.phase][r] += (m);
+
+        //print(format("{0} collected message {1} {2} in phase, MAILBOX {3}", this, r, K, mbox));
     }
 
     fun init_mbox(phase: Phase) {
@@ -168,18 +223,34 @@ machine Process {
     }
 
     fun insertLogEntry(e: any) {
-        announce eMonitor_NewLogEntry, (request=currentRequest, logentry=e);
+        if(choose(1000) == 1){
+            announce eMonitor_NewLogEntry, (id=this, request=currentRequest, logentry=0);
+        }else{
+            announce eMonitor_NewLogEntry, (id=this, request=currentRequest, logentry=e);
+        }
+        
         if(e != null){
             log[currentRequest] = e;
             print(format("insertLogEntry {0} {1}", this, log));
         }
     }
+
+    fun timeout(){
+        K = K+1;
+        init_mbox(K);
+        goto Report;
+    }
 }
 
-fun mayority_value(msgs : set[MessageType], N: int) : Value {
+fun mayority_value(msgs : set[MessageType], quorum: int) : Value {
     var count_zero : int;
     var count_one : int;
     var i : int;
+
+    count_one = 0;
+    count_one = 0;
+
+    i = 0;
 
     while(i < sizeof(msgs)){
         if(msgs[i].payload == 0){
@@ -190,11 +261,9 @@ fun mayority_value(msgs : set[MessageType], N: int) : Value {
         i=i+1;
     }
 
-    //print(format("{0} mayority_value {1} {2}", this, count_zero, count_one));
-
-    if(count_zero>N/2){
+    if(count_zero >= quorum){
         return 0;
-    }else if(count_one>N/2){
+    }else if(count_one >= quorum){
         return 1;
     }else{
         return -1;
@@ -203,6 +272,8 @@ fun mayority_value(msgs : set[MessageType], N: int) : Value {
 
 fun get_valid_estimate(msgs : set[MessageType]) : Value{
     var i : int;
+
+    print(format("get_valid_estimate {0}", msgs));
 
     while(i < sizeof(msgs)){
         if(msgs[i].payload == 0){

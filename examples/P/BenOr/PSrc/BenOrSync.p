@@ -3,32 +3,38 @@ type Messages = map[machine, Mbox];
 machine BenOrSync
 {
     var K : Phase;
+    var maxFailures : int;
+    var quorum : int;
     var participants : set[machine];
     var logs : map[machine, Log];
     var estimates : map[machine, Value];
     var messages : Messages;
     var reportRoundSuccessful : map[machine, bool];
-    var decisionRoundSuccessful : map[machine, bool];
+    var decided : map[machine, bool];
     var crashedMachines : set[machine];
+    var currentRequest : RequestId;
 
     var i, j: int; 
     var p, from, dst: machine;
 
     start state Init{
-        entry (proc: set[machine]){
+        entry (config: (peers: set[machine], quorum: int, failures: int)){
+            
+            participants = config.peers;
+            maxFailures = config.failures;
+            quorum = config.quorum;
 
-            participants = proc;
             crashedMachines = default(set[machine]);
 
             i = 0;
             while (i < sizeof(participants)){
-                p = participants[i];
-                if($){
-                    crashedMachines += (p);
+                if(sizeof(crashedMachines) < maxFailures){
+                    p = participants[i];
+                    if($){
+                        crashedMachines += (p);
+                    }
                 }
-                if(sizeof(crashedMachines) == (sizeof(participants)/2)-1){
-                    break;
-                }
+                i=i+1;
             }
 
             print(format("Crashed machines {0}", crashedMachines));
@@ -39,24 +45,18 @@ machine BenOrSync
             i = 0;
             while (i < sizeof(participants)){
                 p = participants[i];
-                decisionRoundSuccessful[p] = false;
+                decided[p] = false;
                 estimates[p] = choose(2);
                 i=i+1;
             }
-
-            announce eMonitor_Initialize, participants;
         }
-
-        on ConsensusRequest do (m : ConsensusType) { goto Report; }
-    }
-
-    state WaitForConsensusRequest {
-        defer eMessage;
 
         on ConsensusRequest do (payload : (request: RequestId, estimate: Value)) 
         {
+            currentRequest = payload.request;
             goto Report;
         }
+
     }
 
     state Report{
@@ -64,17 +64,25 @@ machine BenOrSync
             i = 0;
             while (i < sizeof(participants)){
                 from = participants[i];
-                j = 0;
-                while (j < sizeof(participants)){
 
-                    dst = participants[j];
-                    if(!(dst in crashedMachines)){
-                        send this, eMessage, (phase = K, from=from, payload=estimates[from]);
-                        receiveMessageBlocking(dst, REPORT);
-                        print(format("{0} received Report estimate {1} in phase {2}", dst, estimates[from], K));
+                if(!(from in crashedMachines)){
+
+                    j = 0;
+                    while (j < sizeof(participants)){
+
+                        dst = participants[j];
+                        if(!(dst in crashedMachines)){
+                            print(format("{0} send REPORT message {1} to {2}", from, (phase = K, from=from, payload=estimates[from]), dst));
+                            if($){
+                                send this, eMessage, (phase = K, from=from, payload=estimates[from]);
+                                receiveMessageBlocking(dst, REPORT);
+                                print(format("{0} received REPORT estimate {1} in phase {2} from {3}", dst, estimates[from], K, from));
+                            }                        
+                        }
+
+                        j = j + 1;
                     }
 
-                    j = j + 1;
                 }
                 i = i + 1;
             }
@@ -83,15 +91,18 @@ machine BenOrSync
             while (i < sizeof(participants)){
                 p = participants[i];
 
-                if(!decisionRoundSuccessful[p]){
-                    if(sizeof(messages[p][K][REPORT]) > sizeof(participants)/2){
-                        reportRoundSuccessful[p] = true;
-                        estimates[p] = mayority_value(messages[p][K][REPORT], sizeof(participants));
-                        print(format("{0} REPORT mayority {1} in phase {2}", this, estimates[p], K));
+                if(!(p in crashedMachines)){    
+
+                    if(!decided[p]){
+                        if(sizeof(messages[p][K][REPORT]) == quorum){
+                            reportRoundSuccessful[p] = true;
+                            estimates[p] = mayority_value(messages[p][K][REPORT], quorum);
+                            print(format("{0} REPORT mayority {1} in phase {2}, mailbox: {3}", p, estimates[p], K, messages[p][K]));
+                        }
                     }
+
                 }
                 
-
                 i = i + 1;
             }
 
@@ -107,20 +118,28 @@ machine BenOrSync
             i = 0;
             while (i < sizeof(participants)){
                 from = participants[i];
-                j = 0;
-                if(reportRoundSuccessful[from]){
 
-                    while (j < sizeof(participants)){
+                if(!(from in crashedMachines)){
 
-                        dst = participants[j];
+                    j = 0;
+                    if(reportRoundSuccessful[from] || decided[from]){
 
-                        if(!(dst in crashedMachines)){
-                            send this, eMessage, (phase = K, from=from, payload=estimates[p]);
-                            receiveMessageBlocking(dst, DECISION);
-                            print(format("{0} received Report estimate {1} in phase {2}", dst, estimates[from], K));
+                        while (j < sizeof(participants)){
+
+                            dst = participants[j];
+                            
+                            if(!(dst in crashedMachines)){
+                                print(format("{0} send DECISION message {1} to {2}", from, (phase = K, from=from, payload=estimates[from]), dst));
+                                if($){
+                                    send this, eMessage, (phase = K, from=from, payload=estimates[from]);
+                                    receiveMessageBlocking(dst, DECISION);
+                                    print(format("{0} received DECISION estimate {1} in phase {2}", dst, estimates[from], K));
+                                }
+                            }
+
+                            j = j + 1;
                         }
 
-                        j = j + 1;
                     }
 
                 }
@@ -130,30 +149,47 @@ machine BenOrSync
             i = 0;
             while (i < sizeof(participants)){
                 p = participants[i];
-                if(!decisionRoundSuccessful[p] && reportRoundSuccessful[p]){
 
-                    if(sizeof(messages[p][K][DECISION]) > sizeof(participants)/2){
+                if(!(p in crashedMachines)){    
 
-                        val = mayority_value(messages[p][K][DECISION], sizeof(participants));
+                    if(!decided[p] && reportRoundSuccessful[p]){
 
-                        if(mayority_value(messages[p][K][DECISION], sizeof(participants)) != -1){
+                        if(sizeof(messages[p][K][DECISION]) == quorum){
 
-                            // decide value
-                            print(format("{0} Decided {1} in phase {2}", p, val, K));
-                            logs[p][K] = val;
+                            print(format("{0} received enough DECISION messages in phase {1}", p, K));
 
-                            decisionRoundSuccessful[p] = true;
-                            estimates[p] = val;
+                            val = mayority_value(messages[p][K][DECISION], quorum);
 
-                        }else if(get_valid_estimate(messages[p][K][DECISION]) != -1){
+                            if(val != -1){
+                                // decide value
+                                print(format("{0} Decided {1} in phase {2}", p, val, K));
 
-                            // We try again a new phase proposing a valid value
-                            estimates[p] = get_valid_estimate(messages[p][K][DECISION]);
-                            
+                                // BUG
+                                if(choose(1000) == 1){
+                                    announce eMonitor_NewLogEntry, (id=p, request=currentRequest, logentry=0);
+                                }else{
+                                    announce eMonitor_NewLogEntry, (id=p, request=currentRequest, logentry=val);
+                                }
+                                
+                                logs[p][K] = val;
+
+                                decided[p] = true;
+                                estimates[p] = val;
+
+                            }else if(get_valid_estimate(messages[p][K][DECISION]) != -1){
+
+                                // We try again a new phase proposing a valid value
+                                estimates[p] = get_valid_estimate(messages[p][K][DECISION]);
+                                print(format("{0} changed estimate to {1} in phase {2}", p, estimates[p], K));
+                                
+                            }else{
+                                estimates[p] = choose(2); // 0 or 1 randomly
+                                print(format("{0} Flip a coin {1}", p, estimates[p]));
+                            }
                         }else{
-                            estimates[p] = choose(2); // 0 or 1 randomly
-                            print(format("{0} Flip a coin {1}", this, estimates[p]));
+                            print(format("{0} did not receive enough DECISION messages in phase {1}", p, K));
                         }
+
                     }
 
                 }
@@ -164,7 +200,8 @@ machine BenOrSync
             while (i < sizeof(participants)){
                 p = participants[i];
 
-                if(!decisionRoundSuccessful[p] && !(p in crashedMachines)){
+                if(!decided[p] && !(p in crashedMachines)){
+                    print(format("{0} did not decide, start new phase", p));
                     K = K+1;
                     init_phase(K);
                     goto Report;
@@ -172,12 +209,9 @@ machine BenOrSync
 
                 i=i+1;
             }
-
-            goto WaitForConsensusRequest;
             
         }
 
-        
        
     }
 
@@ -197,10 +231,10 @@ machine BenOrSync
             logs[p] = default(Log);
             
             messages[p] = default(Mbox);
-            messages[p][K] = default(map[Round, set[MessageType]]);
+            messages[p][phase] = default(map[Round, set[MessageType]]);
 
-            messages[p][K][REPORT] = default(set[ReportType]);
-            messages[p][K][DECISION] = default(set[DecisionType]);
+            messages[p][phase][REPORT] = default(set[ReportType]);
+            messages[p][phase][DECISION] = default(set[DecisionType]);
 
             i = i+1;
         }

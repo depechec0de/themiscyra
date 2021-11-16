@@ -7,7 +7,7 @@ event eventSTARTVIEW: (phase: Phase, from: machine, dst: machine, payload: data)
 type Phase = int;
 type Mbox = map[Phase, map[Round, set[Message]]];
 type Timestamp = (phase: Phase, round: Round);
-type Message = (phase: Phase, from: machine, dst: machine, payload: data);
+type Message = (phase: Phase, from: machine, dst: machine, payload: any);
 type ClientRequest = (transactionId: int, command: data);
 type Log = map[Phase, any];
 

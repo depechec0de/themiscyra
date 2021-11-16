@@ -41,42 +41,49 @@ machine TestDriverSync1 {
 
 fun launchASync(n: int, requests: int)
 {
-    var prim : Primary;
-    var backups: seq[Backup];
-    var i : int;
+    var participants: set[Process];
+    var i, j : int;
 
     i = 0;
     while (i < n) {
-        backups += (i, new Backup());
+        participants += (new Process());
         i = i + 1;
     }
-    prim = new Primary(backups);
+
+    i = 0;
+    while (i < n) {
+        send participants[i], eConfig, participants;
+        i=i+1;
+    }
 
     i = 0;
     while(i < requests){
-        send prim, eClientRequest, (transactionId = 100+i, command = "x = 0;");
+        j = 0;
+        while (j < n) {
+            send participants[j], LeaderRequest, 100+i;
+            j=j+1;
+        }
         i=i+1;
     }
 }
 
 fun launchSync(n: int, requests: int)
 {
-    var system : TwoPhaseSync;
+    var system : LeaderElectionSync;
     var i : int;
-    var participants: seq[Participant];
+    var participants: set[Participant];
     
     i = 0;
-    // n+1 Include Primary
-    while (i < n+1) {
-        participants += (i, new Participant());
+    while (i < n) {
+        participants += (new Participant());
         i = i + 1;
     }
     
-    system = new TwoPhaseSync(participants);
+    system = new LeaderElectionSync(participants);
 
     i = 0;
     while(i < requests){
-        send system, eClientRequest, (transactionId = 100+i, command = "x = 0;");
+        send system, LeaderRequest, 100+i;
         i=i+1;
     }
  

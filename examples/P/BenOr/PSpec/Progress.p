@@ -3,12 +3,12 @@ event eMonitor_Initialize: int;
 spec Progress observes ConsensusRequest, eMonitor_NewLogEntry, eMonitor_Initialize {
     // keep track of the pending requests
     var pendingReqs: set[RequestId];
-    var decisionCount: map[RequestId, int];
-    var N: int;
+    var decisionCount: map[RequestId, set[machine]];
+    var failures: int;
 
     start state Init {
-        on eMonitor_Initialize do (participants: int) {
-            N = participants;
+        on eMonitor_Initialize do (failures: int) {
+            failures = failures;
             goto NopendingRequests;
         }
     }
@@ -16,21 +16,21 @@ spec Progress observes ConsensusRequest, eMonitor_NewLogEntry, eMonitor_Initiali
     cold state NopendingRequests {
         on ConsensusRequest goto PendingReqs with (payload: (request: RequestId, estimate: Value)){
             if(!(payload.request in decisionCount)){
-                decisionCount[payload.request] = 0;
+                decisionCount[payload.request] = default(set[machine]);
                 pendingReqs += (payload.request);
             }
         }
 
-        on eMonitor_NewLogEntry do (payload: (request: RequestId, logentry: any)) {
-            decisionCount[payload.request] = decisionCount[payload.request]+1;
+        on eMonitor_NewLogEntry do (payload: (id: machine, request: RequestId, logentry: any)) {
+            decisionCount[payload.request] += (payload.id);
         }
     }
 
     hot state PendingReqs {
-        on eMonitor_NewLogEntry do (payload: (request: RequestId, logentry: any)) {
-            decisionCount[payload.request] = decisionCount[payload.request]+1;
+        on eMonitor_NewLogEntry do (payload: (id: machine, request: RequestId, logentry: any)) {
+            decisionCount[payload.request] += (payload.id);
 
-            if(decisionCount[payload.request] == (N/2)+1){
+            if(sizeof(decisionCount[payload.request]) > failures){
                 print(format("Request {0} reached consensus from a mayority", payload.request));
                 pendingReqs -= (payload.request);
             }
@@ -42,7 +42,7 @@ spec Progress observes ConsensusRequest, eMonitor_NewLogEntry, eMonitor_Initiali
         }
         on ConsensusRequest goto PendingReqs with (payload: (request: RequestId, estimate: Value)){
             if(!(payload.request in decisionCount)){
-                decisionCount[payload.request] = 0;
+                decisionCount[payload.request] = default(set[machine]);
                 pendingReqs += (payload.request);
             }
         }

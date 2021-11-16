@@ -7,7 +7,7 @@ event eventDELTA: (phase: Phase, from: machine, payload: DeltaPayload);
 
 type Command = int;
 type Phase = int;
-type Mbox = map[Phase, map[Round, seq[Message]]];
+type Mbox = map[Phase, map[Round, set[Message]]];
 type Timestamp = (phase: Phase, round: Round);
 
 event configMessage: Primary;
@@ -32,7 +32,6 @@ machine Primary
     var participants : seq[machine];
     var phase : Phase;
     var mbox : Mbox;
-    var commitvotes : map[Phase, int];
     var decision : map[Phase, Vote];
 
     start state Init 
@@ -62,7 +61,7 @@ machine Primary
         {
             var newcommand : Command;
 
-            initMbox(phase);
+            init_mbox(phase);
 
             broadcast(eventALPHA, phase, this, newcommand);
             goto BETA;
@@ -81,19 +80,13 @@ machine Primary
         {
             announce eMonitor_MessageReceived, (localTs=(phase=phase, round=BETA), msgTs=(phase=m.phase, round=BETA));
 
-            announce eMonitor_MailboxUsed, (id=this, mboxTs=(phase=m.phase, round=BETA));
-            if(payload(m) == COMMIT)
-            {
-                commitvotes[m.phase] = commitvotes[m.phase]+1;
-            }
-
-            mbox[m.phase][BETA] += (sizeof(mbox[m.phase][BETA]),m);
+            mbox[m.phase][BETA] += (m);
 
             //print format("Primary receives eventBETA {0} / {1}", sizeof(mbox[m.phase][BETA]), numBackup);
 
             if(sizeof(mbox[m.phase][BETA]) == numBackup)
             {
-                decision[m.phase] = commit_or_abort(m.phase); 
+                decision[phase] = commit_or_abort(mbox[m.phase][BETA], numBackup);
                 goto GAMMA;
             }
         }
@@ -107,7 +100,8 @@ machine Primary
         {
             announce eMonitor_TimestampChange, (id=this, ts=(phase=phase, round=GAMMA));
 
-            broadcast(eventGAMMA, phase, this, decision[phase]);
+            broadcast(eventGAMMA, phase, this, get_decision(phase));
+            
             goto DELTA;
         }
     }
@@ -125,7 +119,7 @@ machine Primary
             announce eMonitor_MessageReceived, (localTs=(phase=phase, round=DELTA), msgTs=(phase=m.phase, round=DELTA));
 
             announce eMonitor_MailboxUsed, (id=this, mboxTs=(phase=m.phase, round=DELTA));
-            mbox[m.phase][DELTA] += (sizeof(mbox[m.phase][DELTA]),m);
+            mbox[m.phase][DELTA] += (m);
 
             if(sizeof(mbox[m.phase][DELTA]) == numBackup)
             {
@@ -135,28 +129,19 @@ machine Primary
         }
     }
 
-    fun initMbox(phase: Phase)
+    fun init_mbox(phase: Phase)
     {
-        commitvotes[phase] = 0;
+        mbox[phase] = default(map[Round, set[Message]]);
 
-        mbox[phase] = default(map[Round, seq[Message]]);
-
-        mbox[phase][ALPHA] = default(seq[Message]);
-        mbox[phase][BETA] = default(seq[Message]);
-        mbox[phase][GAMMA] = default(seq[Message]);
-        mbox[phase][DELTA] = default(seq[Message]);
+        mbox[phase][ALPHA] = default(set[Message]);
+        mbox[phase][BETA] = default(set[Message]);
+        mbox[phase][GAMMA] = default(set[Message]);
+        mbox[phase][DELTA] = default(set[Message]);
     }
 
-    fun commit_or_abort(phase: Phase) : Vote
+    fun get_decision(p: Phase) : Vote
     {
-        var decision : Vote;
-        decision = ABORT;
-        if(commitvotes[phase] == numBackup)
-        {
-            decision = COMMIT;
-        }
-
-        return decision;
+        return decision[phase];
     }
 
     fun broadcast(message: event, phase: Phase, from: machine, payload: data)
@@ -192,6 +177,31 @@ machine Primary
     {
         return m.payload;
     }
+}
+
+fun commit_or_abort(msgs: set[Message], numBackup: int) : Vote
+{
+    var d : Vote;
+    var commitvotes, i : int;
+
+    commitvotes = 0;
+    i = 0;
+    d = ABORT;
+
+    while(i < sizeof(msgs)){
+        if(msgs[i].payload == COMMIT){
+            commitvotes=commitvotes+1;
+        }
+        i=i+1;
+    }
+    //if(commitvotes == numBackup)
+    // BUG
+    if(commitvotes == numBackup/2)
+    {
+        d = COMMIT;
+    }
+
+    return d;
 }
 
 machine Backup
@@ -256,9 +266,9 @@ machine Backup
             announce eMonitor_MailboxUsed, (id=this, mboxTs=(phase=m.phase, round=GAMMA));
             if(payload(m) == COMMIT)
             {
-                setDecision(phase, COMMIT);
+                set_decision(phase, COMMIT);
             } else {
-                setDecision(phase, ABORT);
+                set_decision(phase, ABORT);
             }
             goto DELTA;
         }
@@ -280,9 +290,9 @@ machine Backup
         return leader;
     }
 
-    fun setDecision(phase: Phase, vote: Vote)
+    fun set_decision(phase: Phase, vote: Vote)
     {
-        decision[phase] = ABORT;
+        decision[phase] = vote;
     }
 
     fun payload(m: Message) : data

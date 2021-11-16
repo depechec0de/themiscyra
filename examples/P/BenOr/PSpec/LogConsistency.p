@@ -1,11 +1,11 @@
-event eMonitor_NewLogEntry: (request: RequestId, logentry: any);
+event eMonitor_NewLogEntry: (id: machine, request: RequestId, logentry: any);
 
 spec LogConsistency observes eMonitor_NewLogEntry
 {
     var log: Log;
 
     start state Init {
-        on eMonitor_NewLogEntry do (payload: (request: RequestId, logentry: any))
+        on eMonitor_NewLogEntry do (payload: (id: machine, request: RequestId, logentry: any))
         {
             var loge : any;
 

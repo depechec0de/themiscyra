@@ -15,6 +15,9 @@ machine ViewStampedReplicationSync
     var msg_sent: int;
     var command: any;
 
+    var i, j : int;
+    var p : machine;
+
     start state Init 
     {
         entry (p: set[machine]){
@@ -40,17 +43,25 @@ machine ViewStampedReplicationSync
     {
         entry 
         {
-            var i : int;
-            var p : machine;
-
-            // ###### SEND ######
-            msg_sent = SendStartViewChange(PHASE);
-
-            // #### UPDATE ######
-            ReceiveMessages(PHASE, STARTVIEWCHANGE, msg_sent);
+            i = 0;
+            while (i < sizeof(participants)){
+                p = participants[i];
+                if(!failures[p][PHASE]){
+                    j = 0;
+                    while (j < numParticipants){
+                        if($){
+                            send this, eMessage, (phase = PHASE, from=p, dst=participants[j], payload=command);
+                            p = participants[j];
+                            receiveMessageBlocking(p, STARTVIEWCHANGE);
+                        }
+                        j = j + 1;
+                    }
+                }
+                i = i + 1;
+            }
 
             i = 0;
-            while (i < numParticipants) {
+            while (i < sizeof(participants)) {
                 p = participants[i];
 
                 if(sizeof(messages[p][PHASE][STARTVIEWCHANGE]) > numParticipants/2){
@@ -71,14 +82,16 @@ machine ViewStampedReplicationSync
     {
         entry 
         {
-            var p : machine;
-            var i : int;
-
-            // ###### SEND ######
-            msg_sent = SendDoViewChange(PHASE);
-
-            // #### UPDATE ######
-            ReceiveMessages(PHASE, DOVIEWCHANGE, msg_sent);
+            while (i < sizeof(participants)){
+                p = participants[i];
+                if(!failures[p][PHASE]){
+                    if($){
+                        send this, eMessage, (phase = PHASE, from=p, dst=leader, payload = command);
+                        receiveMessageBlocking(leader, DOVIEWCHANGE);
+                    }
+                }
+                i = i + 1;
+            }
 
             // Update
             i = 0;
@@ -108,14 +121,16 @@ machine ViewStampedReplicationSync
     {
         entry 
         {
-            var i: int;
-            var p: machine;
-
-            // ###### SEND ######
-            msg_sent = SendStartView(PHASE);
-
-            // #### UPDATE ######
-            ReceiveMessages(PHASE, STARTVIEW, msg_sent);
+            while (i < sizeof(participants)){
+                p = participants[i];
+                if(!failures[p][PHASE]){
+                    if($){
+                        send this, eMessage, (phase = PHASE, from=leader, dst=p, payload = true);
+                        receiveMessageBlocking(p, STARTVIEW);
+                    }
+                }
+                i = i + 1;
+            }
 
             // Update
             i = 0;
@@ -183,105 +198,19 @@ machine ViewStampedReplicationSync
 
     }
 
-    fun SendStartViewChange(currentPhase: Phase) : int
-    {
-        var newdata : data;
-        // Broadcast from all to all
-        var i, j: int; 
-        var msg_sent: int;
-        var p: machine;
-
-        msg_sent = 0;
-        i = 0;
-        while (i < numParticipants) 
-        {
-            p = participants[i];
-            if(!failures[p][currentPhase]){
-                j = 0;
-                while (j < numParticipants) 
-                {
-                    if($){
-                        send this, eMessage, (phase = currentPhase, from=p, dst=participants[j], payload=newdata);
-                        msg_sent = msg_sent+1;
-                    }
-                    j = j + 1;
-                }
-            }
-            i = i + 1;
-        }
-
-        return msg_sent;
-    }
-
-    fun SendDoViewChange(currentPhase: Phase) : int
-    {
-        var newdata : data;
-        var i: int; 
-        var msg_sent: int;
-        var p: machine;
-
-        msg_sent = 0;
-        i = 0;
-        
-        while (i < numParticipants) 
-        {
-            p = participants[i];
-
-            if(!failures[p][currentPhase]){
-                if($){
-                    send this, eMessage, (phase = currentPhase, from=p, dst=leader, payload = newdata);
-                    msg_sent = msg_sent+1;
-                }
-            }
-            i = i+1;
-        }
-
-        return msg_sent;
-    }
-
-    fun SendStartView(currentPhase: Phase) : int
-    {
-        var i: int; 
-        var msg_sent: int;
-        var p: machine;
-
-        i = 0;
-        msg_sent = 0;
-        while (i < numParticipants) 
-        {
-            p = participants[i];
-            if(!failures[p][currentPhase]){
-                if($){
-                    send this, eMessage, (phase = currentPhase, from=leader, dst=p, payload = true);
-                    msg_sent=msg_sent+1;
-                }
-            }
-            i = i+1;
-        }
-
-        return msg_sent;
-    }
-
-    fun ReceiveMessages(phase: Phase, round: Round, msg_to_receive: int)
-    {
-        var i : int;
-        var p : machine;
-        i = 0;
-        while (i < msg_to_receive) {
-            
-            receive {
-                case eMessage: (m: Message) { 
-                    messages[m.dst][phase][round] += (m); 
-                }
-            }
-            
-            i = i + 1;
-        }      
-    }
-
     fun insertLogEntry(p: machine, phase: Phase, e: any)
     {
+        announce eMonitor_NewLogEntry, (phase=phase, logentry=e);
         logs[p][phase] = e;
+    }
+
+    fun receiveMessageBlocking(pdest: machine, r : Round)
+    {
+        receive {
+            case eMessage: (m: Message) { 
+                messages[pdest][PHASE][r] += (m); 
+            }
+        }
     }
 
 }

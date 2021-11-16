@@ -2,7 +2,7 @@ type Messages = map[machine, Mbox];
 
 machine TwoPhaseSync
 {
-    var numBackups : int;
+    var numParticipants : int;
     var PHASE : Phase;
     var leader : machine;
     var participants : seq[machine];
@@ -11,12 +11,15 @@ machine TwoPhaseSync
 
     var decision : map[machine,map[Phase, Vote]];
 
+    var i: int; 
+    var p: machine;
+
     start state Init 
     {
         entry (p: seq[machine]){
 
             participants = p;
-            numBackups = sizeof(participants)-1;
+            numParticipants = sizeof(participants);
             
             PHASE = 0; 
             leader = participants[0];
@@ -33,30 +36,31 @@ machine TwoPhaseSync
 
     state Alpha
     {
+        defer eClientRequest;
+
         entry 
         {
             // ###### SEND ######
             var newcommand : Command;
             // Broadcast from leader to all
-            var i: int; 
-            var id: int;
             i = 0;
-            while (i < numBackups) 
+            while (i < numParticipants) 
             {
-                send this, eMessage, (phase = PHASE, from=leader, payload=newcommand);
+                send this, eventALPHA, (phase = PHASE, from=leader, payload=newcommand);
+                p = participants[i];
+                receiveMessageBlocking(p, ALPHA);
                 i = i + 1;
             }
 
             // #### UPDATE ######
-            ReceiveMessages(ALPHA);
-            i = 0;
-            while (i < numBackups) 
+            i = 1; // skip the leader
+            while (i < numParticipants) 
             {
-                id = i+1;
-                decision[participants[id]][PHASE] = ABORT;
+                p = participants[i];
+                decision[p][PHASE] = ABORT;
                 if($)
                 {
-                    decision[participants[id]][PHASE] = COMMIT; 
+                    decision[p][PHASE] = COMMIT; 
                 }
                 i = i + 1;
             }
@@ -68,33 +72,24 @@ machine TwoPhaseSync
 
     state Beta
     {
+        defer eClientRequest;
+
         entry 
         {
             // ###### SEND ######
-            var i: int; 
-            var id: int;
-            i = 0;
-            while (i < numBackups) 
+            i = 1;
+            while (i < numParticipants) 
             {
-                id = i+1;
-                send this, eMessage, (phase = PHASE, from=participants[id], payload = decision[participants[id]][PHASE]);
+                p = participants[i];
+                send this, eventBETA, (phase = PHASE, from=p, payload = decision[p][PHASE]);
+                receiveMessageBlocking(leader, BETA);
+
                 i = i + 1;
             }
 
-            // #### UPDATE ######
-            ReceiveMessages(BETA);
-            
+            // #### UPDATE ######            
             // Primary decides using votes
-            decision[leader][PHASE] = COMMIT;
-
-            i = 0;
-            while (i < sizeof(messages[leader][PHASE][BETA])) 
-            {
-                if(messages[leader][PHASE][BETA][i].payload == ABORT){
-                    decision[leader][PHASE] = ABORT;
-                }
-                i=i+1;
-            }
+            decision[leader][PHASE] = commit_or_abort(messages[leader][PHASE][BETA], numParticipants-1);
 
             goto Gamma;
         }
@@ -103,31 +98,34 @@ machine TwoPhaseSync
 
     state Gamma
     {
+        defer eClientRequest;
+
         entry 
         {
             // ###### SEND ######
-            var i: int; 
-            var id : int;
             var finaldecision : Vote;
             
             i = 0;
-            while (i < numBackups) 
+            while (i < numParticipants) 
             {
-                send this, eMessage, (phase = PHASE, from=leader, payload = decision[leader][PHASE]);
+                p = participants[i];
+                send this, eventGAMMA, (phase = PHASE, from=leader, payload = decision[leader][PHASE]);
+
+                
+                receiveMessageBlocking(p, GAMMA);
+
                 i = i + 1;
             }
 
             // #### UPDATE ######
-            ReceiveMessages(GAMMA);
-
             // Backups record decision
             finaldecision = decision[leader][PHASE];
 
-            i = 0;
-            while (i < numBackups) 
+            i = 1; // skip the leader
+            while (i < numParticipants) 
             {
-                id = i+1;
-                decision[participants[id]][PHASE] = finaldecision;
+                p = participants[i];
+                decision[p][PHASE] = finaldecision;
                 i = i + 1;
             }
 
@@ -139,20 +137,18 @@ machine TwoPhaseSync
     {
         entry 
         {
-            var i: int;
-            var id: int; 
             // ###### SEND ######
-            i = 0;
-            while (i < numBackups) 
+            i = 1; // skip leader
+            while (i < numParticipants) 
             {
-                id = i+1;
-                send this, eMessage, (phase = PHASE, from=participants[id], payload = true);
+                p = participants[i];
+                send this, eventDELTA, (phase = PHASE, from=p, payload = true);
+                receiveMessageBlocking(leader, DELTA);
+
                 i = i + 1;
             }
 
             // #### UPDATE ######
-            ReceiveMessages(DELTA);
-
             PHASE = PHASE+1;
             Init(PHASE);
 
@@ -176,42 +172,55 @@ machine TwoPhaseSync
         decision = default(map[machine,map[Phase, Vote]]);
         messages = default(Messages);
         
-        while (i < numBackups+1) {
+        while (i < numParticipants) {
             p = participants[i];
             decision[p] = default(map[Phase, Vote]);
             
             messages[p] = default(Mbox);
-            messages[p][PHASE] = default(map[Round, seq[Message]]);
+            messages[p][PHASE] = default(map[Round, set[Message]]);
 
-            messages[p][PHASE][ALPHA] = default(seq[Message]);
-            messages[p][PHASE][BETA] = default(seq[Message]);
-            messages[p][PHASE][GAMMA] = default(seq[Message]);
-            messages[p][PHASE][DELTA] = default(seq[Message]);
+            messages[p][PHASE][ALPHA] = default(set[Message]);
+            messages[p][PHASE][BETA] = default(set[Message]);
+            messages[p][PHASE][GAMMA] = default(set[Message]);
+            messages[p][PHASE][DELTA] = default(set[Message]);
 
             i = i+1;
         }
     }
 
-    // In this protocol there always N-1 messages on flight, all-to-one or one-to-all
-    fun ReceiveMessages(r: Round)
+    fun receiveMessageBlocking(pdest: machine, r : Round)
     {
-        var i: int; 
-        var p: machine;
-        
-        i = 1;
-        
-        while (i <= numBackups) {
-            p = participants[i];
-            
+        if(r == ALPHA){
             receive {
-                case eMessage: (m: Message) { 
-                    messages[p][PHASE][r] += (sizeof(messages[p][PHASE][r]), m); 
+                case eventALPHA: (m: Message) { 
+                    messages[pdest][PHASE][r] += (m); 
                 }
             }
-            i = i + 1;
         }
+
+        if(r == BETA){
+            receive {
+                case eventBETA: (m: Message) { 
+                    messages[pdest][PHASE][r] += (m); 
+                }
+            }
+        }
+
+        if(r == GAMMA){
+            receive {
+                case eventGAMMA: (m: Message) { 
+                    messages[pdest][PHASE][r] += (m); 
+                }
+            }
+        }
+
+        if(r == DELTA){
+            receive {
+                case eventDELTA: (m: Message) { 
+                    messages[pdest][PHASE][r] += (m); 
+                }
+            }
+        }
+        
     }
-
-   
-
 }

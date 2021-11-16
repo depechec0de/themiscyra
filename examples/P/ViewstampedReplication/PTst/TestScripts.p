@@ -8,4 +8,10 @@ test TestAsyncIntensive[main = TestDriverAsync1]: { TestDriverAsync1, Replica, T
 
 test TestAsyncSyncTag[main = TestDriverAsync0]: assert SyncTagInvariant in { TestDriverAsync0, Replica, Timer };
 
-test TestAsyncLogConsistency[main = TestDriverAsync0]: assert LogConsistencyInvariant in { TestDriverAsync0, Replica, Timer };
+test TestAsyncLogConsistencyBasic[main = TestDriverAsync0]: assert LogConsistencyInvariant in { TestDriverAsync0, Replica, Timer };
+
+test TestAsyncLogConsistencyIntensive[main = TestDriverAsync1]: assert LogConsistencyInvariant in { TestDriverAsync1, Replica, Timer };
+
+test TestSyncLogConsistencyBasic[main = TestDriverSync0]: assert LogConsistencyInvariant in { TestDriverSync0, ViewStampedReplicationSync, SyncReplica };
+
+test TestSyncLogConsistencyIntensive[main = TestDriverSync1]: assert LogConsistencyInvariant in { TestDriverSync1, ViewStampedReplicationSync, SyncReplica };

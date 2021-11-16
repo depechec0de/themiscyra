@@ -83,6 +83,7 @@ fun launchASync(n: int, requests: int)
         i=i+1;
     }
 
+    i = 0;
     while(i < requests){
         send leader, eClientRequest, (transactionId = 100+i, command = "x = 0;");
        i = i + 1;
