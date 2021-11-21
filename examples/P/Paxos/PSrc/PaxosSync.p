@@ -225,6 +225,9 @@ machine PaxosSync
             }
 
             phase = phase+1;
+            if(phase > 9){
+                raise halt;
+            }
             init_phase(phase);
 
             i = 0;

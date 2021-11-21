@@ -225,6 +225,9 @@ machine Process {
 
     fun timeout(){
         phase = phase+1;
+        if(phase > 9){
+            raise halt;
+        }
         init_mbox(phase);
         goto Prepare;
     }
@@ -232,7 +235,14 @@ machine Process {
 }
 
 fun primary(phase: Phase, participants: set[machine]) : machine {
-    return participants[0];
+    return participants[modulo(phase, sizeof(participants))];
+}
+
+fun modulo(a : int, mod : int) : int{
+    while(a >= mod){
+        a = a-mod;
+    }
+    return a;
 }
 
 fun select_log_from_received_messages(messages : set[MessageType]) : Log {
