@@ -31,6 +31,9 @@ machine PaxosSync
                 i = i + 1;
             }
 
+            phase = phase+1;
+            init_phase(phase);
+
             goto WaitForConsensusRequest;
         }
 
@@ -67,6 +70,7 @@ machine PaxosSync
 
                 if(primary(phase, participants) == p){
                     roundCompleted[p][PREPARE] = true;
+                    //last[p] = msg.phase; // BUG, remove
                 }
                 
                 if(primary(phase, participants) != p){
@@ -176,6 +180,7 @@ machine PaxosSync
 
                 if(primary(phase, participants) == p && roundCompleted[p][ACK]){
                     roundCompleted[p][PROPOSE] = true;
+                    last[p] = phase; // BUG, add
                 }
 
                 print(format("roundCompleted PROPOSE {0} {1}", p, roundCompleted[p][PROPOSE]));

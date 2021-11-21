@@ -81,7 +81,7 @@ machine Process {
 
         on PrepareMessage do (m : PrepareType) {
             if(m.phase >= phase){
-                
+                print(format("roundCompleted PREPARE {0}", this));
                 MaybeCancelTimer(fm,timer);
                 last = phase; // BUG, remove
                 phase = m.phase;
@@ -118,6 +118,7 @@ machine Process {
                 collectMessage(m, ACK);
 
                 if(sizeof(mbox[phase][ACK]) >= quorum){
+                    print(format("roundCompleted ACK {0}", this));
                     MaybeCancelTimer(fm,timer);
                     //log = select_log_from_received_messages(mbox[phase][ACK] as set[(phase: Phase, from: machine, payload: (last: Phase, log: Log))]);
                     log = select_log_from_received_messages(mbox[phase][ACK]);
@@ -151,6 +152,7 @@ machine Process {
 
         on ProposeMessage do (m : ProposeType) {
             if(m.phase == phase){
+                print(format("roundCompleted PROPOSE {0}", this));
                 MaybeCancelTimer(fm,timer);
 
                 log = m.payload;
@@ -184,6 +186,7 @@ machine Process {
                 collectMessage(m, PROMISE);
 
                 if(sizeof(mbox[phase][PROMISE]) >= quorum){
+                    print(format("roundCompleted PROMISE {0}", this));
                     MaybeCancelTimer(fm,timer);
 
                     if(logs_are_equal(mbox[phase][PROMISE])){
@@ -251,6 +254,8 @@ fun select_log_from_received_messages(messages : set[MessageType]) : Log {
     var higherlast, i : int;
     var higherlog : Log;
 
+    //print(format("select_log_from_received_messages logs to compare {0}", messages));
+
     i = 0;
     higherlast = -1;
 
@@ -260,6 +265,8 @@ fun select_log_from_received_messages(messages : set[MessageType]) : Log {
 
         if(ackmsg.payload.last > higherlast){
             higherlog = ackmsg.payload.log;
+            higherlast = ackmsg.payload.last; 
+            //print(format("select_log_from_received_messages Higher log found  {0} with last {1}", ackmsg.payload.log, ackmsg.payload.last));
         }
         
         i=i+1;
