@@ -3,18 +3,18 @@
 This machine creates the 2 participants, 1 coordinator, and 2 clients 
 */
 
-machine TestDriverAsync0 {
+machine TestDriverAsync5nodes {
     start state Init {
         entry {
-            launchASync(5, 3);
+            launchASync(5, 10);
         }
     }
 }
 
-machine TestDriverAsync1 {
+machine TestDriverAsync8nodes {
     start state Init {
         entry {
-            launchASync(8, 3);
+            launchASync(8, 10);
         }
     }
 }
@@ -23,18 +23,18 @@ machine Participant{
     start state Init {}
 }
 
-machine TestDriverSync0 {
+machine TestDriverSync5nodes {
     start state Init {
         entry {
-            launchSync(5, 3);
+            launchSync(5, 10);
         }
     }
 }
 
-machine TestDriverSync1 {
+machine TestDriverSync8nodes {
     start state Init {
         entry {
-            launchSync(8, 3);
+            launchSync(8, 10);
         }
     }
 }

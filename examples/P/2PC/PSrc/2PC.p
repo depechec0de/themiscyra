@@ -78,16 +78,23 @@ machine Primary
 
         on eventBETA do (m : Message) 
         {
-            announce eMonitor_MessageReceived, (localTs=(phase=phase, round=BETA), msgTs=(phase=m.phase, round=BETA));
+            if(m.phase == phase){
+                announce eMonitor_MessageReceived, (localTs=(phase=phase, round=BETA), msgTs=(phase=m.phase, round=BETA));
 
-            mbox[m.phase][BETA] += (m);
+                mbox[m.phase][BETA] += (m);
 
-            //print format("Primary receives eventBETA {0} / {1}", sizeof(mbox[m.phase][BETA]), numBackup);
+                print format("Primary receives eventBETA {0} , {1} , {2}", m, sizeof(mbox[m.phase][BETA]), numBackup);
 
-            if(sizeof(mbox[m.phase][BETA]) == numBackup)
-            {
-                decision[phase] = commit_or_abort(mbox[m.phase][BETA], numBackup);
-                goto GAMMA;
+                if(m.payload == ABORT){
+                    decision[m.phase] = ABORT;
+                    goto GAMMA;
+                }
+
+                if(sizeof(mbox[m.phase][BETA]) == numBackup)
+                {
+                    decision[m.phase] = commit_or_abort(mbox[m.phase][BETA], numBackup);
+                    goto GAMMA;
+                }
             }
         }
     }
@@ -116,15 +123,17 @@ machine Primary
 
         on eventDELTA do (m : Message) 
         {
-            announce eMonitor_MessageReceived, (localTs=(phase=phase, round=DELTA), msgTs=(phase=m.phase, round=DELTA));
+            if(m.phase == phase){
+                announce eMonitor_MessageReceived, (localTs=(phase=phase, round=DELTA), msgTs=(phase=m.phase, round=DELTA));
 
-            announce eMonitor_MailboxUsed, (id=this, mboxTs=(phase=m.phase, round=DELTA));
-            mbox[m.phase][DELTA] += (m);
+                announce eMonitor_MailboxUsed, (id=this, mboxTs=(phase=m.phase, round=DELTA));
+                mbox[m.phase][DELTA] += (m);
 
-            if(sizeof(mbox[m.phase][DELTA]) == numBackup)
-            {
-                phase = phase+1;
-                goto ALPHA;
+                if(sizeof(mbox[m.phase][DELTA]) == numBackup)
+                {
+                    phase = phase+1;
+                    goto ALPHA;
+                }
             }
         }
     }
@@ -194,9 +203,7 @@ fun commit_or_abort(msgs: set[Message], numBackup: int) : Vote
         }
         i=i+1;
     }
-    //if(commitvotes == numBackup)
-    // BUG
-    if(commitvotes == numBackup/2)
+    if(commitvotes == numBackup)
     {
         d = COMMIT;
     }
@@ -229,9 +236,11 @@ machine Backup
     {
         on eventALPHA do (m : Message) 
         {
-            announce eMonitor_MessageReceived, (localTs=(phase=phase, round=ALPHA), msgTs=(phase=m.phase, round=ALPHA));
-            announce eMonitor_TimestampChange, (id=this, ts=(phase=phase, round=ALPHA));
-            goto BETA;
+            if(m.phase == phase){
+                announce eMonitor_MessageReceived, (localTs=(phase=phase, round=ALPHA), msgTs=(phase=m.phase, round=ALPHA));
+                announce eMonitor_TimestampChange, (id=this, ts=(phase=phase, round=ALPHA));
+                goto BETA;
+            }
         }
     }
 
@@ -261,16 +270,18 @@ machine Backup
 
         on eventGAMMA do (m : Message) 
         {
-            announce eMonitor_MessageReceived, (localTs=(phase=phase, round=GAMMA), msgTs=(phase=m.phase, round=GAMMA));
+            if(m.phase == phase){
+                announce eMonitor_MessageReceived, (localTs=(phase=phase, round=GAMMA), msgTs=(phase=m.phase, round=GAMMA));
 
-            announce eMonitor_MailboxUsed, (id=this, mboxTs=(phase=m.phase, round=GAMMA));
-            if(payload(m) == COMMIT)
-            {
-                set_decision(phase, COMMIT);
-            } else {
-                set_decision(phase, ABORT);
+                announce eMonitor_MailboxUsed, (id=this, mboxTs=(phase=m.phase, round=GAMMA));
+                if(payload(m) == COMMIT)
+                {
+                    set_decision(m.phase, COMMIT);
+                } else {
+                    set_decision(m.phase, ABORT);
+                }
+                goto DELTA;
             }
-            goto DELTA;
         }
     }
 
@@ -290,9 +301,9 @@ machine Backup
         return leader;
     }
 
-    fun set_decision(phase: Phase, vote: Vote)
+    fun set_decision(p: Phase, vote: Vote)
     {
-        decision[phase] = vote;
+        decision[p] = vote;
     }
 
     fun payload(m: Message) : data
