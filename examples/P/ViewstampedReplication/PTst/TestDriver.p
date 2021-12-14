@@ -6,7 +6,7 @@ This machine creates the 2 participants, 1 coordinator, and 2 clients
 machine TestDriverSync0 {
     start state Init {
         entry {
-            launchSync(5, 3);
+            launchSync(5, 3, 3);
         }
     }
 }
@@ -14,12 +14,12 @@ machine TestDriverSync0 {
 machine TestDriverSync1 {
     start state Init {
         entry {
-            launchSync(8, 3);
+            launchSync(8, 5, 3);
         }
     }
 }
 
-fun launchSync(n: int, requests: int)
+fun launchSync(n: int, quorum: int, requests: int)
 {
     var system : ViewStampedReplicationSync;
     var i : int;
@@ -31,11 +31,11 @@ fun launchSync(n: int, requests: int)
         i = i + 1;
     }
     
-    system = new ViewStampedReplicationSync(participants);
+    system = new ViewStampedReplicationSync((participants=participants, quorum=quorum));
     
     i = 0;
     while(i < requests){
-        send system, eClientRequest, (transactionId = 100+i, command = "x = 0;");
+        send system, LeaderRequest;
         i = i + 1;
     }
 }
@@ -48,7 +48,7 @@ machine SyncReplica {
 machine TestDriverAsync0 {
     start state Init {
         entry {
-            launchASync(5, 3);
+            launchASync(5, 3, 3);
         }
     }
 }
@@ -56,17 +56,16 @@ machine TestDriverAsync0 {
 machine TestDriverAsync1 {
     start state Init {
         entry {
-            launchASync(8, 3);
+            launchASync(8, 5, 3);
         }
     }
 }
 
-fun launchASync(n: int, requests: int)
+fun launchASync(n: int, quorum: int, requests: int)
 {
-    var participants: set[Replica];
+    var participants: set[machine];
     var i : int;
-    var leader : Replica;
-
+ 
     i = 0;
     while (i < n) {
         participants += (new Replica());
@@ -74,19 +73,17 @@ fun launchASync(n: int, requests: int)
     }
 
     announce eMonitor_Initialize, participants;
-
-    leader = participants[0];
     
     i = 0;
     while (i < n) {
-        send participants[i], eConfig, (participants=participants, leader=leader);
+        send participants[i], eConfig, (participants=participants, quorum=quorum);
         i=i+1;
     }
 
     i = 0;
     while(i < requests){
-        send leader, eClientRequest, (transactionId = 100+i, command = "x = 0;");
-       i = i + 1;
+        send primary(0, participants), LeaderRequest;
+        i = i + 1;
     }
 }
 

@@ -3,18 +3,18 @@
 This machine creates the 2 participants, 1 coordinator, and 2 clients 
 */
 
-machine TestDriverAsync0 {
+machine TestDriverAsyncNoFailure {
     start state Init {
         entry {
-            launchASync((n=3, quorum=2, fm=Timeouts));
+            launchASync((n=3, quorum=2, fm=NoFailure));
         }
     }
 }
 
-machine TestDriverAsync1 {
+machine TestDriverAsyncTimeouts {
     start state Init {
         entry {
-            launchASync((n=8, quorum=5, fm=Timeouts));
+            launchASync((n=3, quorum=2, fm=Timeouts));
         }
     }
 }
@@ -23,18 +23,10 @@ machine Participant{
     start state Init {}
 }
 
-machine TestDriverSync0 {
+machine TestDriverSequentialTimeouts {
     start state Init {
         entry {
             launchSync((n=3, quorum=2, fm=Timeouts));
-        }
-    }
-}
-
-machine TestDriverSync1 {
-    start state Init {
-        entry {
-            launchSync((n=8, quorum=5, fm=Timeouts));
         }
     }
 }
@@ -62,7 +54,7 @@ fun launchASync(config: (n: int, quorum: int, fm: FailureModel))
 
 fun launchSync(config: (n: int, quorum: int, fm: FailureModel))
 {
-    var system : BenOrSync;
+    var system : UniformVotingSequential;
     var i : int;
     var p : machine;
     var participants: set[Participant];
@@ -75,6 +67,6 @@ fun launchSync(config: (n: int, quorum: int, fm: FailureModel))
         i = i + 1;
     }    
     
-    system = new BenOrSync((peers=participants, quorum=config.quorum, failurem=config.fm));
+    system = new UniformVotingSequential((peers=participants, quorum=config.quorum, failurem=config.fm));
  
 }

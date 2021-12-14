@@ -70,7 +70,7 @@ machine PaxosSync
 
                 if(primary(phase, participants) == p){
                     roundCompleted[p][PREPARE] = true;
-                    //last[p] = msg.phase; // BUG, remove
+                    last[p] = msg.phase; // BUG, remove
                 }
                 
                 if(primary(phase, participants) != p){
@@ -79,7 +79,7 @@ machine PaxosSync
                         
                         roundCompleted[p][PREPARE] = true;
                         msg = messages[p][phase][PREPARE][0];
-                        //last[p] = msg.phase; // BUG, remove
+                        last[p] = msg.phase; // BUG, remove
                     }
 
                 }
@@ -170,7 +170,7 @@ machine PaxosSync
                     if(sizeof(messages[p][phase][PROPOSE]) > 0){
                         msg = messages[p][phase][PROPOSE][0] as ProposeType;
                         log[p] = msg.payload;
-                        last[p] = phase; // BUG, add
+                        //last[p] = phase; // BUG, add
 
                         roundCompleted[p][PROPOSE] = true;
                         
@@ -180,7 +180,7 @@ machine PaxosSync
 
                 if(primary(phase, participants) == p && roundCompleted[p][ACK]){
                     roundCompleted[p][PROPOSE] = true;
-                    last[p] = phase; // BUG, add
+                    //last[p] = phase; // BUG, add
                 }
 
                 print(format("roundCompleted PROPOSE {0} {1}", p, roundCompleted[p][PROPOSE]));
@@ -230,9 +230,6 @@ machine PaxosSync
             }
 
             phase = phase+1;
-            if(phase > 9){
-                raise halt;
-            }
             init_phase(phase);
 
             i = 0;

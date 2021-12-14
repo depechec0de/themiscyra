@@ -3,8 +3,6 @@
 This machine creates the 2 participants, 1 coordinator, and 2 clients 
 */
 
-enum FailureModel {NoFailure, Timeouts}
-
 machine PaxosAsyncNoFailure {
     start state Init {
         entry {

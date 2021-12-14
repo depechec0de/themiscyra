@@ -1,10 +1,9 @@
 event eMessage : MessageType;
 
 event ReportMessage: ReportType;
-event DecisionMessage: DecisionType;
+event ProposalMessage: ProposalType;
 
-event ConsensusRequest: ConsensusType;
-event Config: (peers: set[machine], quorum: int) ;
+event Config: (peers: set[machine], quorum: int, failurem: FailureModel);
 
 type Value = int; // 0, 1, -1 = ?
 type RequestId = int;
@@ -15,11 +14,9 @@ type Log = map[RequestId, any];
 
 type MessageType = (phase: Phase, from: machine, payload: any);
 type ReportType = (phase: Phase, from: machine, payload: Value);
-type DecisionType = (phase: Phase, from: machine, payload: Value);
+type ProposalType = (phase: Phase, from: machine, payload: Value);
 
-type ConsensusType = (request: RequestId, estimate: Value);
-
-enum Round { REPORT, DECISION }
+enum Round { REPORT, PROPOSAL }
 
 machine Process {   
     var participants : set[machine];
@@ -29,84 +26,50 @@ machine Process {
     var log : Log;
     var timer : Timer;
     var estimate : Value;
-    var decision : Value;
+    var reported : Value;
     var currentRequest : RequestId;
+    var fm: FailureModel;
 
     start state Init {
-        defer ConsensusRequest, ReportMessage, DecisionMessage;
+        defer ReportMessage, ProposalMessage;
         
         entry {
             receive {
-                case Config: (payload: (peers: set[machine], quorum: int)) { 
+                case Config: (payload: (peers: set[machine], quorum: int, failurem: FailureModel)) { 
                     participants = payload.peers;
                     quorum = payload.quorum;
+                    fm = payload.failurem;
                 }
             }
             timer = CreateTimer(this);
-
-            decision = -1;
-            K = 0;
-            goto WaitForConsensusRequest;
-        }
-    }
-
-    state WaitForConsensusRequest {
-        defer ReportMessage, DecisionMessage;
-
-        on ConsensusRequest do (payload : (request: RequestId, estimate: Value)) 
-        {
-            currentRequest = payload.request;
-            estimate = payload.estimate;
+            estimate = choose(2);
+            init_phase(0);
             goto Report;
-        }
-
-        on eShutDown do {
-            raise halt;
         }
     }
 
     state Report {
-        defer ConsensusRequest;
+        defer ProposalMessage;
 
         entry {
-            UnReliableBroadCast(participants, ReportMessage, (phase=K, from=this, payload = estimate));
+            BroadCast(fm, participants, ReportMessage, (phase=K, from=this, payload = estimate));
             StartTimer(timer);
         }
 
         on ReportMessage do (m : ReportType) {
             
-            if(m.phase >= K){
+            if(m.phase == K){
                 collectMessage(m, REPORT);
-
-                if(m.phase > K){
-                    // Jump
-                    K = m.phase;
-                    CancelTimer(timer);
-                    print(format("{0} jumped to {1} Report", this, K ));
-                    goto Report;
-                }
                 
                 if(sizeof(mbox[K][REPORT]) >= quorum){
                     print(format("{0} reached report in phase {1}", this, K));
                     CancelTimer(timer);
-                    estimate = mayority_value(mbox[K][REPORT], quorum);
-                    goto Decision;
+                    reported = mayority_value(mbox[K][REPORT], quorum);
+                    goto Proposal;
                 }
 
             }
             
-        }
-
-        on DecisionMessage do (m : DecisionType) {
-            if(m.phase >= K){
-                // Jump
-                CancelTimer(timer);
-                print(format("{0} jumped to {1} Decision", this, K ));
-                collectMessage(m, DECISION);
-
-                K = m.phase;
-                goto Decision;
-            }
         }
 
         on eShutDown do {
@@ -119,76 +82,48 @@ machine Process {
         }
     }
 
-    state Decision {
-        defer ConsensusRequest;
+    state Proposal {
+        defer ReportMessage;
 
         entry { 
-            if(decision != -1){
-                UnReliableBroadCast(participants, DecisionMessage, (phase=K, from=this, payload = decision));
-            }else{
-                UnReliableBroadCast(participants, DecisionMessage, (phase=K, from=this, payload = estimate));
-                StartTimer(timer);
-            }           
+            BroadCast(fm, participants, ProposalMessage, (phase=K, from=this, payload = reported));
+            StartTimer(timer);   
         }
 
-        on ReportMessage do (m : ReportType) {
-            if(m.phase > K){
-                // Jump
-                CancelTimer(timer);
-                print(format("{0} jumped to {1} Report", this, K ));
-
-                collectMessage(m, REPORT);
-                K = m.phase;
-                goto Report;
-            }
-        }
-
-        on DecisionMessage do (m : DecisionType) {
+        on ProposalMessage do (m : ProposalType) {
             var val : Value;
             var coin_toss : int;
 
-            if(m.phase >= K){
-                collectMessage(m, DECISION);
+            if(m.phase == K){
+                collectMessage(m, PROPOSAL);
 
-                if(m.phase > K){
-                    // Jump
-                    CancelTimer(timer);
-                    print(format("{0} jumped to {1} Report", this, K ));
-
-                    K = m.phase;
-                    goto Decision;
-                }
-
-                if(sizeof(mbox[K][DECISION]) >= quorum){
+                if(sizeof(mbox[K][PROPOSAL]) >= quorum){
                     
                     CancelTimer(timer);
-                    val = mayority_value(mbox[K][DECISION], quorum);
+                    val = mayority_value(mbox[K][PROPOSAL], quorum);
 
                     if(val != -1){
-
+                        
                         // decide value
                         print(format("{0} Decided {1} in phase {2}", this, val, K));
-                        insertLogEntry(val);
-                        decision = val;
-                        // K = K+1;
+                        //estimate = val; // BUG, add this line to fix
+                        announce eMonitor_NewDecision, (id=this, decision=val);
 
-                        // // Keep broadcasting the decision
-                        // goto Decision;
-
-                    }else if(get_valid_estimate(mbox[K][DECISION]) != -1){
+                    }else if(get_valid_estimate(mbox[K][PROPOSAL]) != -1){
 
                         // We try again a new phase proposing a valid value
-                        estimate = get_valid_estimate(mbox[K][DECISION]);
-                        print(format("{0} got valid estimate {1} in phase {2}", this, estimate, K));
-                        K = K+1;
-                        goto Report;
-                        
+                        estimate = get_valid_estimate(mbox[K][PROPOSAL]);
+                        print(format("{0} got valid estimate {1} in phase {2}", this, estimate, K)); 
+
                     }else{
+
                         estimate = choose(2); // 0 or 1 randomly
                         print(format("{0} Flip a coin {1}", this, estimate));
-                        K = K+1;
-                        goto Report;
+                        
                     }
+
+                    init_phase(K+1);
+                    goto Report;
                 }
 
             }
@@ -201,13 +136,12 @@ machine Process {
 
         on eTimeOut do {
             timeout();
-            //goto Decision;
         }
     }
 
     fun collectMessage(m:MessageType, r: Round) {
         if(!(m.phase in mbox)){
-            init_mbox(m.phase);
+            init_phase(m.phase);
         }
         
         mbox[m.phase][r] += (m);
@@ -215,29 +149,17 @@ machine Process {
         //print(format("{0} collected message {1} {2} in phase, MAILBOX {3}", this, r, K, mbox));
     }
 
-    fun init_mbox(phase: Phase) {
+    fun init_phase(phase: Phase) {
+        K = phase;
+
         mbox[phase] = default(map[Round, set[MessageType]]);
 
         mbox[phase][REPORT] = default(set[MessageType]);
-        mbox[phase][DECISION] = default(set[MessageType]);
-    }
-
-    fun insertLogEntry(e: any) {
-        if(choose(1000) == 1){
-            announce eMonitor_NewLogEntry, (id=this, request=currentRequest, logentry=0);
-        }else{
-            announce eMonitor_NewLogEntry, (id=this, request=currentRequest, logentry=e);
-        }
-        
-        if(e != null){
-            log[currentRequest] = e;
-            print(format("insertLogEntry {0} {1}", this, log));
-        }
+        mbox[phase][PROPOSAL] = default(set[MessageType]);
     }
 
     fun timeout(){
-        K = K+1;
-        init_mbox(K);
+        init_phase(K+1);
         goto Report;
     }
 }
@@ -268,6 +190,29 @@ fun mayority_value(msgs : set[MessageType], quorum: int) : Value {
     }else{
         return -1;
     }
+}
+
+fun all_decided(msgs : set[MessageType], numParticipants: int) : bool {
+    var i : int;
+    var val : Value;
+
+    val = msgs[0].payload as Value;
+    i = 0;
+
+    print(format("sarasa {0} < {1}, {2}", sizeof(msgs), numParticipants, msgs));
+
+    if(sizeof(msgs) < numParticipants){
+        return false;
+    }
+
+    while(i < sizeof(msgs)){
+        if(msgs[i].payload != val){
+            return false;
+        }
+        i=i+1;
+    }
+
+    return true;
 }
 
 fun get_valid_estimate(msgs : set[MessageType]) : Value{

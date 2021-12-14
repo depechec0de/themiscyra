@@ -33,15 +33,17 @@ spec LogConsistency observes eMonitor_NewLog
 
                 if(sizeof(currentLogs[i]) > sizeof(currentLogs[j])){
                     maxindex = sizeof(currentLogs[j]);
-                    longLog = currentLogs[j];
+                    longLog = currentLogs[i];
+                    shortLog = currentLogs[j];
                 }else{
                     maxindex = sizeof(currentLogs[i]);
                     shortLog = currentLogs[i];
+                    longLog = currentLogs[j];
                 }
 
                 k=0;
                 while(k < maxindex){
-                    assert (currentLogs[i][k] == currentLogs[j][k]), format("Log {0} is not a prefix of {1}", shortLog, longLog);
+                    assert (shortLog[k] == longLog[k]), format("Log {0} is not a prefix of {1}", shortLog, longLog);
                     k=k+1;
                 }
                 

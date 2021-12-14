@@ -3,60 +3,40 @@ type Messages = map[machine, Mbox];
 machine BenOrSync
 {
     var K : Phase;
-    var maxFailures : int;
     var quorum : int;
     var participants : set[machine];
-    var logs : map[machine, Log];
-    var estimates : map[machine, Value];
+    var estimate : map[machine, Value];
+    var reported : map[machine, Value];
+    var decided : map[machine, Value];
     var messages : Messages;
-    var reportRoundSuccessful : map[machine, bool];
-    var decided : map[machine, bool];
-    var crashedMachines : set[machine];
+    var reportRoundSuccessful : map[machine, map[Phase, bool]];
     var currentRequest : RequestId;
+    var fm: FailureModel;
 
     var i, j: int; 
     var p, from, dst: machine;
 
     start state Init{
-        entry (config: (peers: set[machine], quorum: int, failures: int)){
+        entry (config: (peers: set[machine], quorum: int, failurem: FailureModel)){
             
             participants = config.peers;
-            maxFailures = config.failures;
             quorum = config.quorum;
+            fm = config.failurem;
 
-            crashedMachines = default(set[machine]);
-
-            i = 0;
-            while (i < sizeof(participants)){
-                if(sizeof(crashedMachines) < maxFailures){
-                    p = participants[i];
-                    if($){
-                        crashedMachines += (p);
-                    }
-                }
-                i=i+1;
-            }
-
-            print(format("Crashed machines {0}", crashedMachines));
-
-            K = 0; 
-            init_phase(K);
+            init_phase(0);
 
             i = 0;
             while (i < sizeof(participants)){
                 p = participants[i];
-                decided[p] = false;
-                estimates[p] = choose(2);
+                estimate[p] = choose(2);
+                decided[p] = -1;
+                print(format("{0} start with ESTIMATE {1}", p, estimate[p]));
                 i=i+1;
             }
-        }
 
-        on ConsensusRequest do (payload : (request: RequestId, estimate: Value)) 
-        {
-            currentRequest = payload.request;
             goto Report;
         }
-
+    
     }
 
     state Report{
@@ -65,176 +45,146 @@ machine BenOrSync
             while (i < sizeof(participants)){
                 from = participants[i];
 
-                if(!(from in crashedMachines)){
+                j = 0;
+                while (j < sizeof(participants)){
 
-                    j = 0;
-                    while (j < sizeof(participants)){
-
-                        dst = participants[j];
-                        if(!(dst in crashedMachines)){
-                            print(format("{0} send REPORT message {1} to {2}", from, (phase = K, from=from, payload=estimates[from]), dst));
-                            if($){
-                                send this, eMessage, (phase = K, from=from, payload=estimates[from]);
-                                receiveMessageBlocking(dst, REPORT);
-                                print(format("{0} received REPORT estimate {1} in phase {2} from {3}", dst, estimates[from], K, from));
-                            }                        
-                        }
-
-                        j = j + 1;
+                    if(decided[from] != -1){
+                        estimate[from] = decided[from];
                     }
 
-                }
-                i = i + 1;
-            }
+                    dst = participants[j];
+                    print(format("{0} send REPORT message {1} to {2}", from, (phase = K, from=from, payload=estimate[from]), dst));
+                    if($){
+                        send this, eMessage, (phase = K, from=from, payload=estimate[from]);
+                        receiveMessageBlocking(dst, REPORT);
+                        print(format("{0} received REPORT estimate {1} in phase {2} from {3}", dst, estimate[from], K, from));
+                    }                        
+                
 
-            i = 0;
-            while (i < sizeof(participants)){
-                p = participants[i];
-
-                if(!(p in crashedMachines)){    
-
-                    if(!decided[p]){
-                        if(sizeof(messages[p][K][REPORT]) == quorum){
-                            reportRoundSuccessful[p] = true;
-                            estimates[p] = mayority_value(messages[p][K][REPORT], quorum);
-                            print(format("{0} REPORT mayority {1} in phase {2}, mailbox: {3}", p, estimates[p], K, messages[p][K]));
-                        }
-                    }
-
+                    j = j + 1;
                 }
                 
                 i = i + 1;
             }
 
-            goto Decision;
+            i = 0;
+            while (i < sizeof(participants)){
+                p = participants[i];   
+
+                if(sizeof(messages[p][K][REPORT]) >= quorum){
+                    reportRoundSuccessful[p][K] = true;
+                    reported[p] = mayority_value(messages[p][K][REPORT], quorum);
+                    print(format("{0} REPORT mayority {1} in phase {2}, mailbox: {3}", p, reported[p], K, messages[p][K]));
+                }
+                
+                i = i + 1;
+            }
+
+            goto Proposal;
         }
 
     }
 
-    state Decision{
+    state Proposal{
         entry{
             var val : Value;
 
             i = 0;
             while (i < sizeof(participants)){
                 from = participants[i];
+                j = 0;
+                if(reportRoundSuccessful[from][K]){
 
-                if(!(from in crashedMachines)){
+                    while (j < sizeof(participants)){
 
-                    j = 0;
-                    if(reportRoundSuccessful[from] || decided[from]){
-
-                        while (j < sizeof(participants)){
-
-                            dst = participants[j];
-                            
-                            if(!(dst in crashedMachines)){
-                                print(format("{0} send DECISION message {1} to {2}", from, (phase = K, from=from, payload=estimates[from]), dst));
-                                if($){
-                                    send this, eMessage, (phase = K, from=from, payload=estimates[from]);
-                                    receiveMessageBlocking(dst, DECISION);
-                                    print(format("{0} received DECISION estimate {1} in phase {2}", dst, estimates[from], K));
-                                }
-                            }
-
-                            j = j + 1;
+                        dst = participants[j];
+        
+                        if(decided[from] != -1){
+                            reported[from] = decided[from];
                         }
 
+                        print(format("{0} send PROPOSAL message {1} to {2}", from, (phase = K, from=from, payload=reported[from]), dst));
+                        if($){
+                            send this, eMessage, (phase = K, from=from, payload=reported[from]);
+                            receiveMessageBlocking(dst, PROPOSAL);
+                            print(format("{0} received PROPOSAL estimate {1} in phase {2}", dst, reported[from], K));
+                        }
+                        
+                        j = j + 1;
                     }
 
                 }
+
                 i = i + 1;
             }
 
             i = 0;
             while (i < sizeof(participants)){
                 p = participants[i];
+  
+                if(reportRoundSuccessful[p][K]){
 
-                if(!(p in crashedMachines)){    
+                    if(sizeof(messages[p][K][PROPOSAL]) >= quorum){
 
-                    if(!decided[p] && reportRoundSuccessful[p]){
+                        print(format("{0} received enough PROPOSAL messages in phase {1}, {2}", p, K, messages[p][K][PROPOSAL]));
 
-                        if(sizeof(messages[p][K][DECISION]) == quorum){
+                        val = mayority_value(messages[p][K][PROPOSAL], quorum);
 
-                            print(format("{0} received enough DECISION messages in phase {1}", p, K));
+                        if(val != -1){
+                            // decide value
+                            print(format("{0} Decided {1} in phase {2}", p, val, K));
 
-                            val = mayority_value(messages[p][K][DECISION], quorum);
+                            announce eMonitor_NewDecision, (id=p, decision=val);
 
-                            if(val != -1){
-                                // decide value
-                                print(format("{0} Decided {1} in phase {2}", p, val, K));
+                            //decided[p] = val; //BUG, add this line to fix
 
-                                // BUG
-                                if(choose(1000) == 1){
-                                    announce eMonitor_NewLogEntry, (id=p, request=currentRequest, logentry=0);
-                                }else{
-                                    announce eMonitor_NewLogEntry, (id=p, request=currentRequest, logentry=val);
-                                }
-                                
-                                logs[p][K] = val;
+                        }else if(get_valid_estimate(messages[p][K][PROPOSAL]) != -1){
 
-                                decided[p] = true;
-                                estimates[p] = val;
-
-                            }else if(get_valid_estimate(messages[p][K][DECISION]) != -1){
-
-                                // We try again a new phase proposing a valid value
-                                estimates[p] = get_valid_estimate(messages[p][K][DECISION]);
-                                print(format("{0} changed estimate to {1} in phase {2}", p, estimates[p], K));
-                                
-                            }else{
-                                estimates[p] = choose(2); // 0 or 1 randomly
-                                print(format("{0} Flip a coin {1}", p, estimates[p]));
-                            }
+                            // We try again a new phase proposing a valid value
+                            estimate[p] = get_valid_estimate(messages[p][K][PROPOSAL]);
+                            print(format("{0} changed estimate to {1} in phase {2}", p, estimate[p], K));
+                            
                         }else{
-                            print(format("{0} did not receive enough DECISION messages in phase {1}", p, K));
+                            estimate[p] = choose(2); // 0 or 1 randomly
+                            print(format("{0} Flip a coin {1}", p, estimate[p]));
                         }
-
+                    }else{
+                        print(format("{0} did not receive enough PROPOSAL messages in phase {1}", p, K));
                     }
 
                 }
+                
                 i=i+1;
             }
 
-            i = 0;
-            while (i < sizeof(participants)){
-                p = participants[i];
-
-                if(!decided[p] && !(p in crashedMachines)){
-                    print(format("{0} did not decide, start new phase", p));
-                    K = K+1;
-                    init_phase(K);
-                    goto Report;
-                }
-
-                i=i+1;
-            }
+            init_phase(K+1);
+            goto Report;
             
         }
-
-       
     }
 
     fun init_phase(phase: Phase)
     {
         var i: int; 
         var p: machine;
+
+        K = phase;
         
         i = 0;
        
         messages = default(Messages);
-        reportRoundSuccessful = default(map[machine, bool]);
+        reportRoundSuccessful = default(map[machine, map[Phase, bool]]);
         
         while (i < sizeof(participants)) {
             p = participants[i];
-            reportRoundSuccessful[p] = false;
-            logs[p] = default(Log);
+            reportRoundSuccessful[p] = default(map[Phase, bool]);
+            reportRoundSuccessful[p][phase] = false;
             
             messages[p] = default(Mbox);
             messages[p][phase] = default(map[Round, set[MessageType]]);
 
             messages[p][phase][REPORT] = default(set[ReportType]);
-            messages[p][phase][DECISION] = default(set[DecisionType]);
+            messages[p][phase][PROPOSAL] = default(set[ProposalType]);
 
             i = i+1;
         }

@@ -228,24 +228,10 @@ machine Process {
 
     fun timeout(){
         phase = phase+1;
-        if(phase > 9){
-            raise halt;
-        }
         init_mbox(phase);
         goto Prepare;
     }
 
-}
-
-fun primary(phase: Phase, participants: set[machine]) : machine {
-    return participants[modulo(phase, sizeof(participants))];
-}
-
-fun modulo(a : int, mod : int) : int{
-    while(a >= mod){
-        a = a-mod;
-    }
-    return a;
 }
 
 fun select_log_from_received_messages(messages : set[MessageType]) : Log {
@@ -298,36 +284,6 @@ fun logs_are_equal(messages : set[MessageType]) : bool{
     }
 
     return true;
-}
-
-fun BroadCast(fm : FailureModel, ms: set[machine], ev: event, payload: any){
-    if(fm == NoFailure){
-        ReliableBroadCast(ms, ev, payload);
-    }else{
-        UnReliableBroadCast(ms, ev, payload);
-    }
-}
-
-fun MaybeStartTimer(fm : FailureModel, timer: Timer)
-{
-    if(fm == Timeouts){
-        StartTimer(timer);
-    }
-}
-
-fun MaybeCancelTimer(fm : FailureModel, timer: Timer)
-{
-    if(fm == Timeouts){
-        CancelTimer(timer);
-    }
-}
-
-fun Send(fm : FailureModel, target: machine, message: event, payload: any){
-    if(fm == NoFailure){
-        send target, message, payload;
-    }else{
-        UnReliableSend(target, message, payload);
-    }
 }
 
 fun new_command() : Command {

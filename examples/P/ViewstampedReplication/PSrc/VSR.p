@@ -1,41 +1,37 @@
 event eMessage : Message;
 
-event eventSTARTVIEWCHANGE: (phase: Phase, from: machine, dst: machine, payload: data);
-event eventDOVIEWCHANGE: (phase: Phase, from: machine, dst: machine, payload: data);
-event eventSTARTVIEW: (phase: Phase, from: machine, dst: machine, payload: data);
+event eventSTARTVIEWCHANGE: (phase: Phase, from: machine, payload: data);
+event eventDOVIEWCHANGE: (phase: Phase, from: machine, payload: data);
+event eventSTARTVIEW: (phase: Phase, from: machine, payload: data);
 
 type Phase = int;
 type Mbox = map[Phase, map[Round, set[Message]]];
 type Timestamp = (phase: Phase, round: Round);
-type Message = (phase: Phase, from: machine, dst: machine, payload: any);
-type ClientRequest = (transactionId: int, command: data);
-type Log = map[Phase, any];
+type Message = (phase: Phase, from: machine, payload: any);
 
-event eConfig: (participants: set[Replica], leader: Replica);
-event eClientRequest: ClientRequest;
+event eConfig: (participants: set[machine], quorum: int);
+event LeaderRequest;
 
 enum Round { STARTVIEWCHANGE, DOVIEWCHANGE, STARTVIEW }
 
 machine Replica
 {
     var phase : Phase;
-    var leader : Replica;
-    var log : Log;
-    var participants: set[Replica];
+    var participants: set[machine];
+    var quorum : int;
     var mbox : Mbox;
     var timer : Timer;
-    var command : data;
 
     start state Init 
     {
-        defer eClientRequest, eventSTARTVIEWCHANGE, eventDOVIEWCHANGE, eventSTARTVIEW;
+        defer LeaderRequest, eventSTARTVIEWCHANGE, eventDOVIEWCHANGE, eventSTARTVIEW;
 
         entry
         {
             receive {
-                case eConfig: (payload: (participants: set[Replica], leader: Replica)) { 
+                case eConfig: (payload: (participants: set[machine], quorum: int)) { 
                     participants = payload.participants;
-                    leader = payload.leader;
+                    quorum = payload.quorum;
                 }
             }
 
@@ -43,21 +39,19 @@ machine Replica
             print(format("{0} enters phase {1}", this, phase));
             
             timer = CreateTimer(this);
-            goto WaitForClientRequest;
+            goto WaitForLeaderRequest;
         }
     }
 
-    state WaitForClientRequest
+    state WaitForLeaderRequest
     {
         defer eventDOVIEWCHANGE, eventSTARTVIEWCHANGE, eventSTARTVIEW;
 
-        on eClientRequest do (m : ClientRequest) 
+        on LeaderRequest do 
         {
-            if(this == leader){
-                UnReliableBroadCast(participants, eClientRequest, m);
+            if(this == primary(phase, participants)){
+                UnReliableBroadCast(participants, LeaderRequest, null);
             }
-
-            command = m.command;
 
             goto STARTVIEWCHANGE;
         }
@@ -65,12 +59,12 @@ machine Replica
 
     state STARTVIEWCHANGE
     {
-        defer eClientRequest, eventDOVIEWCHANGE, eventSTARTVIEW;
+        defer LeaderRequest, eventDOVIEWCHANGE, eventSTARTVIEW;
 
         entry  {
             announce eMonitor_TimestampChange, (id=this, ts=(phase=phase, round=STARTVIEWCHANGE));
 
-            UnReliableBroadCast(participants, eventSTARTVIEWCHANGE, (phase=phase, from=this, dst=null, payload = command));
+            UnReliableBroadCast(participants, eventSTARTVIEWCHANGE, (phase=phase, from=this, payload=null));
             StartTimer(timer);
         }
 
@@ -82,7 +76,7 @@ machine Replica
                 announce eMonitor_MailboxUsed, (id=this, mboxTs=(phase=m.phase, round=STARTVIEWCHANGE));
                 collectMessage(m, STARTVIEWCHANGE);
 
-                if(sizeof(mbox[m.phase][STARTVIEWCHANGE]) > sizeof(participants)/2)
+                if(sizeof(mbox[m.phase][STARTVIEWCHANGE]) >= quorum)
                 { 
                     CancelTimer(timer);
                     goto DOVIEWCHANGE;
@@ -98,16 +92,14 @@ machine Replica
 
     state DOVIEWCHANGE
     {
-        defer eClientRequest, eventSTARTVIEWCHANGE, eventSTARTVIEW;
+        defer LeaderRequest, eventSTARTVIEWCHANGE, eventSTARTVIEW;
 
         entry {
-            var newcommand : data;
-
             announce eMonitor_TimestampChange, (id=this, ts=(phase=phase, round=DOVIEWCHANGE));
 
-            UnReliableSend(leader, eventDOVIEWCHANGE, (phase = phase, from=this, dst=leader, payload = newcommand));
+            UnReliableSend(primary(phase, participants), eventDOVIEWCHANGE, (phase = phase, from=this, payload = null));
 
-            if(this == leader){
+            if(this == primary(phase, participants)){
                 StartTimer(timer);
             }else{
                 goto STARTVIEW;
@@ -117,15 +109,15 @@ machine Replica
 
         on eventDOVIEWCHANGE do (m : Message) 
         {
-            if(m.phase == phase){
+            if(this == primary(phase, participants) && m.phase == phase){
                 announce eMonitor_MessageReceived, (localTs=(phase=phase, round=DOVIEWCHANGE), msgTs=(phase=m.phase, round=DOVIEWCHANGE));
 
                 announce eMonitor_MailboxUsed, (id=this, mboxTs=(phase=m.phase, round=DOVIEWCHANGE));
                 collectMessage(m, DOVIEWCHANGE);
 
-                if(sizeof(mbox[m.phase][DOVIEWCHANGE]) > sizeof(participants)/2)
+                if(sizeof(mbox[m.phase][DOVIEWCHANGE]) >= quorum)
                 { 
-                    insertLogEntry(phase, m.payload);
+                    announce eMonitor_NewLeader, (phase=phase, leader=primary(phase, participants));
                     CancelTimer(timer);
                     goto STARTVIEW;
                 }
@@ -140,17 +132,15 @@ machine Replica
 
     state STARTVIEW
     {
-        defer eClientRequest, eventSTARTVIEWCHANGE, eventDOVIEWCHANGE;
+        defer LeaderRequest, eventSTARTVIEWCHANGE, eventDOVIEWCHANGE;
 
         entry {
             announce eMonitor_TimestampChange, (id=this, ts=(phase=phase, round=STARTVIEW));
 
-            if(this == leader){
-                UnReliableBroadCast(participants, eventSTARTVIEW, (phase=phase, from=this, dst=null, payload = command));
-            }
-
-            StartTimer(timer);
-            
+            if(this == primary(phase, participants)){
+                UnReliableBroadCast(participants, eventSTARTVIEW, (phase=phase, from=this, payload=null));
+            }          
+            StartTimer(timer); 
         }
 
         on eventSTARTVIEW do (m : Message) 
@@ -163,12 +153,12 @@ machine Replica
 
                 CancelTimer(timer);
 
-                insertLogEntry(phase, m.payload);
+                announce eMonitor_NewLeader, (phase=phase, leader=primary(phase, participants));
 
                 phase = phase+1;
                 print(format("{0} enters phase {1}", this, phase));
 
-                goto WaitForClientRequest;
+                goto WaitForLeaderRequest;
             }
         }
 
@@ -197,15 +187,9 @@ machine Replica
 
     fun timeout()
     {
-        insertLogEntry(phase, null);
+        CancelTimer(timer);
         phase = phase+1;
-        goto WaitForClientRequest;
+        goto STARTVIEWCHANGE;
         //raise halt;
-    }
-
-    fun insertLogEntry(phase: Phase, e: any)
-    {
-        announce eMonitor_NewLogEntry, (phase=phase, logentry=e);
-        log[phase] = e;
     }
 }
