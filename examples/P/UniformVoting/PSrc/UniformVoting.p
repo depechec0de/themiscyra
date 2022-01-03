@@ -58,7 +58,7 @@ machine Process {
 
         entry {
             BroadCast(fm, participants, FirstMessage, (phase=phase, from=this, payload = initial));
-            MaybeStartTimer(fm,timer);
+            StartTimer(timer);
         }
 
         on FirstMessage do (m : FirstType) {
@@ -102,7 +102,7 @@ machine Process {
 
         entry { 
             BroadCast(fm, participants, SecondMessage, (phase=phase, from=this, payload = (initial=initial, vote=vote)));
-            MaybeStartTimer(fm,timer);
+            StartTimer(timer);
         }
 
         on SecondMessage do (m : SecondType) {
