@@ -41,3 +41,24 @@ fun Send(fm : FailureModel, target: machine, message: event, payload: any){
     }
 }
 
+// var threshold is the minimal size of the desired subset
+fun NonDeterministicSubset(elements: set[any], threshold: int) : set[any]{
+    var subsetSize : int;
+    var element : any;
+    var i : int;
+    var subset : set[any];
+
+    subsetSize = threshold + choose(sizeof(elements)-threshold+1);
+
+    i = 0;
+    while (i < subsetSize){
+        element = choose(elements);
+        elements -= (element);
+        subset += (element);
+        i = i+1;
+    }
+
+    assert(sizeof(subset) >= threshold);
+
+    return subset;
+}

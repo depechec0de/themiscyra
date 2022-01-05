@@ -15,6 +15,7 @@ machine BenOrSync
 
     var i, j: int; 
     var p, from, dst: machine;
+    var reachableProcesses : set[any];
 
     start state Init{
         entry (config: (peers: set[machine], quorum: int, failurem: FailureModel)){
@@ -41,42 +42,46 @@ machine BenOrSync
 
     state Report{
         entry{
+            // SEND
             i = 0;
             while (i < sizeof(participants)){
-                from = participants[i];
+                dst = participants[i];
+
+                reachableProcesses = NonDeterministicSubset(participants, quorum);
 
                 j = 0;
-                while (j < sizeof(participants)){
+                while (j < sizeof(participants)){ 
+                    from = participants[j];
 
                     if(decided[from] != -1){
                         estimate[from] = decided[from];
                     }
-
-                    dst = participants[j];
+                    
                     print(format("{0} send REPORT message {1} to {2}", from, (phase = K, from=from, payload=estimate[from]), dst));
-                    if($){
+
+                    if(from in reachableProcesses){
                         send this, eMessage, (phase = K, from=from, payload=estimate[from]);
                         receiveMessageBlocking(dst, REPORT);
                         print(format("{0} received REPORT estimate {1} in phase {2} from {3}", dst, estimate[from], K, from));
                     }                        
                 
-
                     j = j + 1;
                 }
                 
                 i = i + 1;
             }
 
+            // UPDATE
             i = 0;
             while (i < sizeof(participants)){
                 p = participants[i];   
 
-                if(sizeof(messages[p][K][REPORT]) >= quorum){
-                    reportRoundSuccessful[p][K] = true;
-                    reported[p] = mayority_value(messages[p][K][REPORT], quorum);
-                    print(format("{0} REPORT mayority {1} in phase {2}, mailbox: {3}", p, reported[p], K, messages[p][K]));
-                }
-                
+                assert(sizeof(messages[p][K][REPORT]) >= quorum), format("{0} received {1} in phase {2} REPORT", p, sizeof(messages[p][K][REPORT]), K);
+
+                reportRoundSuccessful[p][K] = true;
+                reported[p] = mayority_value(messages[p][K][REPORT], quorum);
+                print(format("{0} REPORT mayority {1} in phase {2}, mailbox: {3}, size {4}", p, reported[p], K, messages[p][K], sizeof(messages[p][K][REPORT])));
+                        
                 i = i + 1;
             }
 
@@ -87,24 +92,29 @@ machine BenOrSync
 
     state Proposal{
         entry{
+            // SEND
             var val : Value;
 
             i = 0;
             while (i < sizeof(participants)){
-                from = participants[i];
+                dst = participants[i];
+
+                reachableProcesses = NonDeterministicSubset(participants, quorum);
+
                 j = 0;
                 if(reportRoundSuccessful[from][K]){
 
                     while (j < sizeof(participants)){
+                        
+                        from = participants[j];
 
-                        dst = participants[j];
-        
                         if(decided[from] != -1){
                             reported[from] = decided[from];
                         }
-
+        
                         print(format("{0} send PROPOSAL message {1} to {2}", from, (phase = K, from=from, payload=reported[from]), dst));
-                        if($){
+
+                        if(from in reachableProcesses){
                             send this, eMessage, (phase = K, from=from, payload=reported[from]);
                             receiveMessageBlocking(dst, PROPOSAL);
                             print(format("{0} received PROPOSAL estimate {1} in phase {2}", dst, reported[from], K));
@@ -117,41 +127,38 @@ machine BenOrSync
 
                 i = i + 1;
             }
-
+            
+            // UPDATE
             i = 0;
             while (i < sizeof(participants)){
                 p = participants[i];
   
                 if(reportRoundSuccessful[p][K]){
 
-                    if(sizeof(messages[p][K][PROPOSAL]) >= quorum){
+                    assert(sizeof(messages[p][K][PROPOSAL]) >= quorum), format("{0} received {1} in phase {2} PROPOSAL", p, sizeof(messages[p][K][PROPOSAL]), K);
 
-                        print(format("{0} received enough PROPOSAL messages in phase {1}, {2}", p, K, messages[p][K][PROPOSAL]));
+                    print(format("{0} received enough PROPOSAL messages in phase {1}, {2}", p, K, messages[p][K][PROPOSAL]));
 
-                        val = mayority_value(messages[p][K][PROPOSAL], quorum);
+                    val = mayority_value(messages[p][K][PROPOSAL], quorum);
 
-                        if(val != -1){
-                            // decide value
-                            print(format("{0} Decided {1} in phase {2}", p, val, K));
+                    if(val != -1){
+                        // decide value
+                        print(format("{0} Decided {1} in phase {2}", p, val, K));
 
-                            announce eMonitor_NewDecision, (id=p, decision=val);
+                        announce eMonitor_NewDecision, (id=p, decision=val);
 
-                            //decided[p] = val; //BUG, add this line to fix
+                        //decided[p] = val; //BUG, add this line to fix
 
-                        }else if(get_valid_estimate(messages[p][K][PROPOSAL]) != -1){
+                    }else if(get_valid_estimate(messages[p][K][PROPOSAL]) != -1){
 
-                            // We try again a new phase proposing a valid value
-                            estimate[p] = get_valid_estimate(messages[p][K][PROPOSAL]);
-                            print(format("{0} changed estimate to {1} in phase {2}", p, estimate[p], K));
-                            
-                        }else{
-                            estimate[p] = choose(2); // 0 or 1 randomly
-                            print(format("{0} Flip a coin {1}", p, estimate[p]));
-                        }
+                        // We try again a new phase proposing a valid value
+                        estimate[p] = get_valid_estimate(messages[p][K][PROPOSAL]);
+                        print(format("{0} changed estimate to {1} in phase {2}", p, estimate[p], K));
+                        
                     }else{
-                        print(format("{0} did not receive enough PROPOSAL messages in phase {1}", p, K));
+                        estimate[p] = choose(2); // 0 or 1 randomly
+                        print(format("{0} Flip a coin {1}", p, estimate[p]));
                     }
-
                 }
                 
                 i=i+1;
