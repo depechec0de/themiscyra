@@ -1,8 +1,8 @@
 // checks that all events are handled correctly and also the local assertions in the P machines.
-test TestAsyncLogConsistencyIntensive[main = TestDriverAsync1]: assert Agreement in { TestDriverAsync1, Process, FailureInjector, Timer };
+test TestAsyncAgreement_ReorderDelays[main = TestDriverAsyncAgreement_ReorderDelays]: assert Agreement in { TestDriverAsyncAgreement_ReorderDelays, Process, Timer};
 
-test TestAsyncLogConsistencyBasic[main = TestDriverAsync0]: assert Agreement in { TestDriverAsync0, Process, FailureInjector, Timer };
+test TestAsyncAgreement_ReorderDelaysTimeout[main = TestDriverAsyncAgreement_ReorderDelaysTimeout]: assert Agreement in { TestDriverAsyncAgreement_ReorderDelaysTimeout, Process, Timer};
 
-test TestSyncLogConsistencyBasic[main = TestDriverSync0]: assert Agreement in { TestDriverSync0, BenOrSync, Participant };
+test TestSeqAgreementArbitraryNetwork[main = TestDriverSeqAgreement_ArbitraryNetwork]: assert Agreement in { TestDriverSeqAgreement_ArbitraryNetwork, BenOrSeq_ArbitraryNetwork, Participant };
 
-test TestSyncLogConsistencyIntensive[main = TestDriverSync1]: assert Agreement in { TestDriverSync1, BenOrSync, Participant };
+test TestSeqAgreementGoodNetwork[main = TestDriverSeqAgreement_GoodNetwork]: assert Agreement in { TestDriverSeqAgreement_GoodNetwork, BenOrSeq_GoodNetwork, Participant };

@@ -1,6 +1,4 @@
-type Messages = map[machine, Mbox];
-
-machine BenOrSync
+machine BenOrSeq_GoodNetwork
 {
     var K : Phase;
     var quorum : int;
@@ -11,18 +9,16 @@ machine BenOrSync
     var messages : Messages;
     var reportRoundSuccessful : map[machine, map[Phase, bool]];
     var currentRequest : RequestId;
-    var fm: FailureModel;
 
     var i, j: int; 
     var p, from, dst: machine;
     var reachableProcesses : set[any];
 
     start state Init{
-        entry (config: (peers: set[machine], quorum: int, failurem: FailureModel)){
+        entry (config: (peers: set[machine], quorum: int)){
             
             participants = config.peers;
             quorum = config.quorum;
-            fm = config.failurem;
 
             init_phase(0);
 
@@ -59,6 +55,7 @@ machine BenOrSync
                     
                     print(format("{0} send REPORT message {1} to {2}", from, (phase = K, from=from, payload=estimate[from]), dst));
 
+                    // Network assumption holds
                     if(from in reachableProcesses){
                         send this, eMessage, (phase = K, from=from, payload=estimate[from]);
                         receiveMessageBlocking(dst, REPORT);
@@ -114,6 +111,7 @@ machine BenOrSync
         
                         print(format("{0} send PROPOSAL message {1} to {2}", from, (phase = K, from=from, payload=reported[from]), dst));
 
+                        // Network assumption holds
                         if(from in reachableProcesses){
                             send this, eMessage, (phase = K, from=from, payload=reported[from]);
                             receiveMessageBlocking(dst, PROPOSAL);

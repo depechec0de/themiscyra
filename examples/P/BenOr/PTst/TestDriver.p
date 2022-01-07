@@ -3,18 +3,18 @@
 This machine creates the 2 participants, 1 coordinator, and 2 clients 
 */
 
-machine TestDriverAsync0 {
+machine TestDriverAsyncAgreement_ReorderDelays {
     start state Init {
         entry {
-            launchASync((n=3, quorum=2, fm=Timeouts));
+            launchASync((n=3, quorum=2, fm=NoFailure));
         }
     }
 }
 
-machine TestDriverAsync1 {
+machine TestDriverAsyncAgreement_ReorderDelaysTimeout {
     start state Init {
         entry {
-            launchASync((n=8, quorum=5, fm=Timeouts));
+            launchASync((n=3, quorum=2, fm=Timeouts));
         }
     }
 }
@@ -23,18 +23,44 @@ machine Participant{
     start state Init {}
 }
 
-machine TestDriverSync0 {
+machine TestDriverSeqAgreement_ArbitraryNetwork {
     start state Init {
         entry {
-            launchSync((n=3, quorum=2, fm=Timeouts));
+            
+            var system : BenOrSeq_ArbitraryNetwork;
+            var i : int;
+            var p : machine;
+            var participants: set[Participant];
+            
+            i = 0;
+            while (i < 3) {
+                participants += (new Participant());
+                i = i + 1;
+            }    
+            
+            system = new BenOrSeq_ArbitraryNetwork((peers=participants, quorum=2));
+            
         }
     }
 }
 
-machine TestDriverSync1 {
+machine TestDriverSeqAgreement_GoodNetwork {
     start state Init {
         entry {
-            launchSync((n=8, quorum=5, fm=Timeouts));
+            
+            var system : BenOrSeq_GoodNetwork;
+            var i : int;
+            var p : machine;
+            var participants: set[Participant];
+            
+            i = 0;
+            while (i < 3) {
+                participants += (new Participant());
+                i = i + 1;
+            }    
+            
+            system = new BenOrSeq_GoodNetwork((peers=participants, quorum=2));
+            
         }
     }
 }
@@ -58,23 +84,4 @@ fun launchASync(config: (n: int, quorum: int, fm: FailureModel))
         i=i+1;
     }
 
-}
-
-fun launchSync(config: (n: int, quorum: int, fm: FailureModel))
-{
-    var system : BenOrSync;
-    var i : int;
-    var p : machine;
-    var participants: set[Participant];
-
-    assert(config.quorum >= config.n/2);
-    
-    i = 0;
-    while (i < config.n) {
-        participants += (new Participant());
-        i = i + 1;
-    }    
-    
-    system = new BenOrSync((peers=participants, quorum=config.quorum, failurem=config.fm));
- 
 }
