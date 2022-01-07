@@ -53,7 +53,7 @@ machine Process {
 
         entry {
             BroadCast(fm, participants, ReportMessage, (phase=K, from=this, payload = estimate));
-            StartTimer(timer);
+            MaybeStartTimer(fm, timer);
         }
 
         on ReportMessage do (m : ReportType) {
@@ -63,7 +63,7 @@ machine Process {
                 
                 if(sizeof(mbox[K][REPORT]) >= quorum){
                     print(format("{0} reached report in phase {1}", this, K));
-                    CancelTimer(timer);
+                    MaybeCancelTimer(fm, timer);
                     reported = mayority_value(mbox[K][REPORT], quorum);
                     goto Proposal;
                 }
@@ -87,7 +87,7 @@ machine Process {
 
         entry { 
             BroadCast(fm, participants, ProposalMessage, (phase=K, from=this, payload = reported));
-            StartTimer(timer);   
+            MaybeStartTimer(fm, timer);   
         }
 
         on ProposalMessage do (m : ProposalType) {
@@ -99,7 +99,7 @@ machine Process {
 
                 if(sizeof(mbox[K][PROPOSAL]) >= quorum){
                     
-                    CancelTimer(timer);
+                    MaybeCancelTimer(fm, timer);
                     val = mayority_value(mbox[K][PROPOSAL], quorum);
 
                     if(val != -1){
@@ -160,6 +160,8 @@ machine Process {
 
     fun timeout(){
         init_phase(K+1);
+        print(format("{0} timeouts! move to phase {1}", this, K));
+
         goto Report;
     }
 }

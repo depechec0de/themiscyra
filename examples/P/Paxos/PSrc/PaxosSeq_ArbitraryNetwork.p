@@ -1,6 +1,6 @@
 type Messages = map[machine, Mbox];
 
-machine PaxosSync
+machine PaxosSeq_ArbitraryNetwork
 {
     var participants : set[machine];
     var quorum : int;
@@ -8,17 +8,15 @@ machine PaxosSync
     var last : map[machine,Phase];
     var messages : Messages;
     var log : map[machine, Log];
-    var fm : FailureModel;
     var roundCompleted : map[machine, map[Round, bool]];
 
     var i, j: int; 
     var p, from, dst: machine;
 
     start state Init{
-        entry (config: (peers: set[machine], quorum: int, failurem: FailureModel)){
+        entry (config: (peers: set[machine], quorum: int)){
             participants = config.peers;
             quorum = config.quorum;
-            fm = config.failurem;
 
             phase = 0;
             init_phase(phase);
@@ -57,7 +55,7 @@ machine PaxosSync
                 p = participants[i];
 
                 if(primary(phase, participants) == p){
-                    BroadCast(fm, participants, PrepareMessage, (phase=phase, from=primary(phase, participants), payload = null));
+                    BroadCast(participants, PrepareMessage, (phase=phase, from=primary(phase, participants), payload = null));
                 }
             
                 i=i+1;
@@ -106,7 +104,7 @@ machine PaxosSync
                 p = participants[i];
                 
                 if(primary(phase, participants) != p && roundCompleted[p][PREPARE]){
-                    Send(fm, primary(phase, participants), AckMessage, (phase=phase, from=p, payload = (last=last[p], log=log[p])));
+                    Send(primary(phase, participants), AckMessage, (phase=phase, from=p, payload = (last=last[p], log=log[p])));
                 }
 
                 i=i+1;
@@ -154,7 +152,7 @@ machine PaxosSync
                 p = participants[i];
 
                 if(primary(phase, participants) == p && roundCompleted[p][ACK]){
-                    BroadCast(fm, participants, ProposeMessage, (phase=phase, from=p, payload = log[p]));
+                    BroadCast(participants, ProposeMessage, (phase=phase, from=p, payload = log[p]));
                 }
 
                 i=i+1;
@@ -204,7 +202,7 @@ machine PaxosSync
                 p = participants[i];
 
                 if(roundCompleted[p][PROPOSE]){
-                    BroadCast(fm, participants, PromiseMessage, (phase=phase, from=p, payload = log[p]));
+                    BroadCast(participants, PromiseMessage, (phase=phase, from=p, payload = log[p]));
                 }
 
                 i=i+1;
@@ -289,23 +287,23 @@ machine PaxosSync
         }
     }
 
-    fun BroadCast(fm : FailureModel, ms: set[machine], ev: event, payload: MessageType){
+    fun BroadCast(ms: set[machine], ev: event, payload: MessageType){
         var receiver : machine;
         var i : int;
 
         i=0;
         while (i < sizeof(participants)){
             receiver = participants[i];
-            Send(fm, receiver, ev, payload);
+            Send(receiver, ev, payload);
                         
             i = i + 1;
         }
     }
 
-    fun Send(fm : FailureModel, target: machine, message: event, payload: MessageType){
+    fun Send(target: machine, message: event, payload: MessageType){
         var round : Round;
 
-        if(fm == NoFailure || $){
+        if($){
             send this, eMessage, payload;
 
             if(message == PrepareMessage){
@@ -320,7 +318,7 @@ machine PaxosSync
 
             receiveMessageBlocking(target, round);
         }else{
-            print(format("Message lost! {0}", fm));
+            print(format("Message lost!"));
         }
     }
 }

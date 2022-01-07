@@ -6,7 +6,7 @@ This machine creates the 2 participants, 1 coordinator, and 2 clients
 machine TestDriverAsyncAgreement_ReorderDelays {
     start state Init {
         entry {
-            launchASync((n=3, quorum=2, fm=NoFailure));
+            launchASync((n=3, quorum=2, fm=ReliableNetwork));
         }
     }
 }
@@ -14,7 +14,7 @@ machine TestDriverAsyncAgreement_ReorderDelays {
 machine TestDriverAsyncAgreement_ReorderDelaysTimeout {
     start state Init {
         entry {
-            launchASync((n=3, quorum=2, fm=Timeouts));
+            launchASync((n=3, quorum=2, fm=ReliableNetworkWithTimeouts));
         }
     }
 }

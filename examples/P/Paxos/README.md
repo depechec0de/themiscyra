@@ -5,19 +5,14 @@
 ```
 pc -proj:Paxos.pproj
 ```
-
-## SyncTag test
-
-```
-pmc POutput/netcoreapp3.1/Paxos.dll -m PImplementation.TestAsyncSyncTag.Execute -i 10000
-```
-
 ## Experiments SYNC
 ```
-pmc POutput/netcoreapp3.1/Paxos.dll -m PImplementation.TestPaxosSyncTimeouts.Execute -i 10000
+pmc POutput/netcoreapp3.1/Paxos.dll -m PImplementation.TestPaxosSeq_ArbitraryNetwork.Execute -i 10000
+
+for i in {1..100}; do pmc POutput/netcoreapp3.1/Paxos.dll -m PImplementation.TestPaxosSeq_ArbitraryNetwork.Execute -i 10000; done > experimentSeqArbitraryNetwork
 ```
 
 ## Experiments ASYNC
 ```
-pmc POutput/netcoreapp3.1/Paxos.dll -m PImplementation.TestPaxosAsyncTimeouts.Execute -i 10000
+pmc POutput/netcoreapp3.1/Paxos.dll -m PImplementation.TestPaxosAsync_Timeouts.Execute -i 10000
 ```

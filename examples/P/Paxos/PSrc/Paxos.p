@@ -229,6 +229,9 @@ machine Process {
     fun timeout(){
         phase = phase+1;
         init_mbox(phase);
+
+        print(format("{0} timeouts! move to phase {1}", this, phase));
+
         goto Prepare;
     }
 

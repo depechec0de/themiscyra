@@ -3,18 +3,10 @@
 This machine creates the 2 participants, 1 coordinator, and 2 clients 
 */
 
-machine PaxosAsyncNoFailure {
+machine TestDriverPaxosAsync_Timeouts {
     start state Init {
         entry {
-            launchASync((n=3, quorum=2, f=0, fm=NoFailure));
-        }
-    }
-}
-
-machine PaxosAsyncTimeouts {
-    start state Init {
-        entry {
-            launchASync((n=3, quorum=2, f=0, fm=Timeouts));
+            launchASync((n=3, quorum=2, f=0, fm=ReliableNetworkWithTimeouts));
         }
     }
 }
@@ -23,18 +15,10 @@ machine Participant{
     start state Init {}
 }
 
-machine PaxosSyncNoFailure {
+machine TestDriverPaxosSeq_ArbitraryNetwork {
     start state Init {
         entry {
-            launchSync((n=3, quorum=2, f=0, fm=NoFailure));
-        }
-    }
-}
-
-machine PaxosSyncTimeouts {
-    start state Init {
-        entry {
-            launchSync((n=3, quorum=2, f=0, fm=Timeouts));
+            launchSeq((n=3, quorum=2, f=0));
         }
     }
 }
@@ -59,11 +43,7 @@ fun launchASync(config: (n: int, quorum: int, f: int, fm: FailureModel))
         i=i+1;
     }
 
-    announce eMonitor_Initialize, config.f;
-
-    if(config.f > 0){
-        new FailureInjector((nodes = participants, nFailures = config.f));
-    }    
+    announce eMonitor_Initialize, config.f; 
 
     j = 0;
     while (j < 3) {
@@ -77,9 +57,9 @@ fun launchASync(config: (n: int, quorum: int, f: int, fm: FailureModel))
 
 }
 
-fun launchSync(config: (n: int, quorum: int, f: int, fm: FailureModel))
+fun launchSeq(config: (n: int, quorum: int, f: int))
 {
-    var system : PaxosSync;
+    var system : PaxosSeq_ArbitraryNetwork;
     var i, j : int;
     var p : machine;
     var participants: set[Participant];
@@ -95,7 +75,7 @@ fun launchSync(config: (n: int, quorum: int, f: int, fm: FailureModel))
 
     announce eMonitor_Initialize, config.f;
     
-    system = new PaxosSync((peers=participants, quorum=config.quorum, failurem=config.fm));
+    system = new PaxosSeq_ArbitraryNetwork((peers=participants, quorum=config.quorum));
 
     i = 0;
     while (i < 3) {

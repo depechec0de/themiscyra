@@ -1,4 +1,4 @@
-enum FailureModel {NoFailure, Timeouts}
+enum FailureModel {ReliableNetwork, UnrelibleNetwork, ReliableNetworkWithTimeouts, UnrelibleNetworkWithTimeouts}
 
 fun primary(phase: int, participants: set[machine]) : machine {
     return participants[modulo(phase, sizeof(participants))];
@@ -12,29 +12,29 @@ fun modulo(a : int, mod : int) : int{
 }
 
 fun BroadCast(fm : FailureModel, ms: set[machine], ev: event, payload: any){
-    if(fm == NoFailure){
+    if(fm == ReliableNetwork || fm == ReliableNetworkWithTimeouts){
         ReliableBroadCast(ms, ev, payload);
-    }else{
+    }else if(fm == UnrelibleNetwork || fm == UnrelibleNetworkWithTimeouts){
         UnReliableBroadCast(ms, ev, payload);
     }
 }
 
 fun MaybeStartTimer(fm : FailureModel, timer: Timer)
 {
-    if(fm == Timeouts){
+    if(fm == ReliableNetworkWithTimeouts || fm == UnrelibleNetworkWithTimeouts){
         StartTimer(timer);
     }
 }
 
 fun MaybeCancelTimer(fm : FailureModel, timer: Timer)
 {
-    if(fm == Timeouts){
+    if(fm == ReliableNetworkWithTimeouts || fm == UnrelibleNetworkWithTimeouts){
         CancelTimer(timer);
     }
 }
 
 fun Send(fm : FailureModel, target: machine, message: event, payload: any){
-    if(fm == NoFailure){
+    if(fm == ReliableNetwork || fm == ReliableNetworkWithTimeouts){
         send target, message, payload;
     }else{
         UnReliableSend(target, message, payload);
