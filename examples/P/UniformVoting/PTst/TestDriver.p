@@ -3,18 +3,18 @@
 This machine creates the 2 participants, 1 coordinator, and 2 clients 
 */
 
-machine TestDriverAsyncNoFailure {
+machine TestDriverAsync_ReorderDelaysTimeout {
     start state Init {
         entry {
-            launchASync((n=3, quorum=2, fm=NoFailure));
+            launchASync((n=3, quorum=2, fm=ReliableNetworkWithTimeouts));
         }
     }
 }
 
-machine TestDriverAsyncTimeouts {
+machine TestDriverAsync_ReorderDelaysTimeoutMessageDrop {
     start state Init {
         entry {
-            launchASync((n=3, quorum=2, fm=Timeouts));
+            launchASync((n=3, quorum=2, fm=UnrelibleNetworkWithTimeouts));
         }
     }
 }
@@ -23,10 +23,21 @@ machine Participant{
     start state Init {}
 }
 
-machine TestDriverSequentialTimeouts {
+machine TestDriverSeq_ArbitraryNetwork {
     start state Init {
         entry {
-            launchSync((n=3, quorum=2, fm=Timeouts));
+            var system : UniformVotingSeq_ArbitraryNetwork;
+            var i : int;
+            var p : machine;
+            var participants: set[Participant];
+            
+            i = 0;
+            while (i < 3) {
+                participants += (new Participant());
+                i = i + 1;
+            }    
+            
+            system = new UniformVotingSeq_ArbitraryNetwork((peers=participants, quorum=2));
         }
     }
 }
@@ -50,23 +61,4 @@ fun launchASync(config: (n: int, quorum: int, fm: FailureModel))
         i=i+1;
     }
 
-}
-
-fun launchSync(config: (n: int, quorum: int, fm: FailureModel))
-{
-    var system : UniformVotingSequential;
-    var i : int;
-    var p : machine;
-    var participants: set[Participant];
-
-    assert(config.quorum >= config.n/2);
-    
-    i = 0;
-    while (i < config.n) {
-        participants += (new Participant());
-        i = i + 1;
-    }    
-    
-    system = new UniformVotingSequential((peers=participants, quorum=config.quorum, failurem=config.fm));
- 
 }

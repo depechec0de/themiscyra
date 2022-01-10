@@ -1,12 +1,11 @@
 type Messages = map[machine, Mbox];
 
-machine UniformVotingSequential
+machine UniformVotingSeq_ArbitraryNetwork
 {
     var PHASE : Phase;
     var quorum : int;
     var participants : set[machine];
     var messages : Messages;
-    var fm: FailureModel;
     var roundSuccessful : map[machine, map[Phase, map[Round, bool]]];
 
     var i, j: int; 
@@ -17,11 +16,10 @@ machine UniformVotingSequential
     var decide : map[machine,Value];  
 
     start state Init{
-        entry (config: (peers: set[machine], quorum: int, failurem: FailureModel)){
+        entry (config: (peers: set[machine], quorum: int)){
             
             participants = config.peers;
             quorum = config.quorum;
-            fm = config.failurem;
 
             init_phase(0);
 
@@ -43,6 +41,8 @@ machine UniformVotingSequential
     }
 
     state First{
+        defer eMessage;
+
         entry{
             var firstValues : set[Value];
             var k : int;
@@ -58,9 +58,8 @@ machine UniformVotingSequential
 
                     print(format("{0} send FirstMessage message {1} to {2}", from, (phase = PHASE, from=from, payload=initial[from]), dst));
 
-                    if($){
-                        send this, eMessage, (phase = PHASE, from=from, payload=initial[from]);
-                        receiveMessageBlocking(dst, FIRST);
+                    if(choose(2) == 1){
+                        messages[dst][PHASE][FIRST] += ((phase = PHASE, from=from, payload=initial[from]));
                         print(format("{0} received FIRST initial {1} in phase {2} from {3}", dst, initial[from], PHASE, from));
                     }else{
                         print("message dropped");
@@ -106,6 +105,8 @@ machine UniformVotingSequential
     }
 
     state Second{
+        defer eMessage;
+
         entry{
             var val : Value;
             var secondValues : set[Value];
@@ -123,9 +124,8 @@ machine UniformVotingSequential
                         dst = participants[j];
 
                         print(format("{0} send SECOND message {1} to {2}", from,  (phase = PHASE, from=from, payload=(initial=initial[p], vote=vote[p])), dst));
-                        if($){
-                            send this, eMessage, (phase = PHASE, from=from, payload=(initial=initial[p], vote=vote[p]));
-                            receiveMessageBlocking(dst, SECOND);
+                        if(choose(2) == 1){
+                            messages[dst][PHASE][SECOND] += ((phase = PHASE, from=from, payload=(initial=initial[p], vote=vote[p])));
                             print(format("{0} received SECOND {1} in phase {2}", dst, (initial=initial[from], vote=vote[from]), PHASE));
                         }
                         
@@ -211,15 +211,6 @@ machine UniformVotingSequential
             messages[p][phase][SECOND] = default(set[SecondType]);
 
             i = i+1;
-        }
-    }
-
-    fun receiveMessageBlocking(pdest: machine, r : Round)
-    {
-        receive {
-            case eMessage: (m: MessageType) { 
-                messages[pdest][PHASE][r] += (m); 
-            }
         }
     }
 }

@@ -1,5 +1,5 @@
-test TestAsyncNoFailure[main = TestDriverAsyncNoFailure]: assert Agreement in { TestDriverAsyncNoFailure, Process, FailureInjector, Timer };
+test TestAsync_ReorderDelaysTimeout[main = TestDriverAsync_ReorderDelaysTimeout]: assert Agreement in { TestDriverAsync_ReorderDelaysTimeout, Process, Timer };
 
-test TestAsyncTimeouts[main = TestDriverAsyncTimeouts]: assert Agreement in { TestDriverAsyncTimeouts, Process, FailureInjector, Timer };
+test TestAsync_ReorderDelaysTimeoutMessageDrop[main = TestDriverAsync_ReorderDelaysTimeoutMessageDrop]: assert Agreement in { TestDriverAsync_ReorderDelaysTimeoutMessageDrop, Process, Timer };
 
-test TestSequentialTimeouts[main = TestDriverSequentialTimeouts]: assert Agreement in { TestDriverSequentialTimeouts, UniformVotingSequential, Participant };
+test TestSeq_ArbitraryNetwork[main = TestDriverSeq_ArbitraryNetwork]: assert Agreement in { TestDriverSeq_ArbitraryNetwork, UniformVotingSeq_ArbitraryNetwork, Participant };

@@ -5,7 +5,7 @@ fun UnReliableSend(target: machine, message: event, payload: any) {
   if($){
       send target, message, payload;
   }else{
-      print(format("message {0} to {1} with payload {2} DROPPED", target, message, payload));
+      print(format("message {0} to {1} with payload {2} DROPPED", message, target, payload));
   }
   //if(choose(10) == 1) send target, message, payload;
 }
