@@ -29,4 +29,6 @@ for i in {1..100}; do pmc POutput/netcoreapp3.1/BenOr.dll -m PImplementation.Tes
 pmc POutput/netcoreapp3.1/BenOr.dll -m PImplementation.TestAsyncAgreement_ReorderDelays.Execute -i 10000
 
 pmc POutput/netcoreapp3.1/BenOr.dll -m PImplementation.TestAsyncAgreement_ReorderDelaysTimeout.Execute -i 10000
+
+pmc POutput/netcoreapp3.1/BenOr.dll -m PImplementation.TestAsyncAgreement_ArbitraryNetwork.Execute -i 10000
 ```

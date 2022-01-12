@@ -43,8 +43,6 @@ machine BenOrSeq_ArbitraryNetwork
             while (i < sizeof(participants)){
                 dst = participants[i];
 
-                reachableProcesses = NonDeterministicSubset(participants, quorum);
-
                 j = 0;
                 while (j < sizeof(participants)){ 
                     from = participants[j];
@@ -58,7 +56,7 @@ machine BenOrSeq_ArbitraryNetwork
                     // Arbitrary message omission
                     if($){
                         send this, eMessage, (phase = K, from=from, payload=estimate[from]);
-                        receiveMessageBlocking(dst, REPORT);
+                        messages[dst][K][REPORT] += ((phase = K, from=from, payload=estimate[from]));
                         print(format("{0} received REPORT estimate {1} in phase {2} from {3}", dst, estimate[from], K, from));
                     }                        
                 
@@ -72,8 +70,6 @@ machine BenOrSeq_ArbitraryNetwork
             i = 0;
             while (i < sizeof(participants)){
                 p = participants[i];   
-
-                //assert(sizeof(messages[p][K][REPORT]) >= quorum), format("{0} received {1} in phase {2} REPORT", p, sizeof(messages[p][K][REPORT]), K);
 
                 reportRoundSuccessful[p][K] = true;
                 reported[p] = mayority_value(messages[p][K][REPORT], quorum);
@@ -96,14 +92,13 @@ machine BenOrSeq_ArbitraryNetwork
             while (i < sizeof(participants)){
                 dst = participants[i];
 
-                reachableProcesses = NonDeterministicSubset(participants, quorum);
-
                 j = 0;
-                if(reportRoundSuccessful[from][K]){
+            
+                while (j < sizeof(participants)){
+                    
+                    from = participants[j];
 
-                    while (j < sizeof(participants)){
-                        
-                        from = participants[j];
+                    if(reportRoundSuccessful[from][K]){
 
                         if(decided[from] != -1){
                             reported[from] = decided[from];
@@ -114,13 +109,11 @@ machine BenOrSeq_ArbitraryNetwork
                         // Arbitrary message omission
                         if($){
                             send this, eMessage, (phase = K, from=from, payload=reported[from]);
-                            receiveMessageBlocking(dst, PROPOSAL);
+                            messages[dst][K][PROPOSAL] += ((phase = K, from=from, payload=reported[from]));
                             print(format("{0} received PROPOSAL estimate {1} in phase {2}", dst, reported[from], K));
                         }
-                        
-                        j = j + 1;
                     }
-
+                    j = j + 1;
                 }
 
                 i = i + 1;

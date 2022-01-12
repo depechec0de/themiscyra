@@ -32,20 +32,11 @@ machine PaxosSeq_ArbitraryNetwork
             phase = phase+1;
             init_phase(phase);
 
-            goto WaitForConsensusRequest;
-        }
-
-    }
-
-    state WaitForConsensusRequest {
-        on ConsensusRequest do 
-        {
             goto Prepare;
         }
     }
 
     state Prepare{
-        defer ConsensusRequest;
 
         entry{
             var msg : MessageType;
@@ -93,7 +84,6 @@ machine PaxosSeq_ArbitraryNetwork
     }
 
     state Ack{
-        defer ConsensusRequest;
 
         entry{
             var newCommand : Command;
@@ -141,7 +131,6 @@ machine PaxosSeq_ArbitraryNetwork
     }
 
     state Propose{
-        defer ConsensusRequest;
 
         entry{
             var msg : PromiseType;
@@ -192,7 +181,6 @@ machine PaxosSeq_ArbitraryNetwork
     }
 
     state Promise{
-        defer ConsensusRequest;
 
         entry{
 
@@ -239,9 +227,7 @@ machine PaxosSeq_ArbitraryNetwork
                 i=i+1;
             }
 
-        
-            goto WaitForConsensusRequest;
-            
+            goto Prepare;
         }
     }
 

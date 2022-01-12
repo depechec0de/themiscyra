@@ -16,3 +16,7 @@ for i in {1..100}; do pmc POutput/netcoreapp3.1/Paxos.dll -m PImplementation.Tes
 ```
 pmc POutput/netcoreapp3.1/Paxos.dll -m PImplementation.TestPaxosAsync_Timeouts.Execute -i 10000
 ```
+
+```
+pmc POutput/netcoreapp3.1/Paxos.dll -m PImplementation.TestPaxosAsync_UnreliableNetworkTimeouts.Execute -i 10000
+```

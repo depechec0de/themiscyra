@@ -7,7 +7,6 @@ machine BenOrSeq_GoodNetwork
     var reported : map[machine, Value];
     var decided : map[machine, Value];
     var messages : Messages;
-    var reportRoundSuccessful : map[machine, map[Phase, bool]];
     var currentRequest : RequestId;
 
     var i, j: int; 
@@ -58,7 +57,7 @@ machine BenOrSeq_GoodNetwork
                     // Network assumption holds
                     if(from in reachableProcesses){
                         send this, eMessage, (phase = K, from=from, payload=estimate[from]);
-                        receiveMessageBlocking(dst, REPORT);
+                        messages[dst][K][REPORT] += ((phase = K, from=from, payload=estimate[from]));
                         print(format("{0} received REPORT estimate {1} in phase {2} from {3}", dst, estimate[from], K, from));
                     }                        
                 
@@ -75,7 +74,6 @@ machine BenOrSeq_GoodNetwork
 
                 assert(sizeof(messages[p][K][REPORT]) >= quorum), format("{0} received {1} in phase {2} REPORT", p, sizeof(messages[p][K][REPORT]), K);
 
-                reportRoundSuccessful[p][K] = true;
                 reported[p] = mayority_value(messages[p][K][REPORT], quorum);
                 print(format("{0} REPORT mayority {1} in phase {2}, mailbox: {3}, size {4}", p, reported[p], K, messages[p][K], sizeof(messages[p][K][REPORT])));
                         
@@ -99,28 +97,25 @@ machine BenOrSeq_GoodNetwork
                 reachableProcesses = NonDeterministicSubset(participants, quorum);
 
                 j = 0;
-                if(reportRoundSuccessful[from][K]){
+                
+                while (j < sizeof(participants)){
+                    
+                    from = participants[j];
 
-                    while (j < sizeof(participants)){
-                        
-                        from = participants[j];
-
-                        if(decided[from] != -1){
-                            reported[from] = decided[from];
-                        }
-        
-                        print(format("{0} send PROPOSAL message {1} to {2}", from, (phase = K, from=from, payload=reported[from]), dst));
-
-                        // Network assumption holds
-                        if(from in reachableProcesses){
-                            send this, eMessage, (phase = K, from=from, payload=reported[from]);
-                            receiveMessageBlocking(dst, PROPOSAL);
-                            print(format("{0} received PROPOSAL estimate {1} in phase {2}", dst, reported[from], K));
-                        }
-                        
-                        j = j + 1;
+                    if(decided[from] != -1){
+                        reported[from] = decided[from];
                     }
+    
+                    print(format("{0} send PROPOSAL message {1} to {2}", from, (phase = K, from=from, payload=reported[from]), dst));
 
+                    // Network assumption holds
+                    if(from in reachableProcesses){
+                        send this, eMessage, (phase = K, from=from, payload=reported[from]);
+                        messages[dst][K][PROPOSAL] += ((phase = K, from=from, payload=reported[from]));
+                        print(format("{0} received PROPOSAL estimate {1} in phase {2}", dst, reported[from], K));
+                    }  
+                    
+                    j = j + 1;
                 }
 
                 i = i + 1;

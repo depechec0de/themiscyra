@@ -11,6 +11,14 @@ machine TestDriverPaxosAsync_Timeouts {
     }
 }
 
+machine TestDriverPaxosAsync_UnreliableNetworkTimeouts {
+    start state Init {
+        entry {
+            launchASync((n=3, quorum=2, f=0, fm=UnreliableNetworkWithTimeouts));
+        }
+    }
+}
+
 machine Participant{
     start state Init {}
 }
@@ -45,16 +53,6 @@ fun launchASync(config: (n: int, quorum: int, f: int, fm: FailureModel))
 
     announce eMonitor_Initialize, config.f; 
 
-    j = 0;
-    while (j < 3) {
-        i = 0;
-        while (i < config.n) {
-            send participants[i], ConsensusRequest;
-            i=i+1;
-        }
-        j=j+1;
-    }
-
 }
 
 fun launchSeq(config: (n: int, quorum: int, f: int))
@@ -76,11 +74,5 @@ fun launchSeq(config: (n: int, quorum: int, f: int))
     announce eMonitor_Initialize, config.f;
     
     system = new PaxosSeq_ArbitraryNetwork((peers=participants, quorum=config.quorum));
-
-    i = 0;
-    while (i < 3) {
-        send system, ConsensusRequest;
-        i=i+1;
-    }
  
 }

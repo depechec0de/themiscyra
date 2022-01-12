@@ -5,7 +5,6 @@ event AckMessage: AckType;
 event ProposeMessage: ProposeType;
 event PromiseMessage: PromiseType;
 
-event ConsensusRequest;
 event Config: (peers: set[machine], quorum: int, failurem: FailureModel);
 
 type Command = int;
@@ -37,7 +36,7 @@ machine Process {
     var currentRequest : RequestId;
 
     start state Init {
-        defer ConsensusRequest, PrepareMessage, AckMessage, ProposeMessage, PromiseMessage;
+        defer PrepareMessage, AckMessage, ProposeMessage, PromiseMessage;
         
         entry {
             receive {
@@ -51,26 +50,12 @@ machine Process {
             
             phase = 0;
             last = phase;
-            goto WaitForConsensusRequest;
-        }
-    }
-
-    state WaitForConsensusRequest {
-        defer PrepareMessage, AckMessage, ProposeMessage, PromiseMessage;
-
-        on ConsensusRequest do 
-        {
-            phase = phase+1;
             goto Prepare;
-        }
-
-        on eShutDown do {
-            raise halt;
         }
     }
 
     state Prepare {
-        defer ConsensusRequest, AckMessage, ProposeMessage, PromiseMessage;
+        defer AckMessage, ProposeMessage, PromiseMessage;
 
         entry {
             if(primary(phase, participants) == this){
@@ -99,7 +84,7 @@ machine Process {
     }
 
     state Ack {
-        defer ConsensusRequest, PrepareMessage, ProposeMessage, PromiseMessage;
+        defer PrepareMessage, ProposeMessage, PromiseMessage;
 
         entry { 
             if(primary(phase, participants) != this){
@@ -141,7 +126,7 @@ machine Process {
 
     state Propose {
 
-        defer ConsensusRequest, PrepareMessage, AckMessage, PromiseMessage;
+        defer PrepareMessage, AckMessage, PromiseMessage;
 
         entry {
             if(primary(phase, participants) == this){
@@ -173,7 +158,7 @@ machine Process {
 
     state Promise {
 
-        defer ConsensusRequest, PrepareMessage, AckMessage, ProposeMessage;
+        defer PrepareMessage, AckMessage, ProposeMessage;
 
         entry {
             BroadCast(fm, participants, PromiseMessage, (phase=phase, from=this, payload = log));
@@ -191,11 +176,9 @@ machine Process {
 
                     if(logs_are_equal(mbox[phase][PROMISE])){
                         announce eMonitor_NewLog, (id=this, newlog=log);
-                        goto WaitForConsensusRequest;
-                    }else{
-                        phase = phase+1;
-                        goto Prepare;
-                    }                    
+                    }
+                    phase = phase+1;
+                    goto Prepare;                 
                 }                
             }
         }

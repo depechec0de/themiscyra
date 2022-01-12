@@ -19,6 +19,15 @@ machine TestDriverAsyncAgreement_ReorderDelaysTimeout {
     }
 }
 
+machine TestDriverAsyncAgreement_ArbitraryNetwork {
+    start state Init {
+        entry {
+            launchASync((n=3, quorum=2, fm=UnreliableNetworkWithTimeouts));
+        }
+    }
+}
+
+
 machine Participant{
     start state Init {}
 }

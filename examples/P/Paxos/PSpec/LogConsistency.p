@@ -1,3 +1,4 @@
+event eMonitor_Initialize: int;
 event eMonitor_NewLog: (id: machine, newlog: seq[any]);
 
 spec LogConsistency observes eMonitor_NewLog

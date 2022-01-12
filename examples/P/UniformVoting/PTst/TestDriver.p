@@ -14,7 +14,7 @@ machine TestDriverAsync_ReorderDelaysTimeout {
 machine TestDriverAsync_ReorderDelaysTimeoutMessageDrop {
     start state Init {
         entry {
-            launchASync((n=3, quorum=2, fm=UnrelibleNetworkWithTimeouts));
+            launchASync((n=3, quorum=2, fm=UnreliableNetworkWithTimeouts));
         }
     }
 }
