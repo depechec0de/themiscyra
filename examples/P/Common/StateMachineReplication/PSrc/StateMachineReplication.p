@@ -1,6 +1,7 @@
 enum FailureModel {ReliableNetwork, UnreliableNetwork, ReliableNetworkWithTimeouts, UnreliableNetworkWithTimeouts}
 
 fun primary(phase: int, participants: set[machine]) : machine {
+    assert sizeof(participants)>0, "Primary function received emptyset";
     return participants[modulo(phase, sizeof(participants))];
 }
 
@@ -61,4 +62,21 @@ fun NonDeterministicSubset(elements: set[any], threshold: int) : set[any]{
     assert(sizeof(subset) >= threshold);
 
     return subset;
+}
+
+fun sequenceIsPrefix(prefix: seq[any], longerseq: seq[any]) : bool {
+    var i: int;
+
+    assert(sizeof(longerseq) >= sizeof(prefix)), format("seq {0} is not longer than {1}", longerseq, prefix);
+
+    i = 0;
+
+    while(i < sizeof(prefix)){
+        if (prefix[i] != longerseq[i]){
+            return false;
+        }
+        i=i+1;
+    }
+
+    return true;
 }
