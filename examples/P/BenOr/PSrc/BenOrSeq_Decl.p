@@ -1,1 +1,1 @@
-type Messages = map[machine, Mbox];
+type Messages = map[machine, map[Round, set[MessageType]]];

@@ -3,6 +3,14 @@
 This machine creates the 2 participants, 1 coordinator, and 2 clients 
 */
 
+machine TestDriverPaxosAsync_ReorderDelays {
+    start state Init {
+        entry {
+            launchASync((n=3, quorum=2, f=0, fm=ReliableNetwork));
+        }
+    }
+}
+
 machine TestDriverPaxosAsync_Timeouts {
     start state Init {
         entry {

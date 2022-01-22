@@ -5,7 +5,6 @@ machine RaftSeq
     var messages : Messages;
 
     var globalservers : set[machine];
-    var configs : map[machine, set[machine]];
     var PHASE : Phase;
     var logs : map[machine, Log];
     var acks : map[machine, bool];
@@ -15,20 +14,22 @@ machine RaftSeq
     var i, j: int; 
     var p, from, dst: machine;
     var msg : MessageType;
+    var initialconfig : ConfigEntry;
 
     start state Init{
-        entry (s: set[machine]){
+        entry (serverconfig: set[machine]){
 
-            globalservers = s;
+            globalservers = serverconfig;
 
             i = 0;
-            while (i < sizeof(s)){
+            while (i < sizeof(serverconfig)){
                 p = globalservers[i];
-                configs[p] = s;
                 logs[p] = default(Log);
-                logs[p] += (sizeof(logs[p]), s);
+                logs[p] = add_to_log(logs[p], serverconfig, true);
                 i = i + 1;
             }
+
+            initialconfig = serverconfig;
             
             PHASE = 0;
             init_phase();
@@ -40,32 +41,47 @@ machine RaftSeq
     state Propose{
 
         entry{
+            var lastconfig : ConfigEntry;
+
+            // INIT 2
+            i = 0;
+            while (i < sizeof(globalservers)) {
+                p = globalservers[i];
+
+                if(p == primary(PHASE, initialconfig)){
+
+                    lastconfig = get_last_config(logs[p]);
+
+                    // Only create one server per primary
+                    if(!(p in newservers)){
+                        newservers[p] = new SeqServer();
+                        init_server(newservers[p]);
+                        globalservers += (newservers[p]);
+                        print(format("{0} CREATES SERVER {1}", p, newservers[p]));
+
+                        // add commited log
+                        logs[newservers[p]] = logs[p];
+
+                        // extend log with new server not commited
+                        lastconfig += (newservers[p]);
+                        logs[p] = add_to_log(logs[p], lastconfig, false);
+                        logs[p] = add_to_log(logs[newservers[p]], lastconfig, false);
+                    }                 
+                }
             
+                i=i+1;
+            }
+
             // SEND / RECEIVE
             i = 0;
             while (i < sizeof(globalservers)) {
                 p = globalservers[i];
 
-                if(p == primary(PHASE, configs[p])){
-                    // Only create one server per primary
-                    if(!(p in newservers)){
-                        newservers[p] = new SeqServer();
-                        print(format("{0} CREATES SERVER {1}", p, newservers[p]));
-                        init_server(newservers[p]);
-                        configs[p] += (newservers[p]);
-                        globalservers += (newservers[p]);
-                        configs[newservers[p]] = configs[p];
+                if(p == primary(PHASE, initialconfig)){
+                    lastconfig = get_last_config(logs[p]);
 
-                        logs[p] += (sizeof(logs[p]), configs[p]);
-
-                        logs[newservers[p]] = default(Log);
-                        logs[newservers[p]] += (sizeof(logs[newservers[p]]), configs[newservers[p]]);
-                    }                 
-
-                    BroadCast(configs[p], ProposeMessage, (phase=PHASE, from=p, payload=logs[p]));
-
+                    BroadCast(lastconfig, ProposeMessage, (phase=PHASE, from=p, payload=logs[p]));
                     acks[p] = true;
-
                 }
             
                 i=i+1;
@@ -79,9 +95,13 @@ machine RaftSeq
                 if(sizeof(messages[p][PHASE][PROPOSE]) > 0){
                     msg = messages[p][PHASE][PROPOSE][0];
 
-                    //if(sequenceIsPrefix(logs[p], msg.payload as Log)){
+                    if(validExtendedLog(logs[p], msg.payload as Log)){
                         acks[p] = true;
-                    //}
+                    }else{
+                        acks[p] = false;
+                    }
+                    print(format("SERVER {0} ACK? {1}", p, validExtendedLog(logs[p], msg.payload as Log)));
+                    print(format("SERVER ACK {0} {1} ", logs[p], msg.payload as Log));
                 }
                 
                 i=i+1;
@@ -94,13 +114,15 @@ machine RaftSeq
     state Ack{
 
         entry{
+            var lastconfig : ConfigEntry;
+
             // SEND / RECEIVE
             i = 0;
             while (i < sizeof(globalservers)) {
                 p = globalservers[i];
 
                 if(acks[p]){
-                    Send(primary(PHASE, configs[p]), AckMessage, (phase=PHASE, from=p, payload=logs[p]));
+                    Send(primary(PHASE, initialconfig), AckMessage, (phase=PHASE, from=p, payload=logs[p]));
                 }
             
                 i=i+1;
@@ -111,8 +133,10 @@ machine RaftSeq
             while (i < sizeof(globalservers)) {
                 p = globalservers[i];
 
-                if(p == primary(PHASE, configs[p])){
-                    if(sizeof(messages[p][PHASE][ACK]) >= sizeof(configs[p])/2 + 1){
+                if(p == primary(PHASE, initialconfig)){
+                    lastconfig = get_last_config(logs[p]);
+
+                    if(sizeof(messages[p][PHASE][ACK]) >= sizeof(lastconfig)/2 + 1){
                         print(format("{0} HAS ACK QUORUM {1}", p, messages[p][PHASE][ACK]));
                         commits[p] = true;
                     }
@@ -129,15 +153,17 @@ machine RaftSeq
 
         entry{
             var msg: MessageType;
-            var newconfig: LogConfigEntry;
+            var lastconfig: ConfigEntry;
 
             // SEND / RECEIVE
             i = 0;
             while (i < sizeof(globalservers)) {
                 p = globalservers[i];
 
-                if(p == primary(PHASE, configs[p]) && commits[p]){
-                    BroadCast(configs[p], CommitMessage, (phase=PHASE, from=p, payload=logs[p]));
+                if(p == primary(PHASE, initialconfig) && commits[p]){
+                    lastconfig = get_last_config(logs[p]);
+                    
+                    BroadCast(lastconfig, CommitMessage, (phase=PHASE, from=p, payload=logs[p]));
                 }
             
                 i=i+1;
@@ -149,15 +175,9 @@ machine RaftSeq
                 p = globalservers[i];
 
                 if(sizeof(messages[p][PHASE][COMMIT]) > 0){
-                    commits[p] = true;
                     msg = messages[p][PHASE][COMMIT][0];
                     logs[p] = msg.payload as Log;
-
-                    newconfig = logs[p][sizeof(logs[p])-1] as LogConfigEntry;
-                    configs[p] = newconfig;
-
-                    print(format("{0} APPLY NEW CONFIG {1} FROM LOG {2}", p, newconfig, logs[p]));
-
+                    commit_log(logs[p]);
                     announce eMonitor_NewLog, (id=p, newlog=logs[p]);
                 }
                 
@@ -166,6 +186,12 @@ machine RaftSeq
 
             PHASE = PHASE+1;
             init_phase();
+
+            // FORCE BUG
+            // if(PHASE > 2){
+            //     raise halt;
+            // }
+
             goto Propose;
         }
     }
@@ -215,6 +241,9 @@ machine RaftSeq
 
     fun Send(target: machine, message: event, msg: MessageType){
         var round : Round;
+        var lastconfig: ConfigEntry;
+
+        lastconfig = get_last_config(logs[target]);
 
         if(message == ProposeMessage){
             round = PROPOSE;
@@ -224,19 +253,142 @@ machine RaftSeq
             round = COMMIT;
         }
 
-        if($){
-            send this, eMessage, msg;
-
-            if(msg.from in configs[target]){
-                messages[target][PHASE][round] += (msg);
-                print(format("MESSAGE {0} RECEIVED TO {1}", msg, target));
-            }else{
-                print(format("MESSAGE {0} FROM UNKNOWN SENDER TO {1}", msg, target));
-            }
+        if(nonDeterministicChoice(msg, target, round)){
+            messages[target][PHASE][round] += (msg);
         }else{
-            print(format("MESSAGE {0} LOST TO {1}", msg, target));
+            print(format("MESSAGE {0} SENT TO {1} LOST", msg, target));
         }
     }
 
+    fun logs_equal(msgs: set[MessageType]) : bool {
+        var i: int;
+        var l1, l2: Log;
+
+        l1 = msgs[0].payload as Log;
+
+        i = 0;
+
+        while(i < sizeof(msgs)){
+            l2 = msgs[i].payload as Log;
+
+            if (l1 != l2){
+                return false;
+            }
+            i=i+1;
+        }
+
+        return true;
+    } 
     
+    fun nonDeterministicChoice(msg: MessageType, target: machine, round: Round) : bool{
+        if(msg.from == target || $){
+            if(msg.from in get_last_config(logs[target])){
+                return true;
+                print(format("MESSAGE {0} RECEIVED TO {1}", msg, target));
+            }else{
+                return false;
+                print(format("MESSAGE {0} FROM UNKNOWN SENDER TO {1}", msg, target));
+            }
+        }else{
+            return false;
+        }
+    }   
+
+    fun primary(phase: int, participants: set[machine]) : machine {
+        var candidates : set[machine];
+        var m : machine;
+       
+        candidates += (participants[0]);
+        candidates += (participants[1]);
+
+        m = roundrobin(phase, candidates);
+
+        return m;
+    }
+
+    // fun nonDeterministicChoice(msg: MessageType, target: machine, round: Round) : bool{
+    //     var decisions : set[(from: machine, dst: machine)];
+    //     decisions = default(set[(from: machine, dst: machine)]);
+
+    //     if(PHASE == 0){
+    //         if(round == PROPOSE){
+    //             decisions += ((from=globalservers[0], dst=globalservers[4]));
+    //             decisions += ((from=globalservers[0], dst=globalservers[3]));
+    //             decisions += ((from=globalservers[0], dst=globalservers[0]));
+    //         }
+    //         if(round == ACK){
+    //             decisions += ((from=globalservers[4], dst=globalservers[0]));
+    //             decisions += ((from=globalservers[3], dst=globalservers[0]));
+    //             decisions += ((from=globalservers[0], dst=globalservers[0]));
+    //         }
+    //         if(round == COMMIT){
+    //             decisions += ((from=globalservers[0], dst=globalservers[4]));
+    //             decisions += ((from=globalservers[0], dst=globalservers[0]));
+    //         } 
+    //     }
+
+    //     if(PHASE == 1){
+    //         if(round == PROPOSE){
+    //             decisions += ((from=globalservers[1], dst=globalservers[1]));
+    //             decisions += ((from=globalservers[1], dst=globalservers[2]));
+    //             decisions += ((from=globalservers[1], dst=globalservers[5]));
+    //         }
+    //         if(round == ACK){
+    //             decisions += ((from=globalservers[5], dst=globalservers[1]));
+    //             decisions += ((from=globalservers[2], dst=globalservers[1]));
+    //             decisions += ((from=globalservers[1], dst=globalservers[1]));
+    //         }
+    //         if(round == COMMIT){
+    //             decisions += ((from=globalservers[1], dst=globalservers[1]));
+    //             decisions += ((from=globalservers[1], dst=globalservers[2]));
+    //             decisions += ((from=globalservers[1], dst=globalservers[5]));
+    //         } 
+    //     }
+
+    //     if(PHASE == 2){
+    //         if(round == PROPOSE){
+    //             decisions += ((from=globalservers[0], dst=globalservers[0]));
+    //             decisions += ((from=globalservers[0], dst=globalservers[1]));
+    //             decisions += ((from=globalservers[0], dst=globalservers[2]));
+    //             decisions += ((from=globalservers[0], dst=globalservers[3]));
+    //             decisions += ((from=globalservers[0], dst=globalservers[4]));
+    //             decisions += ((from=globalservers[0], dst=globalservers[5]));
+    //         }
+    //         if(round == ACK){
+    //             decisions += ((from=globalservers[0], dst=globalservers[0]));
+    //             decisions += ((from=globalservers[1], dst=globalservers[0]));
+    //             decisions += ((from=globalservers[2], dst=globalservers[0]));
+    //             decisions += ((from=globalservers[3], dst=globalservers[0]));
+    //             decisions += ((from=globalservers[4], dst=globalservers[0]));
+    //             decisions += ((from=globalservers[5], dst=globalservers[0]));
+    //         }
+    //         if(round == COMMIT){
+    //             decisions += ((from=globalservers[0], dst=globalservers[0]));
+    //             decisions += ((from=globalservers[0], dst=globalservers[1]));
+    //             decisions += ((from=globalservers[0], dst=globalservers[2]));
+    //             decisions += ((from=globalservers[0], dst=globalservers[3]));
+    //             decisions += ((from=globalservers[0], dst=globalservers[4]));
+    //             decisions += ((from=globalservers[0], dst=globalservers[5]));
+    //         } 
+    //     }
+
+    //     //print(format("MESSAGE {0} IN DECISIONS {1}? {2}", (from=msg.from, dst=target), decisions, (from=msg.from, dst=target) in decisions));
+
+    //     if((from=msg.from, dst=target) in decisions){
+    //         print(format("MESSAGE {0} RECEIVED TO {1}", msg, target));
+    //         return true;
+    //     } 
+
+    //     return false;
+    // }
+
+    // fun primary(phase: int, participants: set[machine]) : machine {
+    //     if(phase == 0 || phase == 2){
+    //         return participants[0];
+    //     }else{
+    //         return participants[1];
+    //     }
+    // }
+
+
 }

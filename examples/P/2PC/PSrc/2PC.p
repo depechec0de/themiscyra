@@ -90,9 +90,9 @@ machine Primary
                     goto GAMMA;
                 }
 
-                if(sizeof(mbox[m.phase][BETA]) == numBackup)
+                if(sizeof(mbox[m.phase][BETA]) == numBackup-1)
                 {
-                    decision[m.phase] = commit_or_abort(mbox[m.phase][BETA], numBackup);
+                    decision[m.phase] = commit_or_abort(mbox[m.phase][BETA], numBackup-1);
                     goto GAMMA;
                 }
             }

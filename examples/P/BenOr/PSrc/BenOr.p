@@ -3,7 +3,7 @@ event eMessage : MessageType;
 event ReportMessage: ReportType;
 event ProposalMessage: ProposalType;
 
-event Config: (peers: set[machine], quorum: int, failurem: FailureModel);
+event Config: (peers: set[machine], quorum: int, failurem: FailureModel, i: int);
 
 type Value = int; // 0, 1, -1 = ?
 type RequestId = int;
@@ -35,14 +35,16 @@ machine Process {
         
         entry {
             receive {
-                case Config: (payload: (peers: set[machine], quorum: int, failurem: FailureModel)) { 
+                case Config: (payload: (peers: set[machine], quorum: int, failurem: FailureModel, i: int)) { 
                     participants = payload.peers;
                     quorum = payload.quorum;
                     fm = payload.failurem;
+                    estimate = input_estimate(payload.i);
+                    print(format("{0} start with ESTIMATE {1}", this, estimate));
                 }
             }
             timer = CreateTimer(this);
-            estimate = choose(2);
+            
             init_phase(0);
             goto Report;
         }
@@ -163,6 +165,15 @@ machine Process {
         print(format("{0} timeouts! move to phase {1}", this, K));
 
         goto Report;
+    }
+
+    fun input_estimate(i: int) : int{
+        //return choose(2);
+        if(i < sizeof(participants)-quorum){
+            return 0;
+        }else{
+            return 1;
+        }
     }
 }
 

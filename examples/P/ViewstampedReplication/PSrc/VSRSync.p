@@ -59,7 +59,8 @@ machine ViewStampedReplicationSync
             while (i < sizeof(participants)) {
                 p = participants[i];
 
-                if(sizeof(messages[p][PHASE][STARTVIEWCHANGE]) >= quorum){
+                // buggy quorum
+                if(sizeof(messages[p][PHASE][STARTVIEWCHANGE]) >= quorum-1){
                     // NoOp
                 }else{
                     failures[p][PHASE] = true;
@@ -94,7 +95,8 @@ machine ViewStampedReplicationSync
                 p = participants[i];
 
                 if(p == primary(PHASE, participants)){
-                    if(sizeof(messages[p][PHASE][DOVIEWCHANGE]) >= quorum){
+                    // buggy quorum
+                    if(sizeof(messages[p][PHASE][DOVIEWCHANGE]) >= quorum-1){
                         announce eMonitor_NewLeader, (phase=PHASE, leader=primary(PHASE, participants));
                     }else{
                         failures[p][PHASE] = true;
@@ -197,6 +199,11 @@ machine ViewStampedReplicationSync
                 messages[pdest][PHASE][r] += (m); 
             }
         }
+    }
+
+    // buggy primary function
+    fun primary(phase: Phase, participants: set[machine]) : machine{
+        return choose(participants);
     }
 
 }

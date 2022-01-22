@@ -45,7 +45,7 @@ machine Replica
 
     state WaitForLeaderRequest
     {
-        defer eventDOVIEWCHANGE, eventSTARTVIEWCHANGE, eventSTARTVIEW;
+        defer eTimeOut, eventDOVIEWCHANGE, eventSTARTVIEWCHANGE, eventSTARTVIEW;
 
         on LeaderRequest do 
         {
@@ -76,7 +76,8 @@ machine Replica
                 announce eMonitor_MailboxUsed, (id=this, mboxTs=(phase=m.phase, round=STARTVIEWCHANGE));
                 collectMessage(m, STARTVIEWCHANGE);
 
-                if(sizeof(mbox[m.phase][STARTVIEWCHANGE]) >= quorum)
+                // buggy quorum
+                if(sizeof(mbox[m.phase][STARTVIEWCHANGE]) >= quorum-1)
                 { 
                     CancelTimer(timer);
                     goto DOVIEWCHANGE;
@@ -115,7 +116,7 @@ machine Replica
                 announce eMonitor_MailboxUsed, (id=this, mboxTs=(phase=m.phase, round=DOVIEWCHANGE));
                 collectMessage(m, DOVIEWCHANGE);
 
-                if(sizeof(mbox[m.phase][DOVIEWCHANGE]) >= quorum)
+                if(sizeof(mbox[m.phase][DOVIEWCHANGE]) >= quorum-1)
                 { 
                     announce eMonitor_NewLeader, (phase=phase, leader=primary(phase, participants));
                     CancelTimer(timer);
@@ -191,5 +192,10 @@ machine Replica
         phase = phase+1;
         goto STARTVIEWCHANGE;
         //raise halt;
+    }
+
+    // buggy primary function
+    fun primary(phase: Phase, participants: set[machine]) : machine{
+        return choose(participants);
     }
 }

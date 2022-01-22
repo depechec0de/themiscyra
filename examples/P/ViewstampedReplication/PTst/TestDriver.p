@@ -6,15 +6,7 @@ This machine creates the 2 participants, 1 coordinator, and 2 clients
 machine TestDriverSync0 {
     start state Init {
         entry {
-            launchSync(5, 3, 3);
-        }
-    }
-}
-
-machine TestDriverSync1 {
-    start state Init {
-        entry {
-            launchSync(8, 5, 3);
+            launchSync(3, 2, 10000);
         }
     }
 }
@@ -48,15 +40,7 @@ machine SyncReplica {
 machine TestDriverAsync0 {
     start state Init {
         entry {
-            launchASync(5, 3, 3);
-        }
-    }
-}
-
-machine TestDriverAsync1 {
-    start state Init {
-        entry {
-            launchASync(8, 5, 3);
+            launchASync(3, 2, 10000);
         }
     }
 }

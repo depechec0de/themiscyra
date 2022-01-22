@@ -6,7 +6,7 @@ This machine creates the 2 participants, 1 coordinator, and 2 clients
 machine TestDriverAsync5nodes {
     start state Init {
         entry {
-            launchASync(5, 10);
+            launchASync(5, 10000);
         }
     }
 }
@@ -26,7 +26,7 @@ machine Participant{
 machine TestDriverSync5nodes {
     start state Init {
         entry {
-            launchSync(5, 10);
+            launchSync(5, 10000);
         }
     }
 }

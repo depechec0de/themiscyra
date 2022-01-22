@@ -55,8 +55,8 @@ machine BenOrSeq_ArbitraryNetwork
 
                     // Arbitrary message omission
                     if($){
-                        send this, eMessage, (phase = K, from=from, payload=estimate[from]);
-                        messages[dst][K][REPORT] += ((phase = K, from=from, payload=estimate[from]));
+                        //send this, eMessage, (phase = K, from=from, payload=estimate[from]);
+                        messages[dst][REPORT] += ((phase = K, from=from, payload=estimate[from]));
                         print(format("{0} received REPORT estimate {1} in phase {2} from {3}", dst, estimate[from], K, from));
                     }                        
                 
@@ -72,8 +72,8 @@ machine BenOrSeq_ArbitraryNetwork
                 p = participants[i];   
 
                 reportRoundSuccessful[p][K] = true;
-                reported[p] = mayority_value(messages[p][K][REPORT], quorum);
-                print(format("{0} REPORT mayority {1} in phase {2}, mailbox: {3}, size {4}", p, reported[p], K, messages[p][K], sizeof(messages[p][K][REPORT])));
+                reported[p] = mayority_value(messages[p][REPORT], quorum);
+                print(format("{0} REPORT mayority {1} in phase {2}, mailbox: {3}, size {4}", p, reported[p], K, messages[p], sizeof(messages[p][REPORT])));
                         
                 i = i + 1;
             }
@@ -108,8 +108,8 @@ machine BenOrSeq_ArbitraryNetwork
 
                         // Arbitrary message omission
                         if($){
-                            send this, eMessage, (phase = K, from=from, payload=reported[from]);
-                            messages[dst][K][PROPOSAL] += ((phase = K, from=from, payload=reported[from]));
+                            //send this, eMessage, (phase = K, from=from, payload=reported[from]);
+                            messages[dst][PROPOSAL] += ((phase = K, from=from, payload=reported[from]));
                             print(format("{0} received PROPOSAL estimate {1} in phase {2}", dst, reported[from], K));
                         }
                     }
@@ -126,11 +126,11 @@ machine BenOrSeq_ArbitraryNetwork
   
                 if(reportRoundSuccessful[p][K]){
 
-                    //assert(sizeof(messages[p][K][PROPOSAL]) >= quorum), format("{0} received {1} in phase {2} PROPOSAL", p, sizeof(messages[p][K][PROPOSAL]), K);
+                    //assert(sizeof(messages[p][PROPOSAL]) >= quorum), format("{0} received {1} in phase {2} PROPOSAL", p, sizeof(messages[p][PROPOSAL]), K);
 
-                    print(format("{0} received enough PROPOSAL messages in phase {1}, {2}", p, K, messages[p][K][PROPOSAL]));
+                    print(format("{0} received enough PROPOSAL messages in phase {1}, {2}", p, K, messages[p][PROPOSAL]));
 
-                    val = mayority_value(messages[p][K][PROPOSAL], quorum);
+                    val = mayority_value(messages[p][PROPOSAL], quorum);
 
                     if(val != -1){
                         // decide value
@@ -140,10 +140,10 @@ machine BenOrSeq_ArbitraryNetwork
 
                         //decided[p] = val; //BUG, add this line to fix
 
-                    }else if(get_valid_estimate(messages[p][K][PROPOSAL]) != -1){
+                    }else if(get_valid_estimate(messages[p][PROPOSAL]) != -1){
 
                         // We try again a new phase proposing a valid value
-                        estimate[p] = get_valid_estimate(messages[p][K][PROPOSAL]);
+                        estimate[p] = get_valid_estimate(messages[p][PROPOSAL]);
                         print(format("{0} changed estimate to {1} in phase {2}", p, estimate[p], K));
                         
                     }else{
@@ -178,11 +178,10 @@ machine BenOrSeq_ArbitraryNetwork
             reportRoundSuccessful[p] = default(map[Phase, bool]);
             reportRoundSuccessful[p][phase] = false;
             
-            messages[p] = default(Mbox);
-            messages[p][phase] = default(map[Round, set[MessageType]]);
+            messages[p] = default(map[Round, set[MessageType]]);
 
-            messages[p][phase][REPORT] = default(set[ReportType]);
-            messages[p][phase][PROPOSAL] = default(set[ProposalType]);
+            messages[p][REPORT] = default(set[ReportType]);
+            messages[p][PROPOSAL] = default(set[ProposalType]);
 
             i = i+1;
         }
@@ -192,7 +191,7 @@ machine BenOrSeq_ArbitraryNetwork
     {
         receive {
             case eMessage: (m: MessageType) { 
-                messages[pdest][K][r] += (m); 
+                messages[pdest][r] += (m); 
             }
         }
     }

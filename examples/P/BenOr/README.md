@@ -21,7 +21,7 @@ for i in {1..100}; do pmc POutput/netcoreapp3.1/BenOr.dll -m PImplementation.Tes
 
 pmc POutput/netcoreapp3.1/BenOr.dll -m PImplementation.TestSeqAgreementGoodNetwork.Execute -i 10000
 
-for i in {1..100}; do pmc POutput/netcoreapp3.1/BenOr.dll -m PImplementation.TestSeqAgreementGoodNetwork.Execute -i 10000; done > experimentSeqArbitraryNetwork
+for i in {1..100}; do pmc POutput/netcoreapp3.1/BenOr.dll -m PImplementation.TestSeqAgreementGoodNetwork.Execute -i 10000; done > experimentSeqGoodNetwork
 ```
 
 ## Experiments ASYNC

@@ -17,14 +17,36 @@ machine TestDriverRaftAsync {
             }
 
             log = default(Log);
-            log += (sizeof(log), servers);
+            add_to_log(log, servers, true);
 
             i = 0;
             while (i < n) {
-                send servers[i], InitMessage, (log=log, servers=servers);
+                send servers[i], InitMessage, servers;
                 i=i+1;
             }
 
+        }
+    }
+}
+
+machine SeqServer{
+    start state Init {}
+}
+
+machine TestDriverRaftSeq {
+    start state Init {
+        entry {
+            var system : RaftSeq;
+            var i, j : int;
+            var servers: set[machine];
+            
+            i = 0;
+            while (i < 4) {
+                servers += (new SeqServer());
+                i = i + 1;
+            }    
+            
+            system = new RaftSeq(servers);
         }
     }
 }

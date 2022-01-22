@@ -1,27 +1,32 @@
-event eMonitor_NewLog: (id: machine, newlog: seq[any]);
+event eMonitor_NewLog: (id: machine, newlog: Log);
 
 spec LogConsistency observes eMonitor_NewLog
 {
-    var globalLog: Log;
+    var lastLog: Log;
 
     start state Init {
-        on eMonitor_NewLog do (payload: (id: machine, newlog: seq[any]))
+        on eMonitor_NewLog do (payload: (id: machine, newlog: Log))
         {
-            assert sequenceIsPrefix(globalLog, payload.newlog), format("Log {0} is not a prefix of {1}", globalLog, payload.newlog);
+            print(format("NEW LOG {0} COMMITED BY {1}, COMMITED LOGS {2}", payload.newlog, payload.id, lastLog));
+                    
+            assert validExtendedLog(lastLog, payload.newlog), format("lastLog {0} is not a prefix of {1} commited by {2}", lastLog, payload.newlog, payload.id);
 
-            globalLog = payload.newlog;
+            lastLog = payload.newlog;
+                  
         }
     }
 
-    fun sequenceIsPrefix(prefix: seq[any], longerseq: seq[any]) : bool {
+    fun validExtendedLog(oldlog: Log, newlog: Log) : bool {
         var i: int;
 
-        assert(sizeof(longerseq) >= sizeof(prefix)), format("seq {0} is not longer than {1}", longerseq, prefix);
+        if(sizeof(newlog) < sizeof(oldlog)){
+            return false;
+        }
 
         i = 0;
 
-        while(i < sizeof(prefix)){
-            if (prefix[i] != longerseq[i]){
+        while(i < sizeof(oldlog)){
+            if (oldlog[i].logentry != newlog[i].logentry){
                 return false;
             }
             i=i+1;
@@ -30,3 +35,4 @@ spec LogConsistency observes eMonitor_NewLog
         return true;
     }
 }
+
