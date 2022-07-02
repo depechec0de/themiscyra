@@ -12,7 +12,7 @@ pc -proj:BenOr.pproj
 pmc POutput/netcoreapp3.1/BenOr.dll -m PImplementation.TestAsyncSyncTag.Execute -i 10000
 ```
 
-## Experiments SYNC
+## Experiments SEQ
 ```
 pmc POutput/netcoreapp3.1/BenOr.dll -m PImplementation.TestSeqAgreementArbitraryNetwork.Execute -i 10000
 

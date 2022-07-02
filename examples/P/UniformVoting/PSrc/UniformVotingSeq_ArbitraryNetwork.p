@@ -29,6 +29,7 @@ machine UniformVotingSeq_ArbitraryNetwork
                 
                 initial[p] = choose(5);
                 print(format("{0} start with ESTIMATE {1}", p, initial));
+                print(format("{0} new initial {1} in phase {2}", p, initial[p], PHASE));
                 vote[p] = -1;
                 decide[p] = -1;
 
@@ -58,7 +59,7 @@ machine UniformVotingSeq_ArbitraryNetwork
 
                     print(format("{0} send FirstMessage message {1} to {2}", from, (phase = PHASE, from=from, payload=initial[from]), dst));
 
-                    if(choose(2) == 1){
+                    if($){
                         messages[dst][PHASE][FIRST] += ((phase = PHASE, from=from, payload=initial[from]));
                         print(format("{0} received FIRST initial {1} in phase {2} from {3}", dst, initial[from], PHASE, from));
                     }else{
@@ -86,7 +87,9 @@ machine UniformVotingSeq_ArbitraryNetwork
 
                     initial[p] = smallest_value(firstValues);
 
-                    if(all_equal(firstValues)){
+                    print(format("{0} new initial {1} in phase {2}", p, initial[p], PHASE));
+
+                    if(all_equal(firstValues) && initial[p] == firstValues[0]){
                         vote[p] = initial[p];
                     }
 
@@ -124,10 +127,12 @@ machine UniformVotingSeq_ArbitraryNetwork
                         dst = participants[j];
 
                         print(format("{0} send SECOND message {1} to {2}", from,  (phase = PHASE, from=from, payload=(initial=initial[p], vote=vote[p])), dst));
-                        if(choose(2) == 1){
+                        if($){
                             messages[dst][PHASE][SECOND] += ((phase = PHASE, from=from, payload=(initial=initial[p], vote=vote[p])));
                             print(format("{0} received SECOND {1} in phase {2}", dst, (initial=initial[from], vote=vote[from]), PHASE));
-                        }
+                        }else{
+                            print("message dropped");
+                        } 
                         
                         j = j + 1;
                     }
@@ -140,7 +145,7 @@ machine UniformVotingSeq_ArbitraryNetwork
             while (i < sizeof(participants)){
                 p = participants[i];
   
-                if(roundSuccessful[from][PHASE][FIRST]){
+                if(roundSuccessful[p][PHASE][FIRST]){
 
                     if(sizeof(messages[p][PHASE][SECOND]) > 0){
 
@@ -159,9 +164,9 @@ machine UniformVotingSeq_ArbitraryNetwork
                                 k=k+1;
                             }
                             initial[p] = smallest_value(secondValues);
-
-                            print(format("{0} new initial {1} in phase {2}", p, initial[p], PHASE));
                         }
+
+                        print(format("{0} new initial {1} in phase {2}", p, initial[p], PHASE));
 
                         if(all_equal_vote(messages[p][PHASE][SECOND] as set[SecondType])){
                             sv = messages[p][PHASE][SECOND][0].payload as (initial: Value, vote: Value);

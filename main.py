@@ -63,9 +63,9 @@ if __name__ == "__main__":
         
         v = BuildAstVisitor()
         past = v.visit(tree)
-        
+        #print(past)
         cast = p_lib.p_to_upon(past, config)
-
+        #print(cast)
         code = generator.visit(cast)
         print(code)
 

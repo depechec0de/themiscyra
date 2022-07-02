@@ -5,10 +5,7 @@ from PTools.PLexer import PLexer
 from PTools.PParser import PParser
 from PTools.PParserVisitor import PParserVisitor
 
-class PNode:
-    def children(self):
-        pass
-    
+class PNode:  
     def show(self):
         lines = [self.__class__.__name__ + ':']
         for key, val in vars(self).items():
@@ -19,12 +16,6 @@ class ParentNode(PNode):
     def __init__(self, elements):
         self.elements = elements
 
-    def children(self):
-        nodelist = []
-        for i, child in enumerate(self.elements or []):
-            nodelist.append(("elements[%d]" % i, child))
-        return tuple(nodelist)
-
     def __iter__(self):
         for el in (self.elements or []):
             yield el
@@ -33,9 +24,9 @@ class ParentNode(PNode):
         return str(self.elements)
 
 class StateNode(ParentNode):
-    def __init__(self, label : PParser.IdenContext, elements):
+    def __init__(self, label, elements):
         super().__init__(elements)
-        self.label = label.getText()
+        self.label = label
         self.eventDoAction = {}
         self.entryAction = []
         self.exitAction = []
@@ -49,13 +40,6 @@ class StateNode(ParentNode):
                 for event in e.events:
                     self.eventDoAction[event] = e.elements
 
-    def children(self):
-        nodelist = []
-        if self.label is not None: nodelist.append(("label", self.label))
-        for i, child in enumerate(self.body or []):
-            nodelist.append(("elements[%d]" % i, child))
-        return tuple(nodelist)
-
     def __iter__(self):
         if self.label is not None:
             yield self.label
@@ -63,34 +47,62 @@ class StateNode(ParentNode):
             yield self.elements
 
     def __repr__(self):
-        return self.label + ':' + str(self.elements)
+        return str(self.label) + ':' + str(self.elements)
 
 class IfStmtNode(PNode):
     def __init__(self, expresion, thenBranch : PParser.StatementContext, elseBranch : PParser.StatementContext = None):
-        self.expresion = expresion.getText()
+        self.expresion = expresion
         self.thenBranch = thenBranch
         self.elseBranch = elseBranch
 
     def __repr__(self):
-        strrepr = 'if (' + str(self.expresion) + '){' + ''.join(self.thenBranch) + '}'
+        strrepr = 'if (' + str(self.expresion) + '){' + str(self.thenBranch) + '}'
         if self.elseBranch is not None:
-            strrepr += 'else{' + ''.join(self.elseBranch) + '}'
+            strrepr += 'else{' + str(self.elseBranch) + '}'
         return strrepr
+
+    def __iter__(self):
+        yield self.expresion
+        yield self.thenBranch
+        if self.elseBranch is not None:
+            yield self.elseBranch
 
 class CompoundNode(ParentNode):
     def __init__(self, elements):
         super().__init__(elements)
 
     def __repr__(self):
-        return str(self.elements)
+        return self.__str__()
+
+    def __str__(self):
+        repr = ''
+        for e in (self.elements or []):
+            repr = repr+str(e);
+        return repr
 
 class LeafNode(PNode):
-    def children(self):
-        return ()
+    def __init__(self, content):
+        self.content = content
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __str__(self):
+        return str(self.content)
 
     def __iter__(self):
         return
         yield
+
+class IdenNode(LeafNode):
+    def __init__(self, name):
+        super().__init__(name)
+
+    def __repr__(self):
+        return self.content
+
+    def __str__(self):
+        return self.content
 
 class VarDeclNode(LeafNode):
     def __init__(self, idenList, r_type):
@@ -104,22 +116,39 @@ class ProgramNode(ParentNode):
     def __init__(self, elements):
         super().__init__(elements)
 
+class FunctionDeclNode(PNode):
+    def __init__(self, name, params, type, body):
+        self.name = name
+        self.params = params
+        self.type = type
+        self.body = body
+
+    def __iter__(self):
+        yield self.name
+        yield self.params
+        if self.type is not None:
+            yield self.type
+        yield self.body
+
+    def __str__(self):
+        return str(self.name) + ' : ' + str(self.params)
+
+    def __repr__(self):
+        return self.__str__()
+        
+
 class MachineNode(ParentNode):
-    def __init__(self, label, elements):
-        super().__init__(elements)
+    def __init__(self, label: IdenNode, machineentries):
+        super().__init__(machineentries)
         self.label = label
         self.states = dict()
+        self.fundecl = []
 
-        for e in self.elements:
+        for e in machineentries:
             if type(e) == StateNode:
-                self.states[e.label] = e
-
-    def children(self):
-        nodelist = []
-        if self.label is not None: nodelist.append(("label", self.label))
-        for i, child in enumerate(self.elements or []):
-            nodelist.append(("elements[%d]" % i, child))
-        return tuple(nodelist)
+                self.states[str(e.label)] = e
+            elif type(e) == FunctionDeclNode:
+                self.fundecl.append(e)
 
     def states(self):
         return self.states
@@ -130,22 +159,31 @@ class MachineNode(ParentNode):
         if self.elements is not None:
             yield self.elements
 
+    def __str__(self):
+        return str(self.label) + ': states: ' + str(self.states) + ' fundecls: ' + str(self.fundecl)
+
     def __repr__(self):
-        return self.label.getText() + ':' + str(self.elements)
+        return self.__str__()
 
 class StateEntryNode(ParentNode):
     def __init__(self, elements):
         super().__init__(elements)
 
-    def __repr__(self):
+    def __str__(self):
         return 'entry :' + str(self.elements)
+
+    def __repr__(self):
+        return self.__str__()    
 
 class StateExitNode(ParentNode):
     def __init__(self, elements):
         super().__init__(elements)
 
-    def __repr__(self):
+    def __str__(self):
         return 'exit :' + str(self.elements)
+
+    def __repr__(self):
+        return self.__str__() 
 
 class StateEventNode(ParentNode):
     def __init__(self, events, elements):
@@ -153,6 +191,9 @@ class StateEventNode(ParentNode):
         self.events = events
 
     def __repr__(self):
+        return self.__str__() 
+
+    def __str__(self):
         return 'on event "'+ str(self.events) +'" :' + str(self.elements)
 
 class BuildAstVisitor(PParserVisitor):
@@ -164,9 +205,28 @@ class BuildAstVisitor(PParserVisitor):
 
     def visitStateDecl(self, ctx:PParser.StateDeclContext):
         body = self._visitCompoundStatement(ctx.stateBodyItem())
-        label = ctx.iden()
+        label = ctx.iden().getText()
 
-        return StateNode(label, body)
+        return StateNode(IdenNode(label), body)
+
+    # def visitTopDecl(self, ctx:PParser.TopDeclContext):
+    #     if(ctx.typeDefDecl() is not None):
+    #         print(ctx.typeDefDecl().getText())
+    #     else:
+    #         self.visit(ctx)
+
+    def visitPFunDecl(self, ctx:PParser.PFunDeclContext):
+        params = []
+
+        for e in ctx.funParamList().funParam():
+            fp = (e.iden().getText(), e.r_type().getText())
+            params.append(fp)
+
+        ftype = None
+        if ctx.r_type() is not None:
+            ftype = ctx.r_type().getText()
+
+        return FunctionDeclNode(IdenNode(ctx.iden().getText()), params, ftype, ctx.functionBody().getText())
 
     def visitCompoundStmt(self, ctx:PParser.CompoundStmtContext):
         return self._visitCompoundStatement(ctx.statement())
@@ -193,22 +253,22 @@ class BuildAstVisitor(PParserVisitor):
         return VarDeclNode(ctx.idenList(), ctx.r_type())
 
     def visitIfStmt(self, ctx:PParser.IfStmtContext):
-        thenBranch = self.visit(ctx.thenBranch)
+        thenBranch = CompoundNode(self.visit(ctx.thenBranch))
         elseBranch = None
         if ctx.elseBranch is not None:
-            elseBranch = self.visit(ctx.elseBranch)
+            elseBranch = CompoundNode(self.visit(ctx.elseBranch))
 
-        return IfStmtNode(ctx.expr(), thenBranch, elseBranch)
+        return IfStmtNode(LeafNode(ctx.expr().getText()), thenBranch, elseBranch)
     
     def visitReceiveStmt(self, ctx:PParser.ReceiveStmtContext):
         return None
 
     def visitImplMachineDecl(self, ctx:PParser.ImplMachineDeclContext):
         
-        label = ctx.iden()
-        body = self.visit(ctx.machineBody())
+        label = ctx.iden().getText()
+        machineentries = self.visit(ctx.machineBody())
 
-        m = MachineNode(label, body)
+        m = MachineNode(IdenNode(label), machineentries)
 
         return m
 
@@ -227,9 +287,9 @@ class BuildAstVisitor(PParserVisitor):
                 for e in el.expr():
                     params.append(e.getText())
 
-                n = 'send(' + ','.join(params) + ');'
+                n = LeafNode('send(' + ','.join(params) + ');')
             elif issubclass(el.__class__, PParser.StatementContext):
-                n = el.getText()
+                n = LeafNode(el.getText())
             else:
                 n = self.visit(el)
 

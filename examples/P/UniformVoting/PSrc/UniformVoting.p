@@ -44,6 +44,7 @@ machine Process {
             
             initial = choose(5);
             print(format("{0} start with ESTIMATE {1}", this, initial));
+            print(format("{0} new initial {1} in phase {2}", this, initial, phase));
             vote = -1;
             decide = -1;
 
@@ -142,10 +143,10 @@ machine Process {
                 i=i+1;
             }
 
-            initial = smallest_value(secondValues);
-
-            print(format("{0} new initial {1} in phase {2}", this, initial, phase));
+            initial = smallest_value(secondValues);            
         }
+
+        print(format("{0} new initial {1} in phase {2}", this, initial, phase));
 
         if(all_equal_vote(mbox[phase][SECOND] as set[SecondType])){
             sv = mbox[phase][SECOND][0].payload as (initial: Value, vote: Value);

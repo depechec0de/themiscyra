@@ -13,6 +13,15 @@ _Bool non_deterministic_choice();
 void broadcast();
 _Bool Primary(int phase);
 _Bool Backup(int phase);
+void init_mbox(Phase phase);
+void commit_or_abort(Phase phase);
+Vote get_decision(Phase p);
+void broadcast(event message, Phase phase, machine from, data payload);
+void initConfig(seq[Backup] b);
+data payload(Message m);
+Primary leader(int phase);
+void set_decision(Phase phase, Vote vote);
+data payload(Message m);
 int main()
 {
   if (Primary(phase))
@@ -32,7 +41,7 @@ int main()
   {
     if ((Primary(phase) && (round == ALPHA)) && (count(phase, ALPHA, mbox) == 1))
     {
-      initMbox(phase);
+      init_mbox(phase);
       broadcast(ALPHA, phase, this, newcommand);
       round = BETA;
       continue;
@@ -40,9 +49,9 @@ int main()
 
     if ((Primary(phase) && (round == BETA)) && (count(phase, BETA, mbox) == numBackup))
     {
-      decision[m.phase] = commit_or_abort(m.phase);
+      commit_or_abort(m.phase);
       round = GAMMA;
-      broadcast(GAMMA, phase, this, decision[phase]);
+      broadcast(GAMMA, phase, this, get_decision(phase));
       round = DELTA;
     }
 
@@ -70,11 +79,11 @@ int main()
     {
       if (payload(m) == COMMIT)
       {
-        decision[phase] = COMMIT;
+        set_decision(phase, COMMIT);
       }
       else
       {
-        decision[phase] = ABORT;
+        set_decision(phase, ABORT);
       }
 
       round = DELTA;

@@ -17,9 +17,13 @@ def p_to_upon(p_program: ProgramNode, config):
 
     roles = parse_roles(p_program)
 
+    funcdecls = parse_func_decls(p_program)
     declarations = build_declarations(roles, config)
 
     for decl in declarations:
+        program_body.append(decl)
+
+    for decl in funcdecls:
         program_body.append(decl)
 
     program_body.append(main_func)
@@ -46,6 +50,26 @@ def build_declarations(roles, config):
         declarations.append(build_func_decl(r, '_Bool', args))
 
     return declarations
+
+def parse_func_decls(p: ProgramNode):
+    decls = []
+
+    v = FunctionDeclNodeVisitor()
+    v.visit(p)
+
+    for f in v.values:
+        params = []
+        arg_ast = c_ast.ParamList(params)
+        for arg in f.params:
+            params.append(build_var_decl(arg[0], arg[1]))
+
+        ftype = f.type or 'void'
+        f_ast = build_func_decl(str(f.name), ftype, arg_ast)
+
+        decls.append(f_ast)
+
+    return decls
+
 
 def build_struct_decl(name, type):
     return build_decl(  name=name,
@@ -129,7 +153,7 @@ def parse_roles(p_program: ProgramNode):
     roles = []
 
     for m in v.values:
-        roles.append(m.label.getText())
+        roles.append(str(m.label))
 
     return roles
 
@@ -140,7 +164,7 @@ def build_init(p_program: ProgramNode, config):
     init = []
 
     for m in v.values:
-        ifcond = build_role_predicate(m.label.getText(), config['phase'])
+        ifcond = build_role_predicate(str(m.label), config['phase'])
         ifbody = parse_compound(m.states['Init'].entryAction)
         replace_goto(ifbody)
         ifstmt = build_upon(ifcond, ifbody)
@@ -175,7 +199,7 @@ def build_main_loop(p_program: ProgramNode, config):
     
     # An event in a P program is an upon
     for m in v.values:
-        condrole = build_role_predicate(m.label.getText(), config['phase'])
+        condrole = build_role_predicate(str(m.label), config['phase'])
 
         for statelabel, state_event in m.states.items():
             if statelabel != 'Init':
@@ -396,4 +420,11 @@ class MachineVisitor(PNodeVisitor):
         self.values = []
 
     def visit_MachineNode(self, node : MachineNode):
+        self.values.append(node)
+
+class FunctionDeclNodeVisitor(PNodeVisitor):
+    def __init__(self):
+        self.values = []
+
+    def visit_FunctionDeclNode(self, node : FunctionDeclNode):
         self.values.append(node)
