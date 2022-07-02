@@ -1,5 +1,7 @@
 # Themiscyra
 
+Asynchronous to round-based translation tool.
+
 ## Installation
 
 ### Requirements
